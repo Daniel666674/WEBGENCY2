@@ -1,5 +1,7 @@
 export type Temperature = "cold" | "warm" | "hot";
 
+export type ClientStatus = "prospect" | "proposal_sent" | "active_client" | "churned";
+
 export type ActivityType = "call" | "email" | "meeting" | "note" | "follow_up";
 
 export type LeadSource =
@@ -24,6 +26,27 @@ export interface Contact {
   source: LeadSource;
   temperature: Temperature;
   score: number;
+  notes: string | null;
+  mockupUrl: string | null;
+  siteUrl: string | null;
+  signedDate: Date | null;
+  monthlyPayment: number | null;
+  clientStatus: ClientStatus;
+  nextPaymentDate: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Proposal {
+  id: string;
+  contactId: string;
+  planName: string;
+  oneTimeFee: number;
+  monthlyFee: number;
+  features: string[];
+  addOns: string[];
+  automations: string[];
+  deliverables: string[];
   notes: string | null;
   createdAt: Date;
   updatedAt: Date;

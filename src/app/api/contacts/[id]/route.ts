@@ -77,6 +77,12 @@ export async function PUT(
   if (body.temperature !== undefined) updateData.temperature = body.temperature;
   if (body.score !== undefined) updateData.score = Math.max(0, Math.min(100, body.score));
   if (body.notes !== undefined) updateData.notes = body.notes;
+  if (body.mockupUrl !== undefined) updateData.mockupUrl = body.mockupUrl || null;
+  if (body.siteUrl !== undefined) updateData.siteUrl = body.siteUrl || null;
+  if (body.signedDate !== undefined) updateData.signedDate = body.signedDate ? new Date(body.signedDate) : null;
+  if (body.monthlyPayment !== undefined) updateData.monthlyPayment = body.monthlyPayment || null;
+  if (body.clientStatus !== undefined) updateData.clientStatus = body.clientStatus;
+  if (body.nextPaymentDate !== undefined) updateData.nextPaymentDate = body.nextPaymentDate ? new Date(body.nextPaymentDate) : null;
 
   const result = db
     .update(contacts)

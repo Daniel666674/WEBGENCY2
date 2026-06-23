@@ -12,6 +12,13 @@ export const contacts = sqliteTable("contacts", {
   temperature: text("temperature").notNull().default("cold"),
   score: integer("score").notNull().default(0),
   notes: text("notes"),
+  // Agency fields
+  mockupUrl: text("mockup_url"),
+  siteUrl: text("site_url"),
+  signedDate: integer("signed_date", { mode: "timestamp" }),
+  monthlyPayment: integer("monthly_payment"),
+  clientStatus: text("client_status").notNull().default("prospect"),
+  nextPaymentDate: integer("next_payment_date", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -45,6 +52,29 @@ export const deals = sqliteTable("deals", {
     .references(() => contacts.id),
   expectedClose: integer("expected_close", { mode: "timestamp" }),
   probability: integer("probability").notNull().default(0),
+  notes: text("notes"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export const proposals = sqliteTable("proposals", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  contactId: text("contact_id")
+    .notNull()
+    .references(() => contacts.id),
+  planName: text("plan_name").notNull().default("Custom"),
+  oneTimeFee: integer("one_time_fee").notNull().default(0),
+  monthlyFee: integer("monthly_fee").notNull().default(0),
+  features: text("features").notNull().default("[]"),
+  addOns: text("add_ons").notNull().default("[]"),
+  automations: text("automations").notNull().default("[]"),
+  deliverables: text("deliverables").notNull().default("[]"),
   notes: text("notes"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()

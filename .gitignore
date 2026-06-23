@@ -45,8 +45,7 @@ next-env.d.ts
 /crm-config.json
 !public/crm-config.json
 
-# database
-data/crm.db
+# database (wal/journal files only — crm.db committed for demo)
 data/crm.db-journal
 data/crm.db-wal
 

@@ -1,4 +1,4 @@
-import type { Temperature, LeadSource, ActivityType } from "@/types";
+import type { Temperature, LeadSource, ActivityType, ClientStatus } from "@/types";
 
 export const TEMPERATURE_CONFIG: Record<
   Temperature,
@@ -34,10 +34,22 @@ export const ACTIVITY_TYPE_CONFIG: Record<
   follow_up: { label: "Seguimiento", icon: "Clock" },
 };
 
+export const CLIENT_STATUS_CONFIG: Record<
+  ClientStatus,
+  { label: string; color: string; bgColor: string }
+> = {
+  prospect: { label: "Prospecto", color: "#64748b", bgColor: "#f1f5f9" },
+  proposal_sent: { label: "Propuesta enviada", color: "#d97706", bgColor: "#fffbeb" },
+  active_client: { label: "Cliente activo", color: "#16a34a", bgColor: "#f0fdf4" },
+  churned: { label: "Perdido", color: "#dc2626", bgColor: "#fef2f2" },
+};
+
 export function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat("es-MX", {
+  return new Intl.NumberFormat("es-CO", {
     style: "currency",
-    currency: "MXN",
+    currency: "COP",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(cents / 100);
 }
 

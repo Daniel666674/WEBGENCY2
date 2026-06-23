@@ -9,14 +9,17 @@ import {
   Activity,
   Settings,
   Briefcase,
+  DollarSign,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/pipeline", label: "Pipeline", icon: Kanban },
-  { href: "/contacts", label: "Contactos", icon: Users },
+  { href: "/contacts", label: "Clientes", icon: Users },
   { href: "/deals", label: "Deals", icon: Briefcase },
+  { href: "/revenue", label: "Revenue", icon: DollarSign },
   { href: "/activities", label: "Actividades", icon: Activity },
   { href: "/settings", label: "Configuracion", icon: Settings },
 ];
@@ -27,7 +30,7 @@ export function Sidebar() {
   return (
     <aside className="hidden md:flex md:w-64 md:flex-col bg-[var(--sidebar)] text-[var(--sidebar-foreground)] min-h-screen">
       <div className="flex h-16 items-center gap-2 px-6 border-b border-[var(--sidebar-border)]">
-        <Briefcase className="h-6 w-6 text-[var(--sidebar-primary)]" />
+        <Zap className="h-6 w-6 text-[var(--sidebar-primary)]" />
         <span className="text-lg font-bold tracking-tight">Auto-CRM</span>
       </div>
 
