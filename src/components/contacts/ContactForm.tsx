@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import type { ClientStatus } from "@/types";
 
 const contactSchema = z.object({
   name: z.string().min(1, "El nombre es requerido"),
@@ -31,6 +32,10 @@ const contactSchema = z.object({
   source: z.string(),
   temperature: z.enum(["cold", "warm", "hot"]),
   notes: z.string(),
+  mockupUrl: z.string(),
+  siteUrl: z.string(),
+  clientStatus: z.enum(["prospect", "proposal_sent", "active_client", "churned"]),
+  monthlyPayment: z.string(),
 });
 
 type ContactFormData = z.infer<typeof contactSchema>;
@@ -62,27 +67,34 @@ export function ContactForm({ open, onClose, initialData }: ContactFormProps) {
       source: initialData?.source || "otro",
       temperature: initialData?.temperature || "cold",
       notes: initialData?.notes || "",
+      mockupUrl: initialData?.mockupUrl || "",
+      siteUrl: initialData?.siteUrl || "",
+      clientStatus: (initialData?.clientStatus as ClientStatus) || "prospect",
+      monthlyPayment: initialData?.monthlyPayment || "",
     },
   });
 
   const onSubmit = async (data: ContactFormData) => {
     try {
-      const url = isEditing
-        ? `/api/contacts/${initialData!.id}`
-        : "/api/contacts";
+      const url = isEditing ? `/api/contacts/${initialData!.id}` : "/api/contacts";
       const method = isEditing ? "PUT" : "POST";
+
+      const payload: Record<string, unknown> = { ...data };
+      if (data.monthlyPayment) {
+        payload.monthlyPayment = Math.round(parseFloat(data.monthlyPayment) * 100);
+      } else {
+        payload.monthlyPayment = null;
+      }
 
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) throw new Error("Error al guardar");
 
-      toast.success(
-        isEditing ? "Contacto actualizado" : "Contacto creado"
-      );
+      toast.success(isEditing ? "Contacto actualizado" : "Contacto creado");
       reset();
       onClose();
       router.refresh();
@@ -93,20 +105,16 @@ export function ContactForm({ open, onClose, initialData }: ContactFormProps) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
-            {isEditing ? "Editar Contacto" : "Nuevo Contacto"}
-          </DialogTitle>
+          <DialogTitle>{isEditing ? "Editar Contacto" : "Nuevo Contacto"}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Nombre *</Label>
             <Input id="name" {...register("name")} placeholder="Nombre completo" />
-            {errors.name && (
-              <p className="text-xs text-destructive">{errors.name.message}</p>
-            )}
+            {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -116,7 +124,7 @@ export function ContactForm({ open, onClose, initialData }: ContactFormProps) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Telefono</Label>
-              <Input id="phone" {...register("phone")} placeholder="+52 55 1234 5678" />
+              <Input id="phone" {...register("phone")} placeholder="+57 300 123 4567" />
             </div>
           </div>
 
@@ -128,13 +136,8 @@ export function ContactForm({ open, onClose, initialData }: ContactFormProps) {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Fuente</Label>
-              <Select
-                value={watch("source")}
-                onValueChange={(v) => v && setValue("source", v)}
-              >
-                <SelectTrigger className="cursor-pointer">
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={watch("source")} onValueChange={(v) => v && setValue("source", v)}>
+                <SelectTrigger className="cursor-pointer"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="website">Sitio web</SelectItem>
                   <SelectItem value="whatsapp">WhatsApp</SelectItem>
@@ -144,23 +147,14 @@ export function ContactForm({ open, onClose, initialData }: ContactFormProps) {
                   <SelectItem value="email">Email</SelectItem>
                   <SelectItem value="formulario">Formulario</SelectItem>
                   <SelectItem value="evento">Evento</SelectItem>
-                  <SelectItem value="import">Importado</SelectItem>
-                  <SelectItem value="webhook">Webhook</SelectItem>
                   <SelectItem value="otro">Otro</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>Temperatura</Label>
-              <Select
-                value={watch("temperature")}
-                onValueChange={(v) =>
-                  v && setValue("temperature", v as "cold" | "warm" | "hot")
-                }
-              >
-                <SelectTrigger className="cursor-pointer">
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={watch("temperature")} onValueChange={(v) => v && setValue("temperature", v as "cold" | "warm" | "hot")}>
+                <SelectTrigger className="cursor-pointer"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="cold">Frio</SelectItem>
                   <SelectItem value="warm">Tibio</SelectItem>
@@ -170,15 +164,43 @@ export function ContactForm({ open, onClose, initialData }: ContactFormProps) {
             </div>
           </div>
 
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select value={watch("clientStatus")} onValueChange={(v) => v && setValue("clientStatus", v as ClientStatus)}>
+                <SelectTrigger className="cursor-pointer"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="prospect">Prospecto</SelectItem>
+                  <SelectItem value="proposal_sent">Propuesta enviada</SelectItem>
+                  <SelectItem value="active_client">Cliente activo</SelectItem>
+                  <SelectItem value="churned">Perdido</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="monthlyPayment">Pago mensual (COP)</Label>
+              <Input id="monthlyPayment" type="number" {...register("monthlyPayment")} placeholder="400000" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="mockupUrl">URL Mockup</Label>
+              <Input id="mockupUrl" type="url" {...register("mockupUrl")} placeholder="https://..." />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="siteUrl">URL Sitio Web</Label>
+              <Input id="siteUrl" type="url" {...register("siteUrl")} placeholder="https://..." />
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="notes">Notas</Label>
             <Textarea id="notes" {...register("notes")} placeholder="Notas sobre el contacto..." rows={3} />
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={onClose} className="cursor-pointer">
-              Cancelar
-            </Button>
+            <Button type="button" variant="outline" onClick={onClose} className="cursor-pointer">Cancelar</Button>
             <Button type="submit" disabled={isSubmitting} className="cursor-pointer">
               {isSubmitting ? "Guardando..." : isEditing ? "Actualizar" : "Crear"}
             </Button>

@@ -51,3 +51,4 @@ data/crm.db-wal
 
 # drizzle
 /drizzle/
+data/crm.db-shm
