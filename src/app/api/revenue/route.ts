@@ -44,8 +44,8 @@ export async function GET() {
       nextPaymentDate: c.nextPaymentDate,
     }))
     .sort((a, b) => {
-      const da = a.nextPaymentDate instanceof Date ? a.nextPaymentDate.getTime() : (a.nextPaymentDate as number) * 1000;
-      const db2 = b.nextPaymentDate instanceof Date ? b.nextPaymentDate.getTime() : (b.nextPaymentDate as number) * 1000;
+        const da = a.nextPaymentDate instanceof Date ? a.nextPaymentDate.getTime() : ((a.nextPaymentDate as unknown as number) ?? 0) * 1000;
+      const db2 = b.nextPaymentDate instanceof Date ? b.nextPaymentDate.getTime() : ((b.nextPaymentDate as unknown as number) ?? 0) * 1000;
       return da - db2;
     });
 
