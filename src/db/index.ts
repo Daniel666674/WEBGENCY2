@@ -4,12 +4,22 @@ import * as schema from "./schema";
 import path from "path";
 import fs from "fs";
 
-const DB_PATH = path.join(process.cwd(), "data", "crm.db");
+const SOURCE_DB = path.join(process.cwd(), "data", "crm.db");
 
-// Ensure data directory exists
-const dataDir = path.dirname(DB_PATH);
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+// On Vercel the filesystem is read-only except /tmp.
+// Copy the committed DB to /tmp so SQLite can write WAL/SHM files.
+const IS_VERCEL = !!process.env.VERCEL;
+const DB_PATH = IS_VERCEL ? "/tmp/crm.db" : SOURCE_DB;
+
+if (IS_VERCEL) {
+  if (!fs.existsSync(DB_PATH) && fs.existsSync(SOURCE_DB)) {
+    fs.copyFileSync(SOURCE_DB, DB_PATH);
+  }
+} else {
+  const dataDir = path.dirname(DB_PATH);
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
 }
 
 function createDatabase(): Database.Database {
