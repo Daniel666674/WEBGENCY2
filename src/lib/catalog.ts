@@ -1,4 +1,4 @@
-export interface NexusPlan {
+export interface AgencyPlan {
   name: string;
   oneTimeFee: number; // centavos COP
   monthlyFee: number; // centavos COP
@@ -6,7 +6,7 @@ export interface NexusPlan {
   description: string;
 }
 
-export const NEXUS_PLANS: NexusPlan[] = [
+export const AGENCY_PLANS: AgencyPlan[] = [
   {
     name: "Basico",
     oneTimeFee: 150000000, // $1,500,000 COP
@@ -126,7 +126,7 @@ interface SuggestionContext {
   currentPlan?: string;
 }
 
-export function getNexusSuggestions(ctx: SuggestionContext): string[] {
+export function getAgencySuggestions(ctx: SuggestionContext): string[] {
   const suggestions: string[] = [];
   const text = `${ctx.industry || ""} ${ctx.company || ""} ${ctx.notes || ""}`.toLowerCase();
 

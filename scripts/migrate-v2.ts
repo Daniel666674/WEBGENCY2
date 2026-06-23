@@ -5,7 +5,7 @@ const DB_PATH = path.join(process.cwd(), "data", "crm.db");
 const db = new Database(DB_PATH);
 db.pragma("foreign_keys = ON");
 
-console.log("Running NEXUS migration...");
+console.log("Running CRM migration...");
 
 const migrations = [
   `ALTER TABLE contacts ADD COLUMN mockup_url TEXT`,
@@ -44,5 +44,5 @@ for (const sql of migrations) {
   }
 }
 
-console.log("\nNEXUS migration complete.");
+console.log("\nCRM migration complete.");
 db.close();

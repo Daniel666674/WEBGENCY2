@@ -12,7 +12,7 @@ export const contacts = sqliteTable("contacts", {
   temperature: text("temperature").notNull().default("cold"),
   score: integer("score").notNull().default(0),
   notes: text("notes"),
-  // NEXUS fields
+  // Agency fields
   mockupUrl: text("mockup_url"),
   siteUrl: text("site_url"),
   signedDate: integer("signed_date", { mode: "timestamp" }),
