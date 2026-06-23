@@ -5,7 +5,7 @@ import { KPICards } from "@/components/dashboard/KPICards";
 import { PipelineChart } from "@/components/dashboard/PipelineChart";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { NotificationBanner } from "@/components/dashboard/NotificationBanner";
-import type { DashboardStats } from "@/types";
+import { AgendaToday } from "@/components/dashboard/AgendaToday";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +28,7 @@ export default function DashboardPage() {
     return stage?.isWon;
   });
 
-  const stats: DashboardStats = {
+  const stats = {
     totalContacts: allContacts.length,
     activeDeals: activeDeals.length,
     totalPipelineValue: activeDeals.reduce((sum, d) => sum + d.value, 0),
@@ -62,8 +62,16 @@ export default function DashboardPage() {
     .from(activities)
     .leftJoin(contacts, eq(activities.contactId, contacts.id))
     .orderBy(desc(activities.createdAt))
-    .limit(5)
+    .limit(8)
     .all();
+
+  const today = new Date();
+  const dateStr = today.toLocaleDateString("es-CO", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 
   const isFirstRun = allContacts.length === 0 && allDeals.length === 0;
 
@@ -71,16 +79,12 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Resumen de tu pipeline de ventas
-        </p>
+        <p className="text-muted-foreground capitalize">{dateStr}</p>
       </div>
 
       {isFirstRun && (
         <div className="rounded-lg border border-primary/20 bg-primary/5 p-6">
-          <h2 className="text-lg font-semibold mb-2">
-            Bienvenido a Auto-CRM
-          </h2>
+          <h2 className="text-lg font-semibold mb-2">Bienvenido a Auto-CRM</h2>
           <p className="text-sm text-muted-foreground mb-4">
             Tu CRM esta listo. Aqui tienes como comenzar:
           </p>
@@ -113,7 +117,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <PipelineChart data={pipelineData} />
+          <AgendaToday />
         </div>
         <div>
           <RecentActivity
@@ -128,6 +132,10 @@ export default function DashboardPage() {
             }
           />
         </div>
+      </div>
+
+      <div>
+        <PipelineChart data={pipelineData} />
       </div>
     </div>
   );

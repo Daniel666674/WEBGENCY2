@@ -131,4 +131,5 @@ export interface DashboardStats {
   wonDealsValue: number;
   conversionRate: number;
   hotLeads: number;
+  overdueFollowups?: number;
 }
