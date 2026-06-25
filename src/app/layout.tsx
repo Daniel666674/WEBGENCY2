@@ -13,9 +13,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Auto-CRM - Tu CRM con Inteligencia Artificial",
+  title: "OLIWAN - Revenue Engine",
   description:
-    "CRM conversacional con pipeline de ventas, clasificacion automatica de leads y seguimiento inteligente. Construido con Claude Code.",
+    "CRM de alto impacto para agencias digitales. Pipeline, propuestas, clientes activos y revenue en un solo lugar.",
 };
 
 export default function RootLayout({
@@ -25,10 +25,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
-      <body className="min-h-full flex" suppressHydrationWarning>
+      <body className="min-h-full" suppressHydrationWarning>
         <TooltipProvider>
           <Sidebar />
-          <div className="flex-1 flex flex-col min-h-screen">
+          <div className="flex flex-col min-h-screen">
             <Header />
             <main className="flex-1 p-4 md:p-6 bg-background overflow-auto">
               {children}
