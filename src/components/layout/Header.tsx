@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { MobileNav } from "./MobileNav";
+import { UserSwitcher } from "@/components/user/UserSwitcher";
 
 export function Header() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -34,6 +35,8 @@ export function Header() {
           />
         </div>
       </div>
+
+      <UserSwitcher />
 
       <Button variant="ghost" size="icon" className="relative cursor-pointer">
         <Bell className="h-5 w-5" />

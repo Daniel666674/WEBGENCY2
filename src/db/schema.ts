@@ -119,6 +119,19 @@ export const attachments = sqliteTable("attachments", {
     .$defaultFn(() => new Date()),
 });
 
+export const users = sqliteTable("users", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull(),
+  color: text("color").notNull().default("#0d9a8a"),
+  isHers: integer("is_hers", { mode: "boolean" }).notNull().default(false),
+  avatar: text("avatar"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 export const crmSettings = sqliteTable("crm_settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
