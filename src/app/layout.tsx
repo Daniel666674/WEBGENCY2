@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { NotificationChecker } from "@/components/shared/NotificationChecker";
 import { UserProvider } from "@/context/UserContext";
 import { GlitterOverlay } from "@/components/user/GlitterOverlay";
+import { HersThemeApplier } from "@/components/user/HersThemeApplier";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -30,6 +31,7 @@ export default function RootLayout({
       <body className="min-h-full" suppressHydrationWarning>
         <TooltipProvider>
           <UserProvider>
+            <HersThemeApplier />
             <GlitterOverlay />
             <Sidebar />
             <div className="flex flex-col min-h-screen">

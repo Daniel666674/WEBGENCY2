@@ -137,10 +137,148 @@
   }
 }
 
+/* ── Sparkle keyframes ─────────────────────────────────────────── */
 @keyframes glitter-appear {
-  0%   { opacity: 0; transform: scale(0) rotate(0deg) translateY(0px); }
-  20%  { opacity: 1; transform: scale(1) rotate(72deg) translateY(-4px); }
-  50%  { opacity: 0.7; transform: scale(1.15) rotate(180deg) translateY(-8px); }
-  80%  { opacity: 0.4; transform: scale(0.9) rotate(288deg) translateY(-4px); }
-  100% { opacity: 0; transform: scale(0) rotate(360deg) translateY(0px); }
+  0%   { opacity: 0;   transform: scale(0)    rotate(0deg)   translateY(0px); }
+  20%  { opacity: 1;   transform: scale(1)    rotate(72deg)  translateY(-5px); }
+  50%  { opacity: 0.8; transform: scale(1.2)  rotate(180deg) translateY(-10px); }
+  80%  { opacity: 0.4; transform: scale(0.9)  rotate(288deg) translateY(-5px); }
+  100% { opacity: 0;   transform: scale(0)    rotate(360deg) translateY(0px); }
+}
+@keyframes glitter-drift {
+  0%   { opacity: 0;   transform: translate(0, 0)                            scale(0)   rotate(0deg); }
+  15%  { opacity: 0.9; transform: translate(calc(var(--drift-x) * 0.2), -20px) scale(1)   rotate(60deg); }
+  60%  { opacity: 0.5; transform: translate(calc(var(--drift-x) * 0.7), -80px) scale(0.8) rotate(200deg); }
+  100% { opacity: 0;   transform: translate(var(--drift-x), -160px)           scale(0.1) rotate(360deg); }
+}
+@keyframes glitter-twinkle {
+  0%,100% { opacity: 0;   transform: scale(0.2) rotate(0deg); }
+  25%     { opacity: 0.9; transform: scale(1.3) rotate(45deg); }
+  50%     { opacity: 0.4; transform: scale(0.7) rotate(90deg); }
+  75%     { opacity: 1;   transform: scale(1.1) rotate(135deg); }
+}
+
+/* ── Her profile theme — body[data-hers="true"] ───────────────── */
+
+/* 1 · Page background: very subtle warm pink pulse */
+@keyframes her-bg {
+  0%,100% { background-color: #faf7ef; }
+  50%     { background-color: #fdf3f8; }
+}
+body[data-hers="true"] { animation: her-bg 10s ease-in-out infinite; }
+
+/* 2 · Cards: soft rose drop-shadow pulse */
+@keyframes her-card {
+  0%,100% { filter: drop-shadow(0 0 0px transparent); }
+  50%     { filter: drop-shadow(0 0 14px rgba(232, 121, 160, 0.32)); }
+}
+body[data-hers="true"] .rounded-xl.border,
+body[data-hers="true"] .rounded-lg.border {
+  animation: her-card 4.5s ease-in-out infinite;
+}
+
+/* 3 · Header: moving rose gradient shimmer */
+@keyframes her-header {
+  0%,100% { background-position: 0% 50%; }
+  50%     { background-position: 100% 50%; }
+}
+body[data-hers="true"] header {
+  background: linear-gradient(
+    135deg,
+    var(--card) 0%,
+    rgba(232, 121, 160, 0.09) 40%,
+    rgba(255, 215, 0, 0.05) 60%,
+    var(--card) 100%
+  ) !important;
+  background-size: 250% 250% !important;
+  animation: her-header 7s ease-in-out infinite;
+}
+
+/* 4 · h1 page title: gold-to-rose shimmer text */
+@keyframes her-text {
+  0%   { background-position: 150% center; }
+  100% { background-position: -150% center; }
+}
+body[data-hers="true"] h1 {
+  background: linear-gradient(
+    90deg,
+    #1a1a2e 0%,
+    #1a1a2e 25%,
+    #e879a0 45%,
+    #ffd700 55%,
+    #1a1a2e 75%,
+    #1a1a2e 100%
+  );
+  background-size: 300% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: her-text 5s linear infinite;
+}
+
+/* 5 · Buttons: shimmer sweep */
+@keyframes her-sweep {
+  0%   { transform: translateX(-220%); }
+  100% { transform: translateX(220%); }
+}
+body[data-hers="true"] button:not([disabled]) {
+  position: relative;
+  overflow: hidden;
+}
+body[data-hers="true"] button:not([disabled])::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 65%
+  );
+  animation: her-sweep 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* 6 · Progress & score bars: shimmer */
+@keyframes her-bar {
+  0%   { transform: translateX(-150%); }
+  100% { transform: translateX(300%); }
+}
+body[data-hers="true"] .h-full.rounded-full:not(.bg-muted) {
+  position: relative;
+  overflow: hidden;
+}
+body[data-hers="true"] .h-full.rounded-full:not(.bg-muted)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
+  animation: her-bar 2.2s ease-in-out infinite;
+}
+
+/* 7 · Sidebar active border: rose pulse */
+@keyframes her-border {
+  0%,100% { border-left-color: var(--sidebar-primary); }
+  50%     { border-left-color: #e879a0; box-shadow: 3px 0 10px rgba(232,121,160,0.5); }
+}
+body[data-hers="true"] .border-l-2 {
+  animation: her-border 2.5s ease-in-out infinite;
+}
+
+/* 8 · Badge / pill borders: rose tint pulse */
+@keyframes her-badge {
+  0%,100% { border-color: var(--border); }
+  50%     { border-color: rgba(232,121,160,0.5); }
+}
+body[data-hers="true"] .rounded-full.border {
+  animation: her-badge 3s ease-in-out infinite;
+}
+
+/* 9 · Card hover: pink lift */
+body[data-hers="true"] .hover\:shadow-sm:hover,
+body[data-hers="true"] .hover\:border-primary\/40:hover {
+  box-shadow: 0 8px 24px rgba(232, 121, 160, 0.22) !important;
+  border-color: rgba(232,121,160,0.5) !important;
+  transform: translateY(-2px);
+  transition: all 0.25s ease;
 }
