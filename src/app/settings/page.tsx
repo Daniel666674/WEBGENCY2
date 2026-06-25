@@ -12,16 +12,28 @@ import {
   Webhook,
   Bell,
   Copy,
+  Palette,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { toast } from "sonner";
 import { NotificationToggle } from "@/components/shared/NotificationToggle";
 import type { CrmConfig } from "@/types";
+import {
+  DEFAULT_CONFIG,
+  HER_PURPLE_PRESETS,
+  type ThemeConfig,
+  type ThemeColors,
+} from "@/lib/theme";
+import { reloadThemeConfig } from "@/components/shared/ThemeEngine";
 
 export default function SettingsPage() {
   const [config, setConfig] = useState<CrmConfig | null>(null);
   const [stages, setStages] = useState<
     Array<{ id: string; name: string; color: string; order: number }>
   >([]);
+  const [theme, setTheme] = useState<ThemeConfig>(DEFAULT_CONFIG);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetch("/crm-config.json")
@@ -32,33 +44,47 @@ export default function SettingsPage() {
     fetch("/api/pipeline")
       .then((r) => r.json())
       .then(setStages);
+
+    fetch("/api/theme")
+      .then((r) => r.json())
+      .then(setTheme)
+      .catch(() => {});
   }, []);
 
+  async function saveTheme() {
+    setSaving(true);
+    try {
+      await fetch("/api/theme", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(theme),
+      });
+      reloadThemeConfig();
+      // Trigger ThemeEngine re-apply
+      window.dispatchEvent(new Event("theme-updated"));
+      toast.success("Tema guardado");
+    } catch {
+      toast.error("Error al guardar");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function setDay(patch: Partial<ThemeColors>) {
+    setTheme((t) => ({ ...t, day: { ...t.day, ...patch } }));
+  }
+
+  function setNight(patch: Partial<ThemeColors>) {
+    setTheme((t) => ({ ...t, night: { ...t.night, ...patch } }));
+  }
+
   const commands = [
-    {
-      name: "/setup",
-      description: "Configurar CRM para tu negocio",
-    },
-    {
-      name: "/add-lead",
-      description: "Agregar un lead de forma conversacional",
-    },
-    {
-      name: "/analyze-pipeline",
-      description: "Analizar pipeline y obtener recomendaciones",
-    },
-    {
-      name: "/daily-briefing",
-      description: "Resumen diario de ventas",
-    },
-    {
-      name: "/import-contacts",
-      description: "Importar contactos desde CSV",
-    },
-    {
-      name: "/customize",
-      description: "Re-personalizar tu CRM",
-    },
+    { name: "/setup", description: "Configurar CRM para tu negocio" },
+    { name: "/add-lead", description: "Agregar un lead de forma conversacional" },
+    { name: "/analyze-pipeline", description: "Analizar pipeline y obtener recomendaciones" },
+    { name: "/daily-briefing", description: "Resumen diario de ventas" },
+    { name: "/import-contacts", description: "Importar contactos desde CSV" },
+    { name: "/customize", description: "Re-personalizar tu CRM" },
   ];
 
   return (
@@ -108,8 +134,7 @@ export default function SettingsPage() {
               </>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Ejecuta <code>/setup</code> en Claude Code para configurar tu
-                negocio.
+                Ejecuta <code>/setup</code> en Claude Code para configurar tu negocio.
               </p>
             )}
           </CardContent>
@@ -142,9 +167,167 @@ export default function SettingsPage() {
               ))}
             </div>
             <p className="text-xs text-muted-foreground mt-3">
-              Usa <code>/customize</code> en Claude Code para modificar las
-              etapas.
+              Usa <code>/customize</code> en Claude Code para modificar las etapas.
             </p>
+          </CardContent>
+        </Card>
+
+        {/* ── Colores & Tema ───────────────────────────────────── */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Palette className="h-4 w-4" />
+              Colores & Tema
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Switch hour */}
+            <div className="flex items-center gap-4">
+              <Moon className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">Hora de cambio automatico</p>
+                <p className="text-xs text-muted-foreground">Cambia al tema nocturno a esta hora</p>
+              </div>
+              <select
+                value={theme.switchHour}
+                onChange={(e) => setTheme((t) => ({ ...t, switchHour: Number(e.target.value) }))}
+                className="text-sm border rounded-md px-2 py-1 bg-background"
+              >
+                {Array.from({ length: 24 }, (_, i) => (
+                  <option key={i} value={i}>
+                    {String(i).padStart(2, "0")}:00
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <Separator />
+
+            {/* Day theme */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <Sun className="h-4 w-4 text-amber-500" />
+                <span className="text-sm font-semibold">Tema de Dia</span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <ColorPicker
+                  label="Fondo"
+                  value={theme.day.background}
+                  onChange={(v) => setDay({ background: v })}
+                />
+                <ColorPicker
+                  label="Color primario"
+                  value={theme.day.primary}
+                  onChange={(v) => setDay({ primary: v })}
+                />
+                <ColorPicker
+                  label="Sidebar"
+                  value={theme.day.sidebar}
+                  onChange={(v) => setDay({ sidebar: v })}
+                />
+                <ColorPicker
+                  label="Tarjetas"
+                  value={theme.day.card}
+                  onChange={(v) => setDay({ card: v })}
+                />
+                <ColorPicker
+                  label="Muted"
+                  value={theme.day.muted}
+                  onChange={(v) => setDay({ muted: v })}
+                />
+                <ColorPicker
+                  label="Bordes"
+                  value={theme.day.border}
+                  onChange={(v) => setDay({ border: v })}
+                />
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Night theme */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <Moon className="h-4 w-4 text-violet-400" />
+                <span className="text-sm font-semibold">Tema de Noche</span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <ColorPicker
+                  label="Fondo"
+                  value={theme.night.background}
+                  onChange={(v) => setNight({ background: v })}
+                />
+                <ColorPicker
+                  label="Color primario"
+                  value={theme.night.primary}
+                  onChange={(v) => setNight({ primary: v })}
+                />
+                <ColorPicker
+                  label="Sidebar"
+                  value={theme.night.sidebar}
+                  onChange={(v) => setNight({ sidebar: v })}
+                />
+                <ColorPicker
+                  label="Tarjetas"
+                  value={theme.night.card}
+                  onChange={(v) => setNight({ card: v })}
+                />
+                <ColorPicker
+                  label="Muted"
+                  value={theme.night.muted}
+                  onChange={(v) => setNight({ muted: v })}
+                />
+                <ColorPicker
+                  label="Bordes"
+                  value={theme.night.border}
+                  onChange={(v) => setNight({ border: v })}
+                />
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Her purple presets */}
+            <div>
+              <p className="text-sm font-semibold mb-1">Morado de Mi Amor (noche)</p>
+              <p className="text-xs text-muted-foreground mb-3">Color primario para el perfil de ella en modo nocturno</p>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {HER_PURPLE_PRESETS.map((p) => (
+                  <button
+                    key={p.value}
+                    onClick={() => setTheme((t) => ({ ...t, herNightPrimary: p.value }))}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium transition-all"
+                    style={{
+                      backgroundColor: theme.herNightPrimary === p.value ? p.value : "transparent",
+                      borderColor: p.value,
+                      color: theme.herNightPrimary === p.value ? "#fff" : p.value,
+                    }}
+                  >
+                    <span
+                      className="w-3 h-3 rounded-full inline-block"
+                      style={{ backgroundColor: p.value }}
+                    />
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              <ColorPicker
+                label="O elige un color libre"
+                value={theme.herNightPrimary}
+                onChange={(v) => setTheme((t) => ({ ...t, herNightPrimary: v }))}
+              />
+            </div>
+
+            {/* Save button */}
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={saveTheme}
+                disabled={saving}
+                className="px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50 cursor-pointer"
+              >
+                {saving ? "Guardando..." : "Guardar tema"}
+              </button>
+            </div>
           </CardContent>
         </Card>
 
@@ -167,9 +350,7 @@ export default function SettingsPage() {
                 </code>
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(
-                      `${window.location.origin}/api/webhook`
-                    );
+                    navigator.clipboard.writeText(`${window.location.origin}/api/webhook`);
                     toast.success("URL copiada");
                   }}
                   className="p-2 rounded hover:bg-muted cursor-pointer"
@@ -217,22 +398,15 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              Estos comandos estan disponibles cuando abres el proyecto en Claude
-              Code. Escribe el comando directamente en el terminal de Claude
-              Code.
+              Estos comandos estan disponibles cuando abres el proyecto en Claude Code.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {commands.map((cmd) => (
-                <div
-                  key={cmd.name}
-                  className="flex items-start gap-3 p-3 rounded-lg border"
-                >
+                <div key={cmd.name} className="flex items-start gap-3 p-3 rounded-lg border">
                   <Zap className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                   <div>
                     <code className="text-sm font-semibold">{cmd.name}</code>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {cmd.description}
-                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{cmd.description}</p>
                   </div>
                 </div>
               ))}
@@ -241,5 +415,32 @@ export default function SettingsPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+function ColorPicker({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <label className="flex flex-col gap-1 cursor-pointer">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <div className="flex items-center gap-2">
+        <div className="relative w-9 h-9 rounded-lg border overflow-hidden shrink-0">
+          <input
+            type="color"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 cursor-pointer border-none p-0 bg-transparent"
+          />
+        </div>
+        <span className="text-xs font-mono text-muted-foreground">{value}</span>
+      </div>
+    </label>
   );
 }

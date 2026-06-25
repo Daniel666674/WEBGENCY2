@@ -9,6 +9,7 @@ import { NotificationChecker } from "@/components/shared/NotificationChecker";
 import { UserProvider } from "@/context/UserContext";
 import { GlitterOverlay } from "@/components/user/GlitterOverlay";
 import { HersThemeApplier } from "@/components/user/HersThemeApplier";
+import { ThemeEngine } from "@/components/shared/ThemeEngine";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -31,6 +32,7 @@ export default function RootLayout({
       <body className="min-h-full" suppressHydrationWarning>
         <TooltipProvider>
           <UserProvider>
+            <ThemeEngine />
             <HersThemeApplier />
             <GlitterOverlay />
             <Sidebar />
