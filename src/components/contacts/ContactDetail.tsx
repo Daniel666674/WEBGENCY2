@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { ContactForm } from "./ContactForm";
 import { ActivityForm } from "@/components/activities/ActivityForm";
+import { AttachmentsTab } from "./AttachmentsTab";
 import {
   ArrowLeft,
   Mail,
@@ -190,6 +191,7 @@ export function ContactDetailClient({
           <TabsTrigger value="deals" className="cursor-pointer">Deals ({deals.length})</TabsTrigger>
           <TabsTrigger value="activities" className="cursor-pointer">Actividades ({activities.length})</TabsTrigger>
           <TabsTrigger value="payments" className="cursor-pointer">Pagos</TabsTrigger>
+          <TabsTrigger value="attachments" className="cursor-pointer">Archivos</TabsTrigger>
         </TabsList>
 
         {/* INFO TAB */}
@@ -424,6 +426,18 @@ export function ContactDetailClient({
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* ATTACHMENTS TAB */}
+        <TabsContent value="attachments">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Archivos y Enlaces</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AttachmentsTab contactId={contact.id} />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 

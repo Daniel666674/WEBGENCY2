@@ -101,6 +101,24 @@ export const activities = sqliteTable("activities", {
     .$defaultFn(() => new Date()),
 });
 
+export const attachments = sqliteTable("attachments", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  contactId: text("contact_id").references(() => contacts.id),
+  proposalId: text("proposal_id").references(() => proposals.id),
+  name: text("name").notNull(),
+  // "file" | "link" | "api" | "doc"
+  type: text("type").notNull().default("link"),
+  url: text("url"),
+  fileData: text("file_data"),
+  mimeType: text("mime_type"),
+  size: integer("size"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 export const crmSettings = sqliteTable("crm_settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
