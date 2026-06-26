@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { formatCurrency } from "@/lib/constants";
 import { AGENCY_PLANS, ADD_ONS_CATALOG, AUTOMATIONS_CATALOG, DELIVERABLES_CATALOG, getAgencySuggestions } from "@/lib/catalog";
 import { toast } from "sonner";
-import { Plus, Lightbulb, ChevronDown, ChevronUp, Package, FileText, Zap, Check } from "lucide-react";
+import { Plus, Lightbulb, ChevronDown, ChevronUp, Package, FileText, Zap, Check, Share2, FolderPlus, Copy } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface Proposal {
   id: string; contactId: string; planName: string;
@@ -62,11 +63,15 @@ function BadgeList({ label, items, variant = "outline" }: {
 }
 
 export function ProposalTab({ contactId, contactNotes, contactCompany }: ProposalTabProps) {
+  const router = useRouter();
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [sharing, setSharing] = useState<string | null>(null);
+  const [converting, setConverting] = useState<string | null>(null);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [planName, setPlanName] = useState("Custom");
   const [oneTimePesos, setOneTimePesos] = useState("");
   const [monthlyPesos, setMonthlyPesos] = useState("");
@@ -136,6 +141,38 @@ export function ProposalTab({ contactId, contactNotes, contactCompany }: Proposa
   const currentPlan = AGENCY_PLANS.find((p) => p.name === planName);
   const featureOptions = Array.from(new Set([...(currentPlan?.features || []), ...features]));
   const toCurrency = (v: string) => formatCurrency(Math.round((parseFloat(v) || 0) * 100));
+
+  const handleShare = async (proposalId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSharing(proposalId);
+    try {
+      const res = await fetch(`/api/proposals/${proposalId}/share`, { method: "POST" });
+      if (!res.ok) throw new Error();
+      const { token } = await res.json();
+      const url = `${window.location.origin}/p/${token}`;
+      setShareUrl(url);
+      await navigator.clipboard.writeText(url);
+      toast.success("Enlace copiado al portapapeles");
+    } catch {
+      toast.error("Error al generar enlace");
+    }
+    setSharing(null);
+  };
+
+  const handleConvert = async (proposalId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConverting(proposalId);
+    try {
+      const res = await fetch(`/api/proposals/${proposalId}/convert`, { method: "POST" });
+      if (!res.ok) throw new Error();
+      const { projectId } = await res.json();
+      toast.success("Proyecto creado");
+      router.push(`/projects/${projectId}`);
+    } catch {
+      toast.error("Error al convertir propuesta");
+    }
+    setConverting(null);
+  };
 
   if (loading) return <p className="text-sm text-muted-foreground py-4">Cargando propuestas...</p>;
 
@@ -254,6 +291,48 @@ export function ProposalTab({ contactId, contactNotes, contactCompany }: Proposa
                 <BadgeList label="Automatizaciones" items={p.automations} />
                 <BadgeList label="Entregables" items={p.deliverables} />
                 {p.notes && <p className="text-sm text-muted-foreground">{p.notes}</p>}
+                <div className="flex gap-2 pt-2 border-t" onClick={(e) => e.stopPropagation()}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="cursor-pointer gap-1.5"
+                    disabled={sharing === p.id}
+                    onClick={(e) => handleShare(p.id, e)}
+                  >
+                    {sharing === p.id ? (
+                      "Generando..."
+                    ) : (
+                      <><Share2 className="h-3.5 w-3.5" /> Compartir</>
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="cursor-pointer gap-1.5"
+                    disabled={converting === p.id}
+                    onClick={(e) => handleConvert(p.id, e)}
+                  >
+                    {converting === p.id ? (
+                      "Creando..."
+                    ) : (
+                      <><FolderPlus className="h-3.5 w-3.5" /> Convertir a Proyecto</>
+                    )}
+                  </Button>
+                  {shareUrl && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="cursor-pointer gap-1.5 text-muted-foreground ml-auto"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        await navigator.clipboard.writeText(shareUrl);
+                        toast.success("Enlace copiado");
+                      }}
+                    >
+                      <Copy className="h-3.5 w-3.5" /> Copiar enlace
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             )}
           </Card>
