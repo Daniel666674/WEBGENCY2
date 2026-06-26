@@ -4,11 +4,12 @@ import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { MilestoneTimeline } from "@/components/projects/MilestoneTimeline";
 import { PaymentHistory } from "@/components/projects/PaymentHistory";
+import { AttachmentsTab } from "@/components/contacts/AttachmentsTab";
 import { PROJECT_STATUS_CONFIG } from "@/components/projects/ProjectCard";
 import { formatCurrency } from "@/lib/constants";
 import {
-  ArrowLeft, FolderKanban, Calendar, DollarSign, ExternalLink,
-  Plus, Milestone, CreditCard, Edit2, Check, X
+  ArrowLeft, FolderKanban, Calendar, ExternalLink,
+  Plus, Milestone, CreditCard, Edit2, Check, X, Paperclip
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -47,7 +48,7 @@ interface ProjectDetail {
   milestones: MilestoneData[];
 }
 
-type Tab = "milestones" | "payments" | "notes";
+type Tab = "milestones" | "payments" | "attachments" | "notes";
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -231,7 +232,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
       {/* Tabs */}
       <div className="flex gap-1 border-b">
-        {(["milestones", "payments", "notes"] as Tab[]).map((t) => (
+        {(["milestones", "payments", "attachments", "notes"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -244,8 +245,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           >
             {t === "milestones" && <Milestone className="h-4 w-4" />}
             {t === "payments" && <CreditCard className="h-4 w-4" />}
+            {t === "attachments" && <Paperclip className="h-4 w-4" />}
             {t === "notes" && <Edit2 className="h-4 w-4" />}
-            {t === "milestones" ? "Milestones" : t === "payments" ? "Pagos" : "Notas"}
+            {t === "milestones" ? "Milestones" : t === "payments" ? "Pagos" : t === "attachments" ? "Archivos" : "Notas"}
           </button>
         ))}
       </div>
@@ -288,6 +290,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         <p className="text-sm text-muted-foreground text-center py-8">
           Asigna un cliente al proyecto para registrar pagos.
         </p>
+      )}
+
+      {tab === "attachments" && (
+        <AttachmentsTab projectId={id} />
       )}
 
       {tab === "notes" && (

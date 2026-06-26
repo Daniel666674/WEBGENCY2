@@ -8,34 +8,29 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const contactId = searchParams.get("contactId");
     const proposalId = searchParams.get("proposalId");
+    const projectId = searchParams.get("projectId");
 
     const conditions = [];
     if (contactId) conditions.push(eq(attachments.contactId, contactId));
     if (proposalId) conditions.push(eq(attachments.proposalId, proposalId));
+    if (projectId) conditions.push(eq(attachments.projectId, projectId));
+
+    const cols = {
+      id: attachments.id,
+      contactId: attachments.contactId,
+      proposalId: attachments.proposalId,
+      projectId: attachments.projectId,
+      name: attachments.name,
+      type: attachments.type,
+      url: attachments.url,
+      mimeType: attachments.mimeType,
+      size: attachments.size,
+      createdAt: attachments.createdAt,
+    };
 
     const rows = conditions.length
-      ? await db.select({
-          id: attachments.id,
-          contactId: attachments.contactId,
-          proposalId: attachments.proposalId,
-          name: attachments.name,
-          type: attachments.type,
-          url: attachments.url,
-          mimeType: attachments.mimeType,
-          size: attachments.size,
-          createdAt: attachments.createdAt,
-        }).from(attachments).where(conditions.length === 1 ? conditions[0] : and(...conditions))
-      : await db.select({
-          id: attachments.id,
-          contactId: attachments.contactId,
-          proposalId: attachments.proposalId,
-          name: attachments.name,
-          type: attachments.type,
-          url: attachments.url,
-          mimeType: attachments.mimeType,
-          size: attachments.size,
-          createdAt: attachments.createdAt,
-        }).from(attachments);
+      ? await db.select(cols).from(attachments).where(conditions.length === 1 ? conditions[0] : and(...conditions))
+      : await db.select(cols).from(attachments);
 
     return NextResponse.json(rows);
   } catch (e) {
@@ -53,6 +48,7 @@ export async function POST(req: NextRequest) {
       const file = form.get("file") as File | null;
       const contactId = form.get("contactId") as string | null;
       const proposalId = form.get("proposalId") as string | null;
+      const projectId = form.get("projectId") as string | null;
 
       if (!file) return NextResponse.json({ error: "No file" }, { status: 400 });
       if (file.size > 10 * 1024 * 1024)
@@ -64,6 +60,7 @@ export async function POST(req: NextRequest) {
       const [row] = await db.insert(attachments).values({
         contactId: contactId || undefined,
         proposalId: proposalId || undefined,
+        projectId: projectId || undefined,
         name: file.name,
         type: "file",
         fileData: base64,
@@ -76,13 +73,14 @@ export async function POST(req: NextRequest) {
 
     // JSON body for links / API endpoints
     const body = await req.json();
-    const { contactId, proposalId, name, type = "link", url } = body;
+    const { contactId, proposalId, projectId, name, type = "link", url } = body;
 
     if (!name || !url) return NextResponse.json({ error: "name and url required" }, { status: 400 });
 
     const [row] = await db.insert(attachments).values({
       contactId: contactId || undefined,
       proposalId: proposalId || undefined,
+      projectId: projectId || undefined,
       name,
       type,
       url,

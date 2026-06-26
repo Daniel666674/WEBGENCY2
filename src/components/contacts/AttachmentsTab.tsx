@@ -55,9 +55,11 @@ function formatBytes(bytes: number) {
 export function AttachmentsTab({
   contactId,
   proposalId,
+  projectId,
 }: {
   contactId?: string;
   proposalId?: string;
+  projectId?: string;
 }) {
   const [items, setItems] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,6 +73,8 @@ export function AttachmentsTab({
 
   const query = contactId
     ? `contactId=${contactId}`
+    : projectId
+    ? `projectId=${projectId}`
     : `proposalId=${proposalId}`;
 
   const load = () => {
@@ -92,6 +96,7 @@ export function AttachmentsTab({
     form.append("file", file);
     if (contactId) form.append("contactId", contactId);
     if (proposalId) form.append("proposalId", proposalId);
+    if (projectId) form.append("projectId", projectId);
 
     try {
       const res = await fetch("/api/attachments", { method: "POST", body: form });
@@ -130,6 +135,7 @@ export function AttachmentsTab({
         body: JSON.stringify({
           contactId,
           proposalId,
+          projectId,
           name: linkName.trim(),
           type: formType,
           url: linkUrl.trim(),

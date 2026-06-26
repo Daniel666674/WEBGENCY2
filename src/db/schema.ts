@@ -108,6 +108,7 @@ export const attachments = sqliteTable("attachments", {
     .$defaultFn(() => crypto.randomUUID()),
   contactId: text("contact_id").references(() => contacts.id),
   proposalId: text("proposal_id").references(() => proposals.id),
+  projectId: text("project_id").references(() => projects.id),
   name: text("name").notNull(),
   // "file" | "link" | "api" | "doc"
   type: text("type").notNull().default("link"),
