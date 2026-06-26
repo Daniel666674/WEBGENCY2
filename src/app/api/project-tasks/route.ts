@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { projectTasks, users } from "@/db/schema";
+import { projectTasks, users, projects } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
       .select({
         id: projectTasks.id,
         projectId: projectTasks.projectId,
+        projectName: projects.name,
         type: projectTasks.type,
         description: projectTasks.description,
         assignedUserId: projectTasks.assignedUserId,
@@ -25,7 +26,8 @@ export async function GET(request: NextRequest) {
         assignedUserAvatar: users.avatar,
       })
       .from(projectTasks)
-      .leftJoin(users, eq(projectTasks.assignedUserId, users.id));
+      .leftJoin(users, eq(projectTasks.assignedUserId, users.id))
+      .leftJoin(projects, eq(projectTasks.projectId, projects.id));
 
     if (projectId) {
       query = query.where(eq(projectTasks.projectId, projectId)) as typeof query;

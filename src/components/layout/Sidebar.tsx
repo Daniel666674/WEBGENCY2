@@ -18,6 +18,8 @@ import {
   Calculator,
   UserCheck,
   FolderKanban,
+  ClipboardList,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -54,6 +56,8 @@ const navSections: NavSection[] = [
     items: [
       { href: "/clients", label: "Clientes Activos", icon: UserCheck },
       { href: "/projects", label: "Proyectos", icon: FolderKanban },
+      { href: "/tareas", label: "Tareas", icon: ClipboardList },
+      { href: "/solicitudes", label: "Solicitudes", icon: MessageSquare },
       { href: "/deliverables", label: "Entregables", icon: Package },
     ],
   },
