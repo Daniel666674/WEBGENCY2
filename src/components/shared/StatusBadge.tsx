@@ -10,7 +10,7 @@ interface StatusBadgeProps {
 }
 
 export function StatusBadge({ temperature, size = "md" }: StatusBadgeProps) {
-  const config = TEMPERATURE_CONFIG[temperature];
+  const config = TEMPERATURE_CONFIG[temperature] ?? TEMPERATURE_CONFIG["cold"];
 
   return (
     <Badge
