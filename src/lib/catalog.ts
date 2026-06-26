@@ -188,3 +188,154 @@ export function getAgencySuggestions(ctx: SuggestionContext): string[] {
 
   return suggestions.slice(0, 5);
 }
+
+// ─── Real service catalog from proposals ────────────────────────────────────
+
+export interface WebsitePlan {
+  id: string;
+  name: string;
+  oneTimeFee: number; // centavos COP
+  features: string[];
+}
+
+export const WEBSITE_PLANS: WebsitePlan[] = [
+  {
+    id: "basico",
+    name: "Básico",
+    oneTimeFee: 150000000,
+    features: [
+      "Hasta 3 páginas (Inicio, Catálogo, Contacto)",
+      "Diseño limpio y responsivo",
+      "Formulario de contacto + redes sociales",
+      "Optimización básica SEO",
+      "Dominio y hosting primer año incluido",
+    ],
+  },
+  {
+    id: "estandar",
+    name: "Estándar",
+    oneTimeFee: 250000000,
+    features: [
+      "Hasta 6 páginas personalizadas",
+      "Catálogo de productos con filtros",
+      "Sección de reseñas / testimonios",
+      "SEO intermedio + Google Analytics",
+      "Dominio y hosting primer año incluido",
+    ],
+  },
+  {
+    id: "avanzado",
+    name: "Avanzado",
+    oneTimeFee: 350000000,
+    features: [
+      "Páginas ilimitadas en el alcance",
+      "Diseño UI/UX personalizado",
+      "Tienda en línea (carrito + favoritos)",
+      "Panel de administración de productos",
+      "SEO avanzado + configuración Analytics",
+      "Dominio y hosting primer año incluido",
+    ],
+  },
+];
+
+export interface ChatbotPlan {
+  id: string;
+  name: string;
+  oneTimeFee: number;
+  monthlyFee: number;
+  features: string[];
+}
+
+export const CHATBOT_PLANS: ChatbotPlan[] = [
+  {
+    id: "esencial",
+    name: "Esencial",
+    oneTimeFee: 90000000,
+    monthlyFee: 35000000,
+    features: [
+      "Respuestas automáticas a preguntas frecuentes",
+      "Menú de catálogo y horarios de atención",
+      "Captura de pedido y datos del cliente",
+      "Transferencia a asesor humano (handoff)",
+      "Operación, plataforma y soporte incluidos",
+    ],
+  },
+  {
+    id: "profesional",
+    name: "Profesional",
+    oneTimeFee: 150000000,
+    monthlyFee: 50000000,
+    features: [
+      "Todo el plan Esencial",
+      "Respuestas con IA en lenguaje natural",
+      "Recomendación de productos según gustos",
+      "1 campaña/mes (reactivación o venta cruzada)",
+      "Reporte mensual de conversaciones y resultados",
+    ],
+  },
+  {
+    id: "premium",
+    name: "Premium",
+    oneTimeFee: 250000000,
+    monthlyFee: 75000000,
+    features: [
+      "Todo el plan Profesional",
+      "Catálogo sincronizado dentro del bot",
+      "Campañas masivas gestionadas",
+      "Seguimiento de pedidos automatizado",
+      "Múltiples flujos + soporte prioritario",
+    ],
+  },
+];
+
+export interface MaintenancePlan {
+  id: string;
+  name: string;
+  monthlyFee: number;
+  monthlyFeeMax?: number;
+  features: string[];
+}
+
+export const MAINTENANCE_PLANS: MaintenancePlan[] = [
+  {
+    id: "soporte",
+    name: "Mantenimiento & Soporte",
+    monthlyFee: 30000000,
+    features: [
+      "1 sesión de edición/semana (hasta 5 cambios)",
+      "Soporte WhatsApp lun–vie 8:00–18:00",
+      "Resolución de fallos en 2–3 horas sin costo",
+      "Monitoreo básico de disponibilidad",
+      "Revisión mensual de Google Analytics",
+    ],
+  },
+  {
+    id: "remota",
+    name: "Gestión Remota",
+    monthlyFee: 155000000,
+    monthlyFeeMax: 165000000,
+    features: [
+      "Parrilla de contenidos mensual",
+      "Guiones detallados por red social",
+      "Edición de videos y piezas a partir de material propio",
+      "Instagram, Facebook/WhatsApp y TikTok",
+    ],
+  },
+  {
+    id: "completa",
+    name: "Gestión Completa",
+    monthlyFee: 180000000,
+    monthlyFeeMax: 200000000,
+    features: [
+      "Todo el plan Gestión Remota",
+      "2 visitas/mes para grabación (Bogotá)",
+      "Fotografía de producto en sede",
+      "Diseño, edición y publicación incluidos",
+    ],
+  },
+];
+
+export const EXTRAS_CATALOG = [
+  { id: "pagina", label: "Página adicional", oneTimeFee: 15000000, note: "Desde $150.000 c/u" },
+  { id: "urgencia", label: "Urgencia fuera de horario", oneTimeFee: 6000000, note: "$60.000/intervención" },
+];
