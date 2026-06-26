@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import { MilestoneTimeline } from "@/components/projects/MilestoneTimeline";
 import { PaymentHistory } from "@/components/projects/PaymentHistory";
 import { AttachmentsTab } from "@/components/contacts/AttachmentsTab";
+import { ProjectTaskList } from "@/components/projects/ProjectTaskList";
 import { PROJECT_STATUS_CONFIG } from "@/components/projects/ProjectCard";
 import { formatCurrency } from "@/lib/constants";
 import {
   ArrowLeft, FolderKanban, Calendar, ExternalLink,
-  Plus, Milestone, CreditCard, Edit2, Check, X, Paperclip
+  Plus, Milestone, CreditCard, Edit2, Check, X, Paperclip,
+  ClipboardList, MessageSquare
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -48,7 +50,7 @@ interface ProjectDetail {
   milestones: MilestoneData[];
 }
 
-type Tab = "milestones" | "payments" | "attachments" | "notes";
+type Tab = "milestones" | "tareas" | "solicitudes" | "payments" | "attachments" | "notes";
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -231,23 +233,30 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b">
-        {(["milestones", "payments", "attachments", "notes"] as Tab[]).map((t) => (
+      <div className="flex gap-1 border-b overflow-x-auto">
+        {(["milestones", "tareas", "solicitudes", "payments", "attachments", "notes"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={cn(
-              "px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5",
+              "px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 shrink-0",
               tab === t
                 ? "border-primary text-primary"
                 : "border-transparent text-muted-foreground hover:text-foreground"
             )}
           >
             {t === "milestones" && <Milestone className="h-4 w-4" />}
+            {t === "tareas" && <ClipboardList className="h-4 w-4" />}
+            {t === "solicitudes" && <MessageSquare className="h-4 w-4" />}
             {t === "payments" && <CreditCard className="h-4 w-4" />}
             {t === "attachments" && <Paperclip className="h-4 w-4" />}
             {t === "notes" && <Edit2 className="h-4 w-4" />}
-            {t === "milestones" ? "Milestones" : t === "payments" ? "Pagos" : t === "attachments" ? "Archivos" : "Notas"}
+            {t === "milestones" ? "Milestones"
+              : t === "tareas" ? "Tareas"
+              : t === "solicitudes" ? "Solicitudes"
+              : t === "payments" ? "Pagos"
+              : t === "attachments" ? "Archivos"
+              : "Notas"}
           </button>
         ))}
       </div>
@@ -290,6 +299,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         <p className="text-sm text-muted-foreground text-center py-8">
           Asigna un cliente al proyecto para registrar pagos.
         </p>
+      )}
+
+      {tab === "tareas" && (
+        <ProjectTaskList projectId={id} taskType="task" />
+      )}
+
+      {tab === "solicitudes" && (
+        <ProjectTaskList projectId={id} taskType="solicitud" />
       )}
 
       {tab === "attachments" && (
