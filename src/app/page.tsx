@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { contacts, deals, activities, pipelineStages } from "@/db/schema";
+import { contacts, deals, activities, pipelineStages, projects, projectMilestones } from "@/db/schema";
 import { eq, asc, desc } from "drizzle-orm";
 import { MRRHero } from "@/components/dashboard/MRRHero";
 import { FunnelHorizontal } from "@/components/dashboard/FunnelHorizontal";
@@ -9,6 +9,7 @@ import { AgendaToday } from "@/components/dashboard/AgendaToday";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { PipelineChart } from "@/components/dashboard/PipelineChart";
 import { NotificationBanner } from "@/components/dashboard/NotificationBanner";
+import { ActiveProjects } from "@/components/dashboard/ActiveProjects";
 import { Flame } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -94,6 +95,35 @@ export default function DashboardPage() {
       color: stage.color,
     }));
 
+  // Active projects (not launched, not paused)
+  const allProjects = db
+    .select({
+      id: projects.id,
+      name: projects.name,
+      status: projects.status,
+      deadline: projects.deadline,
+      clientId: projects.clientId,
+      clientName: contacts.name,
+    })
+    .from(projects)
+    .leftJoin(contacts, eq(projects.clientId, contacts.id))
+    .all();
+
+  const allMilestones = db.select({ id: projectMilestones.id, projectId: projectMilestones.projectId, completedAt: projectMilestones.completedAt }).from(projectMilestones).all();
+
+  const activeProjects = allProjects
+    .filter((p) => p.status !== "launched" && p.status !== "paused")
+    .map((p) => {
+      const ms = allMilestones.filter((m) => m.projectId === p.id);
+      return {
+        ...p,
+        deadline: p.deadline ? (p.deadline as unknown as Date).getTime?.() ?? Number(p.deadline) : null,
+        milestonesTotal: ms.length,
+        milestonesCompleted: ms.filter((m) => m.completedAt !== null).length,
+      };
+    })
+    .slice(0, 6);
+
   // Recent activity
   const recentActivities = db
     .select({
@@ -167,10 +197,11 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* ── Row 3: Agenda · Payments · Activity ──────── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* ── Row 3: Agenda · Payments · Projects · Activity */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         <AgendaToday />
         <UpcomingPayments payments={upcomingPayments} totalThisMonth={totalThisMonth} />
+        <ActiveProjects projects={activeProjects} />
         <RecentActivity
           activities={
             recentActivities as Array<{

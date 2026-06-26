@@ -96,6 +96,7 @@ export const activities = sqliteTable("activities", {
   dealId: text("deal_id").references(() => deals.id),
   scheduledAt: integer("scheduled_at", { mode: "timestamp" }),
   completedAt: integer("completed_at", { mode: "timestamp" }),
+  assignedUserId: text("assigned_user_id").references(() => users.id),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -135,4 +136,86 @@ export const users = sqliteTable("users", {
 export const crmSettings = sqliteTable("crm_settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
+});
+
+export const projects = sqliteTable("projects", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  clientId: text("client_id").references(() => contacts.id),
+  name: text("name").notNull(),
+  status: text("status").notNull().default("discovery"), // discovery|design|dev|launched|paused
+  budgetCents: integer("budget_cents").notNull().default(0),
+  startDate: integer("start_date", { mode: "timestamp" }),
+  deadline: integer("deadline", { mode: "timestamp" }),
+  mockupUrl: text("mockup_url"),
+  notes: text("notes"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export const projectMilestones = sqliteTable("project_milestones", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id),
+  title: text("title").notNull(),
+  order: integer("order").notNull().default(0),
+  dueDate: integer("due_date", { mode: "timestamp" }),
+  completedAt: integer("completed_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export const projectDeliverables = sqliteTable("project_deliverables", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  milestoneId: text("milestone_id")
+    .notNull()
+    .references(() => projectMilestones.id),
+  description: text("description").notNull(),
+  fileUrl: text("file_url"),
+  approvedAt: integer("approved_at", { mode: "timestamp" }),
+  approvedByUserId: text("approved_by_user_id").references(() => users.id),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export const payments = sqliteTable("payments", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  clientId: text("client_id")
+    .notNull()
+    .references(() => contacts.id),
+  projectId: text("project_id").references(() => projects.id),
+  amountCents: integer("amount_cents").notNull().default(0),
+  paidAt: integer("paid_at", { mode: "timestamp" }),
+  note: text("note"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export const auditLogs = sqliteTable("audit_logs", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id").references(() => users.id),
+  action: text("action").notNull(),
+  resourceType: text("resource_type").notNull(),
+  resourceId: text("resource_id").notNull(),
+  meta: text("meta"), // JSON string
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
 });

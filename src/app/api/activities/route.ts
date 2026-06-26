@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
       dealId: activities.dealId,
       scheduledAt: activities.scheduledAt,
       completedAt: activities.completedAt,
+      assignedUserId: activities.assignedUserId,
       createdAt: activities.createdAt,
       contactName: contacts.name,
     })
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "JSON invalido" }, { status: 400 });
   }
-  const { type, description, contactId, dealId, scheduledAt } = body;
+  const { type, description, contactId, dealId, scheduledAt, assignedUserId } = body;
 
   if (!type || !description || !contactId) {
     return NextResponse.json(
@@ -61,6 +62,7 @@ export async function POST(request: NextRequest) {
         dealId: dealId || null,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
         completedAt: null,
+        assignedUserId: assignedUserId || null,
         createdAt: new Date(),
       })
       .returning()

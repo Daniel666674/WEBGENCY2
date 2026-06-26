@@ -17,7 +17,7 @@ import {
   Package,
   Calculator,
   UserCheck,
-  Target,
+  FolderKanban,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -53,6 +53,7 @@ const navSections: NavSection[] = [
     header: "ACCOUNT MANAGEMENT",
     items: [
       { href: "/clients", label: "Clientes Activos", icon: UserCheck },
+      { href: "/projects", label: "Proyectos", icon: FolderKanban },
       { href: "/deliverables", label: "Entregables", icon: Package },
     ],
   },
