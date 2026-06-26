@@ -6,6 +6,7 @@ import { MilestoneTimeline } from "@/components/projects/MilestoneTimeline";
 import { PaymentHistory } from "@/components/projects/PaymentHistory";
 import { AttachmentsTab } from "@/components/contacts/AttachmentsTab";
 import { ProjectTaskList } from "@/components/projects/ProjectTaskList";
+import { ProjectCalendar } from "@/components/projects/ProjectCalendar";
 import { PROJECT_STATUS_CONFIG } from "@/components/projects/ProjectCard";
 import { formatCurrency } from "@/lib/constants";
 import {
@@ -50,7 +51,7 @@ interface ProjectDetail {
   milestones: MilestoneData[];
 }
 
-type Tab = "milestones" | "tareas" | "solicitudes" | "payments" | "attachments" | "notes";
+type Tab = "milestones" | "calendario" | "tareas" | "solicitudes" | "payments" | "attachments" | "notes";
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -234,7 +235,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
       {/* Tabs */}
       <div className="flex gap-1 border-b overflow-x-auto">
-        {(["milestones", "tareas", "solicitudes", "payments", "attachments", "notes"] as Tab[]).map((t) => (
+        {(["milestones", "calendario", "tareas", "solicitudes", "payments", "attachments", "notes"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -246,12 +247,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             )}
           >
             {t === "milestones" && <Milestone className="h-4 w-4" />}
+            {t === "calendario" && <Calendar className="h-4 w-4" />}
             {t === "tareas" && <ClipboardList className="h-4 w-4" />}
             {t === "solicitudes" && <MessageSquare className="h-4 w-4" />}
             {t === "payments" && <CreditCard className="h-4 w-4" />}
             {t === "attachments" && <Paperclip className="h-4 w-4" />}
             {t === "notes" && <Edit2 className="h-4 w-4" />}
             {t === "milestones" ? "Milestones"
+              : t === "calendario" ? "Calendario"
               : t === "tareas" ? "Tareas"
               : t === "solicitudes" ? "Solicitudes"
               : t === "payments" ? "Pagos"
@@ -299,6 +302,19 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         <p className="text-sm text-muted-foreground text-center py-8">
           Asigna un cliente al proyecto para registrar pagos.
         </p>
+      )}
+
+      {tab === "calendario" && (
+        <ProjectCalendar
+          projectId={id}
+          deadline={project.deadline}
+          milestones={project.milestones.map((m) => ({
+            id: m.id,
+            title: m.title,
+            dueDate: m.dueDate ? Number(m.dueDate) : null,
+            completedAt: m.completedAt ? Number(m.completedAt) : null,
+          }))}
+        />
       )}
 
       {tab === "tareas" && (
