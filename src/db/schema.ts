@@ -207,6 +207,24 @@ export const payments = sqliteTable("payments", {
     .$defaultFn(() => new Date()),
 });
 
+export const projectTasks = sqliteTable("project_tasks", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id),
+  type: text("type").notNull().default("task"), // "task" | "solicitud"
+  description: text("description").notNull(),
+  assignedUserId: text("assigned_user_id").references(() => users.id),
+  status: text("status").notNull().default("pending"), // "pending" | "in_progress" | "done"
+  dueDate: integer("due_date", { mode: "timestamp" }),
+  completedAt: integer("completed_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 export const auditLogs = sqliteTable("audit_logs", {
   id: text("id")
     .primaryKey()
