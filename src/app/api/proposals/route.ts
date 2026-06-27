@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { proposals } from "@/db/schema";
+import { proposals, contacts } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
@@ -9,17 +9,29 @@ export async function GET(request: NextRequest) {
 
   let rows;
   if (contactId) {
-    rows = db.select().from(proposals).where(eq(proposals.contactId, contactId)).orderBy(desc(proposals.createdAt)).all();
+    rows = db
+      .select({ p: proposals, contactName: contacts.name, contactCompany: contacts.company })
+      .from(proposals)
+      .leftJoin(contacts, eq(proposals.contactId, contacts.id))
+      .where(eq(proposals.contactId, contactId))
+      .orderBy(desc(proposals.createdAt))
+      .all();
   } else {
-    rows = db.select().from(proposals).orderBy(desc(proposals.createdAt)).all();
+    rows = db
+      .select({ p: proposals, contactName: contacts.name, contactCompany: contacts.company })
+      .from(proposals)
+      .leftJoin(contacts, eq(proposals.contactId, contacts.id))
+      .orderBy(desc(proposals.createdAt))
+      .all();
   }
 
-  const parsed = rows.map((r) => ({
-    ...r,
-    features: JSON.parse(r.features || "[]"),
-    addOns: JSON.parse(r.addOns || "[]"),
-    automations: JSON.parse(r.automations || "[]"),
-    deliverables: JSON.parse(r.deliverables || "[]"),
+  const parsed = rows.map(({ p, contactName, contactCompany }) => ({
+    ...p,
+    contactName: contactCompany || contactName || null,
+    features: JSON.parse(p.features || "[]"),
+    addOns: JSON.parse(p.addOns || "[]"),
+    automations: JSON.parse(p.automations || "[]"),
+    deliverables: JSON.parse(p.deliverables || "[]"),
   }));
 
   return NextResponse.json(parsed);

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useUser } from "@/context/UserContext";
 import { cn } from "@/lib/utils";
-import { Check, Plus, Trash2, Calendar, Circle, ClipboardList, X } from "lucide-react";
+import { Check, Plus, Trash2, Calendar, Circle, ClipboardList, X, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { DogSpinnerPage } from "@/components/shared/DogSpinner";
 
@@ -40,7 +40,7 @@ export default function TareasPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(true);
 
   // Form state
   const [formProject, setFormProject] = useState("");
@@ -376,6 +376,13 @@ function TaskRow({
               {task.assignedUserAvatar ?? task.assignedUserName[0]}
             </span>
           )}
+          <a
+            href={`/projects/${task.projectId}`}
+            onClick={(e) => e.stopPropagation()}
+            className="text-xs text-muted-foreground hover:text-primary flex items-center gap-0.5 transition-colors"
+          >
+            <ExternalLink className="h-3 w-3" />{task.projectName ?? "Proyecto"}
+          </a>
         </div>
       </div>
 

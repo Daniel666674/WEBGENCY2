@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { Check, Plus, Trash2, Calendar, Circle, MessageSquare, X } from "lucide-react";
+import { Check, Plus, Trash2, Calendar, Circle, MessageSquare, X, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { DogSpinnerPage } from "@/components/shared/DogSpinner";
 
@@ -13,6 +13,9 @@ interface Solicitud {
   description: string;
   status: string;
   dueDate: number | null;
+  assignedUserName?: string | null;
+  assignedUserColor?: string | null;
+  assignedUserAvatar?: string | null;
 }
 
 interface Project {
@@ -33,7 +36,7 @@ export default function SolicitudesPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(true);
 
   const [formProject, setFormProject] = useState("");
   const [formDesc, setFormDesc] = useState("");
@@ -291,6 +294,13 @@ function SolicitudRow({
               {isOverdue && " · vencida"}
             </span>
           )}
+          <a
+            href={`/projects/${item.projectId}`}
+            onClick={(e) => e.stopPropagation()}
+            className="text-xs text-muted-foreground hover:text-primary flex items-center gap-0.5 transition-colors"
+          >
+            <ExternalLink className="h-3 w-3" />{item.projectName ?? "Proyecto"}
+          </a>
         </div>
       </div>
 
