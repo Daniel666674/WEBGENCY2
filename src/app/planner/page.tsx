@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DogSpinnerPage } from "@/components/shared/DogSpinner";
+import { toast } from "sonner";
 
 interface PlannerProject {
   id: string;
@@ -74,17 +76,47 @@ export default function PlannerPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKind>("all");
 
-  useEffect(() => {
-    fetch("/api/planner")
-      .then((r) => r.json())
-      .then((d) => {
+  const [adding, setAdding] = useState(false);
+  const [addType, setAddType] = useState<"task" | "solicitud">("task");
+  const [addProject, setAddProject] = useState("");
+  const [addDesc, setAddDesc] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  function reload() {
+    Promise.all([fetch("/api/planner").then((r) => r.json()), new Promise((r) => setTimeout(r, 700))])
+      .then(([d]) => {
         setProjects(d.projects ?? []);
         setMilestones(d.milestones ?? []);
         setTasks(d.tasks ?? []);
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, []);
+  }
+
+  useEffect(() => { reload(); }, []);
+
+  async function quickAdd() {
+    if (!addProject || !addDesc.trim() || !selected) return;
+    setSaving(true);
+    try {
+      const [yr, mo, dy] = selected.split("-").map(Number);
+      const dueDate = new Date(yr, mo, dy).toISOString().split("T")[0];
+      await fetch("/api/project-tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: addProject, type: addType, description: addDesc.trim(), dueDate }),
+      });
+      toast.success(addType === "task" ? "Tarea creada" : "Solicitud creada");
+      setAddDesc("");
+      setAdding(false);
+      setLoading(true);
+      reload();
+    } catch {
+      toast.error("Error al guardar");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const projectMap = Object.fromEntries(projects.map((p) => [p.id, p.name]));
   const year = current.getFullYear();
@@ -218,7 +250,7 @@ export default function PlannerPage() {
       </div>
 
       {loading ? (
-        <div className="h-96 bg-muted/30 rounded-xl animate-pulse" />
+        <DogSpinnerPage label="Cargando planner..." />
       ) : (
         <>
           {/* Weekday headers */}
@@ -284,36 +316,94 @@ export default function PlannerPage() {
           </div>
 
           {/* Day detail */}
-          {selected && selectedItems.length > 0 && selectedDate && (
+          {selected && selectedDate && (
             <div className="border rounded-xl p-4 space-y-3 bg-card">
-              <p className="text-xs font-semibold text-muted-foreground capitalize">
-                {selectedDate.toLocaleDateString("es-CO", {
-                  weekday: "long", month: "long", day: "numeric",
-                })}
-              </p>
-              {selectedItems.map((item) => {
-                const s = KIND_STYLE[item.kind];
-                return (
-                  <div key={item.id} className="flex items-start gap-2.5">
-                    <span className={cn("w-2 h-2 rounded-full mt-1.5 shrink-0", s.dot)} />
-                    <div className="min-w-0">
-                      <p className={cn("text-sm font-medium", item.done && "line-through text-muted-foreground")}>
-                        {item.label}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {s.label} · {item.sublabel}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+              {/* Day header */}
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-muted-foreground capitalize">
+                  {selectedDate.toLocaleDateString("es-CO", {
+                    weekday: "long", month: "long", day: "numeric",
+                  })}
+                </p>
+                <button
+                  onClick={() => { setAdding(!adding); setAddDesc(""); }}
+                  className="flex items-center gap-1 text-xs text-primary font-medium hover:opacity-80 transition-opacity"
+                >
+                  {adding ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                  {adding ? "Cancelar" : "Agregar"}
+                </button>
+              </div>
 
-          {selected && selectedItems.length === 0 && (
-            <p className="text-center text-sm text-muted-foreground py-2">
-              Sin eventos {filter !== "all" ? `de tipo "${KIND_STYLE[filter as Exclude<FilterKind,"all">].label}"` : ""} este día.
-            </p>
+              {/* Quick-add form */}
+              {adding && (
+                <div className="border border-dashed rounded-lg p-3 space-y-2.5 bg-muted/30">
+                  <div className="flex gap-1">
+                    {(["task", "solicitud"] as const).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setAddType(t)}
+                        className={cn(
+                          "text-xs px-2.5 py-1 rounded-md font-medium transition-colors",
+                          addType === t ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {t === "task" ? "Tarea" : "Solicitud"}
+                      </button>
+                    ))}
+                  </div>
+                  <select
+                    value={addProject}
+                    onChange={(e) => setAddProject(e.target.value)}
+                    className="w-full text-xs border rounded-lg px-2.5 py-1.5 bg-background"
+                  >
+                    <option value="">Selecciona proyecto...</option>
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder={addType === "task" ? "Describe la tarea..." : "Describe la solicitud..."}
+                    value={addDesc}
+                    onChange={(e) => setAddDesc(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && quickAdd()}
+                    className="w-full text-xs border rounded-lg px-2.5 py-1.5 bg-background"
+                  />
+                  <button
+                    onClick={quickAdd}
+                    disabled={saving || !addDesc.trim() || !addProject}
+                    className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium disabled:opacity-50"
+                  >
+                    {saving ? "Guardando..." : "Guardar"}
+                  </button>
+                </div>
+              )}
+
+              {/* Events */}
+              {selectedItems.length > 0 ? (
+                selectedItems.map((item) => {
+                  const s = KIND_STYLE[item.kind];
+                  return (
+                    <div key={item.id} className="flex items-start gap-2.5">
+                      <span className={cn("w-2 h-2 rounded-full mt-1.5 shrink-0", s.dot)} />
+                      <div className="min-w-0">
+                        <p className={cn("text-sm font-medium", item.done && "line-through text-muted-foreground")}>
+                          {item.label}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {s.label} · {item.sublabel}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Sin eventos {filter !== "all" ? `de tipo "${KIND_STYLE[filter as Exclude<FilterKind, "all">].label}"` : ""} este día.
+                </p>
+              )}
+            </div>
           )}
 
           {/* Legend */}

@@ -28,9 +28,8 @@ export default function ProposalsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/proposals")
-      .then((r) => r.json())
-      .then((data) => {
+    Promise.all([fetch("/api/proposals").then((r) => r.json()), new Promise((r) => setTimeout(r, 700))])
+      .then(([data]) => {
         setProposals(data);
         setLoading(false);
       })

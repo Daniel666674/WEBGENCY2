@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import {
   LayoutDashboard,
   Users,
@@ -10,12 +11,15 @@ import {
   Settings,
   Briefcase,
   DollarSign,
-  Zap,
   TrendingUp,
   FileText,
   Package,
   Calculator,
   UserCheck,
+  FolderKanban,
+  ClipboardList,
+  MessageSquare,
+  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +27,7 @@ const navSections = [
   {
     items: [
       { href: "/", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/planner", label: "Planner", icon: CalendarDays },
       { href: "/pipeline", label: "Pipeline", icon: Kanban },
       { href: "/contacts", label: "Contactos", icon: Users },
       { href: "/deals", label: "Deals", icon: Briefcase },
@@ -40,6 +45,9 @@ const navSections = [
     header: "ACCOUNT MANAGEMENT",
     items: [
       { href: "/clients", label: "Clientes Activos", icon: UserCheck },
+      { href: "/projects", label: "Proyectos", icon: FolderKanban },
+      { href: "/tareas", label: "Tareas", icon: ClipboardList },
+      { href: "/solicitudes", label: "Solicitudes", icon: MessageSquare },
       { href: "/deliverables", label: "Entregables", icon: Package },
     ],
   },
@@ -63,8 +71,8 @@ export function MobileNav() {
 
   return (
     <div className="flex flex-col h-full bg-[var(--sidebar)] text-[var(--sidebar-foreground)]">
-      <div className="flex h-16 items-center gap-2 px-6 border-b border-[var(--sidebar-border)]">
-        <Zap className="h-6 w-6 text-[var(--sidebar-primary)]" />
+      <div className="flex h-16 items-center gap-3 px-4 border-b border-[var(--sidebar-border)]">
+        <Image src="/logo.png" alt="OLIWAN" width={36} height={36} className="rounded-lg shrink-0" />
         <span className="text-lg font-bold tracking-tight">OLIWAN</span>
       </div>
 
@@ -87,7 +95,7 @@ export function MobileNav() {
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors cursor-pointer",
                     isActive
-                      ? "bg-[var(--sidebar-accent)] text-[var(--sidebar-accent-foreground)]"
+                      ? "bg-[var(--sidebar-accent)] text-[var(--sidebar-accent-foreground)] border-l-2 border-[var(--sidebar-primary)]"
                       : "text-[var(--sidebar-foreground)]/70 hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-accent-foreground)]"
                   )}
                 >

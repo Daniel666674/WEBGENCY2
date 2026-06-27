@@ -5,6 +5,7 @@ import { useUser } from "@/context/UserContext";
 import { cn } from "@/lib/utils";
 import { Check, Plus, Trash2, Calendar, Circle, ClipboardList, X } from "lucide-react";
 import { toast } from "sonner";
+import { DogSpinnerPage } from "@/components/shared/DogSpinner";
 
 interface Task {
   id: string;
@@ -53,6 +54,7 @@ export default function TareasPage() {
     const [tasksRes, projectsRes] = await Promise.all([
       fetch("/api/project-tasks?type=task"),
       fetch("/api/projects"),
+      new Promise((r) => setTimeout(r, 700)),
     ]);
     setTasks(await tasksRes.json());
     const proj = await projectsRes.json();
@@ -288,11 +290,7 @@ export default function TareasPage() {
       </div>
 
       {/* Content */}
-      {loading && (
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => <div key={i} className="h-14 bg-muted/40 rounded-lg animate-pulse" />)}
-        </div>
-      )}
+      {loading && <DogSpinnerPage label="Cargando tareas..." />}
 
       {!loading && filtered.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">

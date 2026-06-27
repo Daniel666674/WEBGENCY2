@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Check, Plus, Trash2, Calendar, Circle, MessageSquare, X } from "lucide-react";
 import { toast } from "sonner";
+import { DogSpinnerPage } from "@/components/shared/DogSpinner";
 
 interface Solicitud {
   id: string;
@@ -44,6 +45,7 @@ export default function SolicitudesPage() {
     const [solRes, projRes] = await Promise.all([
       fetch("/api/project-tasks?type=solicitud"),
       fetch("/api/projects"),
+      new Promise((r) => setTimeout(r, 700)),
     ]);
     setItems(await solRes.json());
     setProjects(await projRes.json());
@@ -211,11 +213,7 @@ export default function SolicitudesPage() {
       </div>
 
       {/* Content */}
-      {loading && (
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => <div key={i} className="h-14 bg-muted/40 rounded-lg animate-pulse" />)}
-        </div>
-      )}
+      {loading && <DogSpinnerPage label="Cargando solicitudes..." />}
 
       {!loading && filtered.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">

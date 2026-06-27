@@ -14,9 +14,8 @@ export default function ContactsPage() {
   const [loading, setLoading] = useState(true);
 
   const loadContacts = () => {
-    fetch("/api/contacts")
-      .then((res) => res.json())
-      .then((data) => {
+    Promise.all([fetch("/api/contacts").then((r) => r.json()), new Promise((r) => setTimeout(r, 700))])
+      .then(([data]) => {
         setContacts(data);
         setLoading(false);
       });
