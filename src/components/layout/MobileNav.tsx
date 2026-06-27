@@ -66,7 +66,7 @@ const navSections = [
   },
 ];
 
-export function MobileNav() {
+export function MobileNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
 
   return (
@@ -92,6 +92,7 @@ export function MobileNav() {
                 <Link
                   key={item.href}
                   href={item.href}
+                  onClick={() => onNavigate?.()}
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors cursor-pointer",
                     isActive

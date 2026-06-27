@@ -11,17 +11,18 @@ import { UserSwitcher } from "@/components/user/UserSwitcher";
 
 export function Header() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6">
-      <Sheet>
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetTrigger
           render={<Button variant="ghost" size="icon" className="md:hidden cursor-pointer" />}
         >
           <Menu className="h-5 w-5" />
         </SheetTrigger>
         <SheetContent side="left" className="w-64 p-0">
-          <MobileNav />
+          <MobileNav onNavigate={() => setSheetOpen(false)} />
         </SheetContent>
       </Sheet>
 
