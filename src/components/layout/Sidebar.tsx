@@ -122,7 +122,7 @@ export function Sidebar() {
         {/* Logo */}
         <div className="flex h-16 items-center gap-3 px-4 border-b border-[var(--sidebar-border)] shrink-0">
           <Image
-            src="/logo.svg"
+            src="/logo.png"
             alt="OLIWAN"
             width={38}
             height={38}

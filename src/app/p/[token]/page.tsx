@@ -73,7 +73,7 @@ export default function PublicProposalPage({
   if (error) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
-        <Image src="/logo.svg" alt="OLIWAN" width={64} height={64} className="rounded-xl mb-4 opacity-40" />
+        <Image src="/logo.png" alt="OLIWAN" width={64} height={64} className="rounded-xl mb-4 opacity-40" />
         <p className="text-gray-500 text-lg">{error}</p>
       </div>
     );
@@ -83,7 +83,7 @@ export default function PublicProposalPage({
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-4">
         <Image
-          src="/spinner-1.svg"
+          src="/spinner-1.png"
           alt="Cargando..."
           width={72}
           height={72}
@@ -106,7 +106,7 @@ export default function PublicProposalPage({
         {/* Header */}
         <div className="text-center space-y-2">
           <div className="inline-flex items-center gap-2 bg-black text-white text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
-            <Image src="/logo.svg" alt="OLIWAN" width={18} height={18} className="rounded-sm" />
+            <Image src="/logo.png" alt="OLIWAN" width={18} height={18} className="rounded-sm" />
             OLIWAN Agency
           </div>
           <h1 className="text-3xl font-bold text-gray-900">Propuesta para {clientName}</h1>

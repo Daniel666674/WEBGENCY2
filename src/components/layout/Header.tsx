@@ -26,7 +26,7 @@ export function Header() {
       </Sheet>
 
       <div className="hidden md:flex items-center gap-2 mr-2">
-        <Image src="/logo.svg" alt="OLIWAN" width={30} height={30} className="rounded-md" />
+        <Image src="/logo.png" alt="OLIWAN" width={30} height={30} className="rounded-md" />
         <span className="text-sm font-bold tracking-tight hidden lg:block">OLIWAN</span>
       </div>
 

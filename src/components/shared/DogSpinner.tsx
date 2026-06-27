@@ -10,7 +10,7 @@ export function DogSpinner({ size = "md", className = "" }: DogSpinnerProps) {
   return (
     <div className={`flex flex-col items-center justify-center gap-3 ${className}`}>
       <Image
-        src="/spinner-1.svg"
+        src="/spinner-1.png"
         alt="Cargando..."
         width={px}
         height={px}
@@ -25,7 +25,7 @@ export function DogSpinnerPage({ label }: { label?: string }) {
   return (
     <div className="min-h-[40vh] flex flex-col items-center justify-center gap-4">
       <Image
-        src="/spinner-1.svg"
+        src="/spinner-1.png"
         alt="Cargando..."
         width={88}
         height={88}
@@ -40,7 +40,7 @@ export function DogSpinnerPage({ label }: { label?: string }) {
 export function DogSpinnerInline() {
   return (
     <Image
-      src="/spinner-2.svg"
+      src="/spinner-2.png"
       alt="..."
       width={20}
       height={20}
