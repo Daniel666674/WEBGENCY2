@@ -58,7 +58,7 @@ export default function SolicitudesPage() {
   useEffect(() => { load(); }, []);
 
   async function add() {
-    if (!formProject || !formDesc.trim()) return;
+    if (!formDesc.trim()) return;
     setSaving(true);
     try {
       await fetch("/api/project-tasks", {
@@ -152,7 +152,7 @@ export default function SolicitudesPage() {
             onChange={(e) => setFormProject(e.target.value)}
             className="w-full text-sm border rounded-lg px-3 py-2 bg-background"
           >
-            <option value="">Selecciona un proyecto...</option>
+            <option value="">Sin proyecto (General)</option>
             {projects.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
@@ -182,7 +182,7 @@ export default function SolicitudesPage() {
           <div className="flex gap-2">
             <button
               onClick={add}
-              disabled={saving || !formDesc.trim() || !formProject}
+              disabled={saving || !formDesc.trim()}
               className="px-4 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium disabled:opacity-50"
             >
               {saving ? "Guardando..." : "Guardar"}

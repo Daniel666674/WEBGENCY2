@@ -3,6 +3,20 @@ import { db } from "@/db";
 import { projectTasks, users, projects } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 
+function getOrCreateGeneralProject(): string {
+  const existing = db.select({ id: projects.id }).from(projects)
+    .where(eq(projects.name, "General")).get();
+  if (existing) return existing.id;
+  const created = db.insert(projects).values({
+    name: "General",
+    status: "discovery",
+    budgetCents: 0,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }).returning({ id: projects.id }).get();
+  return created.id;
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const projectId = searchParams.get("projectId");
@@ -48,17 +62,16 @@ export async function POST(request: NextRequest) {
     const { projectId, type, description, assignedUserId, dueDate, status } =
       await request.json();
 
-    if (!projectId || !description) {
-      return NextResponse.json(
-        { error: "projectId y description requeridos" },
-        { status: 400 }
-      );
+    if (!description) {
+      return NextResponse.json({ error: "description requerida" }, { status: 400 });
     }
+
+    const resolvedProjectId = projectId || getOrCreateGeneralProject();
 
     const result = db
       .insert(projectTasks)
       .values({
-        projectId,
+        projectId: resolvedProjectId,
         type: type ?? "task",
         description,
         assignedUserId: assignedUserId || null,

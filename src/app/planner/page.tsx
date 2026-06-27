@@ -96,7 +96,7 @@ export default function PlannerPage() {
   useEffect(() => { reload(); }, []);
 
   async function quickAdd() {
-    if (!addProject || !addDesc.trim() || !selected) return;
+    if (!addDesc.trim() || !selected) return;
     setSaving(true);
     try {
       const [yr, mo, dy] = selected.split("-").map(Number);
@@ -356,7 +356,7 @@ export default function PlannerPage() {
                     onChange={(e) => setAddProject(e.target.value)}
                     className="w-full text-xs border rounded-lg px-2.5 py-1.5 bg-background"
                   >
-                    <option value="">Selecciona proyecto...</option>
+                    <option value="">Sin proyecto (General)</option>
                     {projects.map((p) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
@@ -372,7 +372,7 @@ export default function PlannerPage() {
                   />
                   <button
                     onClick={quickAdd}
-                    disabled={saving || !addDesc.trim() || !addProject}
+                    disabled={saving || !addDesc.trim()}
                     className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium disabled:opacity-50"
                   >
                     {saving ? "Guardando..." : "Guardar"}
