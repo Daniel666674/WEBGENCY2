@@ -33,7 +33,7 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([fetch("/api/revenue").then((r) => r.json()), new Promise((r) => setTimeout(r, 700))])
+    Promise.all([fetch("/api/revenue").then((r) => r.json()), new Promise((r) => setTimeout(r, 1800))])
       .then(([data]) => {
         setClients(data.activeClients || []);
         setLoading(false);

@@ -91,7 +91,7 @@ export default function ProposalsPage() {
     Promise.all([
       fetch("/api/proposals").then((r) => r.json()),
       fetch("/api/contacts").then((r) => r.json()),
-      new Promise((r) => setTimeout(r, 700)),
+      new Promise((r) => setTimeout(r, 1800)),
     ]).then(([props, conts]) => {
       setProposals(props);
       setContacts(conts);

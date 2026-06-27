@@ -48,7 +48,7 @@ export default function SolicitudesPage() {
     const [solRes, projRes] = await Promise.all([
       fetch("/api/project-tasks?type=solicitud"),
       fetch("/api/projects"),
-      new Promise((r) => setTimeout(r, 700)),
+      new Promise((r) => setTimeout(r, 1800)),
     ]);
     setItems(await solRes.json());
     setProjects(await projRes.json());

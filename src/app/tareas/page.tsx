@@ -54,7 +54,7 @@ export default function TareasPage() {
     const [tasksRes, projectsRes] = await Promise.all([
       fetch("/api/project-tasks?type=task"),
       fetch("/api/projects"),
-      new Promise((r) => setTimeout(r, 700)),
+      new Promise((r) => setTimeout(r, 1800)),
     ]);
     setTasks(await tasksRes.json());
     const proj = await projectsRes.json();

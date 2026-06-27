@@ -83,7 +83,7 @@ export default function PlannerPage() {
   const [saving, setSaving] = useState(false);
 
   function reload() {
-    Promise.all([fetch("/api/planner").then((r) => r.json()), new Promise((r) => setTimeout(r, 700))])
+    Promise.all([fetch("/api/planner").then((r) => r.json()), new Promise((r) => setTimeout(r, 1800))])
       .then(([d]) => {
         setProjects(d.projects ?? []);
         setMilestones(d.milestones ?? []);

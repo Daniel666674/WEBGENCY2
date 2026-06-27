@@ -93,9 +93,9 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Invisible trigger strip — 10px wide, full height, left edge */}
+      {/* Invisible trigger strip — desktop only, hidden on mobile to avoid touch bleed */}
       <div
-        className="fixed left-0 top-0 h-full w-[10px] z-50"
+        className="hidden md:block fixed left-0 top-0 h-full w-[10px] z-50"
         onMouseEnter={() => { cancelClose(); setOpen(true); }}
       />
 

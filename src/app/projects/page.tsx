@@ -33,7 +33,7 @@ export default function ProjectsPage() {
 
   async function load() {
     setLoading(true);
-    const [res] = await Promise.all([fetch("/api/projects"), new Promise((r) => setTimeout(r, 700))]);
+    const [res] = await Promise.all([fetch("/api/projects"), new Promise((r) => setTimeout(r, 1800))]);
     setProjects(await res.json());
     setLoading(false);
   }

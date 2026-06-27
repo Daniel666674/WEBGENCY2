@@ -37,7 +37,7 @@ export default function DealsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([fetch("/api/deals").then((r) => r.json()), new Promise((r) => setTimeout(r, 700))])
+    Promise.all([fetch("/api/deals").then((r) => r.json()), new Promise((r) => setTimeout(r, 1800))])
       .then(([data]) => {
         setDeals(data);
         setLoading(false);
