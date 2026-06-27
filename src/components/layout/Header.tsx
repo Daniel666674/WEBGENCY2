@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Search, Bell, Menu } from "lucide-react";
+import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -23,6 +24,11 @@ export function Header() {
           <MobileNav />
         </SheetContent>
       </Sheet>
+
+      <div className="hidden md:flex items-center gap-2 mr-2">
+        <Image src="/logo.svg" alt="OLIWAN" width={30} height={30} className="rounded-md" />
+        <span className="text-sm font-bold tracking-tight hidden lg:block">OLIWAN</span>
+      </div>
 
       <div className="flex-1 flex items-center gap-4">
         <div className="relative w-full max-w-md">

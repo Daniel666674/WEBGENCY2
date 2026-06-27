@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { DogSpinnerPage } from "@/components/shared/DogSpinner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/constants";
@@ -47,11 +48,7 @@ export default function ProposalsPage() {
       </div>
 
       {loading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 bg-muted rounded-lg animate-pulse" />
-          ))}
-        </div>
+        <DogSpinnerPage label="Cargando propuestas..." />
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { use } from "react";
+import Image from "next/image";
 import { formatCurrency } from "@/lib/constants";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Package, Zap, FileText, Globe } from "lucide-react";
+import { CheckCircle2, Package, Zap, FileText } from "lucide-react";
 
 interface ProposalData {
   id: string;
@@ -72,7 +73,7 @@ export default function PublicProposalPage({
   if (error) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
-        <Globe className="h-12 w-12 text-gray-300 mb-4" />
+        <Image src="/logo.svg" alt="OLIWAN" width={64} height={64} className="rounded-xl mb-4 opacity-40" />
         <p className="text-gray-500 text-lg">{error}</p>
       </div>
     );
@@ -80,8 +81,16 @@ export default function PublicProposalPage({
 
   if (!data) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-pulse text-gray-400 text-sm">Cargando propuesta...</div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-4">
+        <Image
+          src="/spinner-1.svg"
+          alt="Cargando..."
+          width={72}
+          height={72}
+          className="animate-spin"
+          style={{ animationDuration: "1.4s", animationTimingFunction: "linear" }}
+        />
+        <p className="text-sm text-gray-400">Cargando propuesta...</p>
       </div>
     );
   }
@@ -96,8 +105,9 @@ export default function PublicProposalPage({
 
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-2 bg-blue-600 text-white text-xs font-semibold px-3 py-1 rounded-full mb-4">
-            <Globe className="h-3 w-3" /> OLIWAN Agency
+          <div className="inline-flex items-center gap-2 bg-black text-white text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
+            <Image src="/logo.svg" alt="OLIWAN" width={18} height={18} className="rounded-sm" />
+            OLIWAN Agency
           </div>
           <h1 className="text-3xl font-bold text-gray-900">Propuesta para {clientName}</h1>
           <p className="text-gray-500">Plan: {data.planName}</p>

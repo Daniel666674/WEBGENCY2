@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { ContactsTable } from "@/components/contacts/ContactsTable";
 import { ContactForm } from "@/components/contacts/ContactForm";
 import { Button } from "@/components/ui/button";
+import { DogSpinnerPage } from "@/components/shared/DogSpinner";
 import { Plus } from "lucide-react";
 import type { Contact } from "@/types";
 
@@ -46,11 +47,7 @@ export default function ContactsPage() {
       </div>
 
       {loading ? (
-        <div className="space-y-3">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-16 bg-muted rounded-lg animate-pulse" />
-          ))}
-        </div>
+        <DogSpinnerPage label="Cargando contactos..." />
       ) : (
         <ContactsTable contacts={contacts} />
       )}

@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import {
   LayoutDashboard,
   Users,
@@ -11,7 +12,6 @@ import {
   Settings,
   Briefcase,
   DollarSign,
-  Zap,
   TrendingUp,
   FileText,
   Package,
@@ -120,8 +120,14 @@ export function Sidebar() {
         onMouseLeave={scheduleClose}
       >
         {/* Logo */}
-        <div className="flex h-16 items-center gap-2 px-6 border-b border-[var(--sidebar-border)] shrink-0">
-          <Zap className="h-5 w-5 text-[var(--sidebar-primary)]" />
+        <div className="flex h-16 items-center gap-3 px-4 border-b border-[var(--sidebar-border)] shrink-0">
+          <Image
+            src="/logo.svg"
+            alt="OLIWAN"
+            width={38}
+            height={38}
+            className="rounded-lg shrink-0"
+          />
           <span className="text-xl font-bold tracking-tight">OLIWAN</span>
         </div>
 

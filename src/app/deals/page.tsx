@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { DogSpinnerPage } from "@/components/shared/DogSpinner";
 import {
   Table,
   TableBody,
@@ -70,11 +71,7 @@ export default function DealsPage() {
       </div>
 
       {loading ? (
-        <div className="space-y-3">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-16 bg-muted rounded-lg animate-pulse" />
-          ))}
-        </div>
+        <DogSpinnerPage label="Cargando deals..." />
       ) : deals.length === 0 ? (
         <EmptyState
           icon={Briefcase}

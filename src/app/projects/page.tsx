@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { DogSpinnerPage } from "@/components/shared/DogSpinner";
 import { ProjectCard, PROJECT_STATUS_CONFIG } from "@/components/projects/ProjectCard";
 import { Plus, LayoutGrid, List, FolderKanban } from "lucide-react";
 import { toast } from "sonner";
@@ -121,7 +122,7 @@ export default function ProjectsPage() {
       )}
 
       {loading ? (
-        <div className="text-center py-12 text-muted-foreground text-sm">Cargando...</div>
+        <DogSpinnerPage label="Cargando proyectos..." />
       ) : view === "kanban" ? (
         <KanbanView projects={projects} onRefresh={load} />
       ) : (
