@@ -6,6 +6,7 @@ import { Header } from "@/components/layout/Header";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { NotificationChecker } from "@/components/shared/NotificationChecker";
+import { ServiceWorkerRegister } from "@/components/shared/ServiceWorkerRegister";
 import { AlertBanner } from "@/components/shared/AlertBanner";
 import { UserProvider } from "@/context/UserContext";
 import { GlitterOverlay } from "@/components/user/GlitterOverlay";
@@ -60,6 +61,7 @@ export default function RootLayout({
             </div>
             <Toaster />
             <NotificationChecker />
+            <ServiceWorkerRegister />
           </UserProvider>
         </TooltipProvider>
       </body>

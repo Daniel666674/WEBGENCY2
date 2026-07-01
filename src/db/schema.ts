@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, primaryKey } from "drizzle-orm/sqlite-core";
 
 export const contacts = sqliteTable("contacts", {
   id: text("id")
@@ -131,10 +131,73 @@ export const users = sqliteTable("users", {
   color: text("color").notNull().default("#0d9a8a"),
   isHers: integer("is_hers", { mode: "boolean" }).notNull().default(false),
   avatar: text("avatar"),
+  // Auth.js required columns (DrizzleAdapter)
+  email: text("email").unique(),
+  emailVerified: integer("email_verified", { mode: "timestamp" }),
+  image: text("image"),
+  role: text("role").notNull().default("member"), // "owner" | "member"
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
 });
+
+// --- Auth.js (NextAuth v5) required tables — DrizzleAdapter + WebAuthn ---
+
+export const accounts = sqliteTable(
+  "accounts",
+  {
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    provider: text("provider").notNull(),
+    providerAccountId: text("providerAccountId").notNull(),
+    refresh_token: text("refresh_token"),
+    access_token: text("access_token"),
+    expires_at: integer("expires_at"),
+    token_type: text("token_type"),
+    scope: text("scope"),
+    id_token: text("id_token"),
+    session_state: text("session_state"),
+  },
+  (account) => [primaryKey({ columns: [account.provider, account.providerAccountId] })]
+);
+
+export const sessions = sqliteTable("sessions", {
+  sessionToken: text("sessionToken").primaryKey(),
+  userId: text("userId")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  expires: integer("expires", { mode: "timestamp" }).notNull(),
+});
+
+export const verificationTokens = sqliteTable(
+  "verificationTokens",
+  {
+    identifier: text("identifier").notNull(),
+    token: text("token").notNull(),
+    expires: integer("expires", { mode: "timestamp" }).notNull(),
+  },
+  (vt) => [primaryKey({ columns: [vt.identifier, vt.token] })]
+);
+
+// WebAuthn credentials (Face ID / Touch ID) — same table shape Auth.js's WebAuthn provider expects
+export const authenticators = sqliteTable(
+  "authenticators",
+  {
+    credentialID: text("credentialID").notNull().unique(),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    providerAccountId: text("providerAccountId").notNull(),
+    credentialPublicKey: text("credentialPublicKey").notNull(),
+    counter: integer("counter").notNull(),
+    credentialDeviceType: text("credentialDeviceType").notNull(),
+    credentialBackedUp: integer("credentialBackedUp", { mode: "boolean" }).notNull(),
+    transports: text("transports"),
+  },
+  (authr) => [primaryKey({ columns: [authr.userId, authr.credentialID] })]
+);
 
 export const crmSettings = sqliteTable("crm_settings", {
   key: text("key").primaryKey(),
