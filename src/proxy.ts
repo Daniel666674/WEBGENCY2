@@ -1,17 +1,22 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-// Auth is gated behind AUTH_ENABLED so the app keeps working exactly as
-// today until Google OAuth credentials exist and this is flipped on.
+// Real auth is gated behind AUTH_ENABLED so the app keeps working exactly
+// as today until Google OAuth credentials exist and this is flipped on.
 // Once enabled, this only checks for the session cookie (edge-safe) —
 // full session/DB verification happens server-side via auth() in layout.tsx.
+//
+// Until then, a lightweight "demo session" cookie gates the app instead —
+// this simulates the real login flow (see the login page) without needing
+// real credentials, so the experience of landing on login first is real today.
 const SESSION_COOKIE_NAMES = ["authjs.session-token", "__Secure-authjs.session-token"];
+const DEMO_COOKIE = "oliwan-demo-session";
 
-export function middleware(request: NextRequest) {
-  if (process.env.AUTH_ENABLED !== "true") {
-    return NextResponse.next();
-  }
+export function proxy(request: NextRequest) {
+  const authEnabled = process.env.AUTH_ENABLED === "true";
+  const hasSession = authEnabled
+    ? SESSION_COOKIE_NAMES.some((name) => request.cookies.has(name))
+    : request.cookies.has(DEMO_COOKIE);
 
-  const hasSession = SESSION_COOKIE_NAMES.some((name) => request.cookies.has(name));
   if (!hasSession) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("callbackUrl", request.nextUrl.pathname);
