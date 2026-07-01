@@ -10,6 +10,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { ContactForm } from "./ContactForm";
 import { ActivityForm } from "@/components/activities/ActivityForm";
 import { AttachmentsTab } from "./AttachmentsTab";
+import { AnalyticsTab } from "./AnalyticsTab";
 import {
   ArrowLeft,
   Mail,
@@ -191,6 +192,7 @@ export function ContactDetailClient({
           <TabsTrigger value="deals" className="cursor-pointer">Deals ({deals.length})</TabsTrigger>
           <TabsTrigger value="activities" className="cursor-pointer">Actividades ({activities.length})</TabsTrigger>
           <TabsTrigger value="payments" className="cursor-pointer">Pagos</TabsTrigger>
+          <TabsTrigger value="analytics" className="cursor-pointer">Analiticas</TabsTrigger>
           <TabsTrigger value="attachments" className="cursor-pointer">Archivos</TabsTrigger>
         </TabsList>
 
@@ -426,6 +428,11 @@ export function ContactDetailClient({
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* ANALYTICS TAB */}
+        <TabsContent value="analytics">
+          <AnalyticsTab contactId={contact.id} />
         </TabsContent>
 
         {/* ATTACHMENTS TAB */}

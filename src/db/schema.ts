@@ -303,3 +303,22 @@ export const auditLogs = sqliteTable("audit_logs", {
     .notNull()
     .$defaultFn(() => new Date()),
 });
+
+export const analyticsProperties = sqliteTable("analytics_properties", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  contactId: text("contact_id")
+    .notNull()
+    .unique()
+    .references(() => contacts.id, { onDelete: "cascade" }),
+  ga4PropertyId: text("ga4_property_id"),
+  ga4MeasurementId: text("ga4_measurement_id"),
+  gscSiteUrl: text("gsc_site_url"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
