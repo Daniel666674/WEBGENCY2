@@ -43,8 +43,8 @@ export default async function LoginPage({
           "radial-gradient(120% 90% at 50% 15%, #163832 0%, #0f2420 45%, #081714 100%)",
       }}
     >
-      {/* Ambient decoration — oversized, faint, slowly rotating dog silhouette */}
-      <div className="pointer-events-none absolute -top-1/4 left-1/2 -translate-x-1/2 opacity-[0.06]">
+      {/* Ambient decoration — oversized, faint, slowly rotating dog silhouette, dead-centered behind the card */}
+      <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.06]">
         <Image
           src="/spinner-1.png"
           alt=""
