@@ -37,6 +37,9 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
         .flatMap((col) => col.deals)
         .find((d) => d.id === activeId)
     : null;
+  const activeColumn = activeId
+    ? columns.find((col) => col.deals.some((d) => d.id === activeId))
+    : null;
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -163,6 +166,8 @@ export function KanbanBoard({ initialColumns }: KanbanBoardProps) {
               (activeDeal.contact?.temperature ?? null)
             }
             probability={activeDeal.probability}
+            stageColor={activeColumn?.color}
+            isOverlay
           />
         ) : null}
       </DragOverlay>

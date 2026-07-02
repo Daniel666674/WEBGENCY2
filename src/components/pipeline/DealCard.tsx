@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { formatCurrency } from "@/lib/constants";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { cn } from "@/lib/utils";
 import type { Temperature } from "@/types";
 
 interface DealCardProps {
@@ -14,6 +15,8 @@ interface DealCardProps {
   contactName: string | null;
   contactTemperature: string | null;
   probability: number;
+  stageColor?: string;
+  isOverlay?: boolean;
 }
 
 export function DealCard({
@@ -23,6 +26,8 @@ export function DealCard({
   contactName,
   contactTemperature,
   probability,
+  stageColor,
+  isOverlay = false,
 }: DealCardProps) {
   const {
     attributes,
@@ -36,7 +41,8 @@ export function DealCard({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.4 : 1,
+    borderLeft: stageColor ? `3px solid ${stageColor}` : undefined,
   };
 
   return (
@@ -45,7 +51,12 @@ export function DealCard({
       style={style}
       {...attributes}
       {...listeners}
-      className="p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
+      className={cn(
+        "p-3 cursor-grab active:cursor-grabbing transition-all",
+        isOverlay
+          ? "shadow-2xl rotate-3 scale-105 cursor-grabbing"
+          : "hover:shadow-md"
+      )}
     >
       <div className="space-y-2">
         <p className="text-sm font-medium leading-tight">{title}</p>
