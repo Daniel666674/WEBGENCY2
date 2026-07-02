@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Check, Plus, Trash2, Calendar, Circle, MessageSquare, X, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { DogSpinnerPage } from "@/components/shared/DogSpinner";
+import { StatTile } from "@/components/shared/StatTile";
 
 interface Solicitud {
   id: string;
@@ -113,6 +114,8 @@ export default function SolicitudesPage() {
   );
 
   const totalOpen = items.filter((s) => s.status !== "done").length;
+  const totalInReview = items.filter((s) => s.status === "in_progress").length;
+  const totalResolved = items.filter((s) => s.status === "done").length;
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
@@ -136,6 +139,15 @@ export default function SolicitudesPage() {
           <Plus className="h-4 w-4" /> Nueva solicitud
         </button>
       </div>
+
+      {/* Stats */}
+      {!loading && items.length > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          <StatTile icon={MessageSquare} label="Total" value={items.length} color="primary" highlight />
+          <StatTile icon={Circle} label="En revision" value={totalInReview} color="amber" />
+          <StatTile icon={Check} label="Resueltas" value={totalResolved} color="green" />
+        </div>
+      )}
 
       {/* Add form */}
       {adding && (
@@ -224,6 +236,14 @@ export default function SolicitudesPage() {
           <p className="text-sm">
             {items.length === 0 ? "Sin solicitudes todavía." : "Sin solicitudes con este filtro."}
           </p>
+          {items.length === 0 && (
+            <button
+              onClick={() => setAdding(true)}
+              className="mt-3 text-sm text-primary underline underline-offset-2"
+            >
+              Crea la primera solicitud
+            </button>
+          )}
         </div>
       )}
 

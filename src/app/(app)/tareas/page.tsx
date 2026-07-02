@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Check, Plus, Trash2, Calendar, Circle, ClipboardList, X, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { DogSpinnerPage } from "@/components/shared/DogSpinner";
+import { StatTile } from "@/components/shared/StatTile";
 
 interface Task {
   id: string;
@@ -128,6 +129,8 @@ export default function TareasPage() {
   );
 
   const totalPending = tasks.filter((t) => t.status !== "done").length;
+  const totalInProgress = tasks.filter((t) => t.status === "in_progress").length;
+  const totalDone = tasks.filter((t) => t.status === "done").length;
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
@@ -151,6 +154,15 @@ export default function TareasPage() {
           <Plus className="h-4 w-4" /> Nueva tarea
         </button>
       </div>
+
+      {/* Stats */}
+      {!loading && tasks.length > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          <StatTile icon={ClipboardList} label="Total" value={tasks.length} color="primary" highlight />
+          <StatTile icon={Circle} label="En progreso" value={totalInProgress} color="amber" />
+          <StatTile icon={Check} label="Completadas" value={totalDone} color="green" />
+        </div>
+      )}
 
       {/* Add form */}
       {adding && (
@@ -296,8 +308,16 @@ export default function TareasPage() {
         <div className="text-center py-16 text-muted-foreground">
           <ClipboardList className="h-10 w-10 mx-auto mb-3 opacity-30" />
           <p className="text-sm">
-            {tasks.length === 0 ? "Sin tareas todavía. Crea la primera." : "Sin tareas con estos filtros."}
+            {tasks.length === 0 ? "Sin tareas todavía." : "Sin tareas con estos filtros."}
           </p>
+          {tasks.length === 0 && (
+            <button
+              onClick={() => setAdding(true)}
+              className="mt-3 text-sm text-primary underline underline-offset-2"
+            >
+              Crea la primera tarea
+            </button>
+          )}
         </div>
       )}
 
