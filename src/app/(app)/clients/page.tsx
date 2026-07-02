@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { formatCurrency, formatDate, CLIENT_STATUS_CONFIG } from "@/lib/constants";
 import { UserCheck, DollarSign, Calendar } from "lucide-react";
+import { EmptyState } from "@/components/shared/EmptyState";
 import type { ClientStatus } from "@/types";
 
 interface Client {
@@ -93,9 +94,11 @@ export default function ClientsPage() {
             </CardHeader>
             <CardContent>
               {clients.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  No hay clientes activos. Cambia el status de un contacto a &quot;Cliente activo&quot; para verlo aqui.
-                </p>
+                <EmptyState
+                  icon={UserCheck}
+                  title="Sin clientes activos"
+                  description='Cambia el status de un contacto a "Cliente activo" para verlo aqui.'
+                />
               ) : (
                 <div className="rounded-lg border">
                   <Table>

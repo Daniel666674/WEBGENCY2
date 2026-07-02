@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/constants";
 import { TrendingUp, Target, DollarSign, Calendar } from "lucide-react";
+import { DogSpinnerPage } from "@/components/shared/DogSpinner";
 
 interface Deal {
   id: string;
@@ -21,9 +22,11 @@ export default function ForecastPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/deals")
-      .then((r) => r.json())
-      .then((data) => {
+    Promise.all([
+      fetch("/api/deals").then((r) => r.json()),
+      new Promise((r) => setTimeout(r, 1800)),
+    ])
+      .then(([data]) => {
         setDeals(data);
         setLoading(false);
       })
@@ -46,11 +49,7 @@ export default function ForecastPage() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-28 bg-muted rounded-lg animate-pulse" />
-          ))}
-        </div>
+        <DogSpinnerPage label="Cargando forecast..." />
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

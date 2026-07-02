@@ -47,7 +47,7 @@ export function HotLeadCards({ leads }: { leads: HotLead[] }) {
           <Link
             key={lead.id}
             href={`/contacts/${lead.id}`}
-            className="shrink-0 w-56 rounded-xl border bg-card hover:border-primary/40 hover:shadow-sm transition-all p-4 flex flex-col gap-3 group cursor-pointer"
+            className="shrink-0 w-56 rounded-xl bg-card ring-1 ring-foreground/10 transition-all duration-200 hover:shadow-md hover:shadow-primary/5 hover:ring-primary/15 hover:-translate-y-0.5 p-4 flex flex-col gap-3 group cursor-pointer"
           >
             {/* Top: name + temp dot */}
             <div className="flex items-start justify-between gap-2">

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FolderKanban, Calendar, AlertCircle } from "lucide-react";
 import { PROJECT_STATUS_CONFIG } from "@/components/projects/ProjectCard";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface ProjectSummary {
   id: string;
@@ -22,7 +23,8 @@ export function ActiveProjects({ projects }: { projects: ProjectSummary[] }) {
   });
 
   return (
-    <div className="bg-card border rounded-xl p-4 space-y-3">
+    <Card>
+      <CardContent className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold flex items-center gap-1.5">
           <FolderKanban className="h-4 w-4 text-primary" />
@@ -88,6 +90,7 @@ export function ActiveProjects({ projects }: { projects: ProjectSummary[] }) {
           );
         })}
       </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

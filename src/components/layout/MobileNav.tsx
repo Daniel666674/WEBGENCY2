@@ -72,7 +72,13 @@ export function MobileNav({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex flex-col h-full bg-[var(--sidebar)] text-[var(--sidebar-foreground)]">
       <div className="flex h-16 items-center gap-3 px-4 border-b border-[var(--sidebar-border)]">
-        <Image src="/logo.png" alt="OLIWAN" width={36} height={36} className="rounded-lg shrink-0" />
+        <div className="relative shrink-0">
+          <div
+            className="absolute inset-0 rounded-lg blur-md opacity-60"
+            style={{ backgroundColor: "var(--sidebar-primary)", animation: "oliwan-pulse 3.2s ease-in-out infinite" }}
+          />
+          <Image src="/logo.png" alt="OLIWAN" width={36} height={36} className="relative rounded-lg" />
+        </div>
         <span className="text-lg font-bold tracking-tight">OLIWAN</span>
       </div>
 

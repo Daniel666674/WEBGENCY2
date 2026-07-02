@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/constants";
 import { Package, Check, Clock } from "lucide-react";
+import { DogSpinnerPage } from "@/components/shared/DogSpinner";
+import { EmptyState } from "@/components/shared/EmptyState";
 
 interface Proposal {
   id: string;
@@ -21,9 +23,11 @@ export default function DeliverablesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/proposals")
-      .then((r) => r.json())
-      .then((data) => {
+    Promise.all([
+      fetch("/api/proposals").then((r) => r.json()),
+      new Promise((r) => setTimeout(r, 1800)),
+    ])
+      .then(([data]) => {
         setProposals(data.filter((p: Proposal) => p.deliverables.length > 0));
         setLoading(false);
       })
@@ -42,11 +46,7 @@ export default function DeliverablesPage() {
       </div>
 
       {loading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 bg-muted rounded-lg animate-pulse" />
-          ))}
-        </div>
+        <DogSpinnerPage label="Cargando entregables..." />
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -74,13 +74,11 @@ export default function DeliverablesPage() {
           </div>
 
           {proposals.length === 0 ? (
-            <Card>
-              <CardContent className="py-12">
-                <p className="text-sm text-muted-foreground text-center">
-                  No hay entregables. Agrega deliverables a las propuestas desde el detalle de un contacto.
-                </p>
-              </CardContent>
-            </Card>
+            <EmptyState
+              icon={Package}
+              title="Sin entregables"
+              description="Agrega deliverables a las propuestas desde el detalle de un contacto."
+            />
           ) : (
             <div className="space-y-4">
               {proposals.map((p) => (

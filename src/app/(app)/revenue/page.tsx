@@ -25,6 +25,7 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/constants";
+import { EmptyState } from "@/components/shared/EmptyState";
 
 interface ActiveClient {
   id: string;
@@ -187,9 +188,7 @@ export default function RevenuePage() {
           </CardHeader>
           <CardContent className="p-0">
             {data.activeClients.length === 0 ? (
-              <div className="px-4 pb-4 text-sm text-muted-foreground">
-                No hay clientes activos todavia.
-              </div>
+              <EmptyState icon={Users} title="Sin clientes activos" description="Todavia no hay clientes activos." />
             ) : (
               <div className="overflow-x-auto">
                 <Table>

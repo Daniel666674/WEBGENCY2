@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { DogSpinnerPage } from "@/components/shared/DogSpinner";
 import { ActivityForm } from "@/components/activities/ActivityForm";
 import {
   Phone,
@@ -57,6 +58,7 @@ export default function ActivitiesPage() {
     Promise.all([
       fetch("/api/activities").then((r) => r.json()),
       fetch("/api/followups").then((r) => r.json()),
+      new Promise((r) => setTimeout(r, 1800)),
     ]).then(([acts, fups]) => {
       setActivities(acts);
       setFollowUps(fups);
@@ -74,11 +76,7 @@ export default function ActivitiesPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Actividades</h1>
         </div>
-        <div className="space-y-3">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-20 bg-muted rounded-lg animate-pulse" />
-          ))}
-        </div>
+        <DogSpinnerPage label="Cargando actividades..." />
       </div>
     );
   }

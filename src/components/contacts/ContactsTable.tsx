@@ -101,6 +101,13 @@ export function ContactsTable({ contacts }: ContactsTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
+            {filtered.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-10 text-sm text-muted-foreground">
+                  Sin resultados para esta busqueda o filtro.
+                </TableCell>
+              </TableRow>
+            )}
             {filtered.map((contact) => (
               <TableRow
                 key={contact.id}

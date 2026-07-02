@@ -32,7 +32,7 @@ export function NotificationBanner() {
     <div className="space-y-2">
       {overdueCount > 0 && (
         <Link href="/activities" className="block">
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-red-50 border border-red-200 hover:bg-red-100 transition-colors cursor-pointer">
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-red-50 border border-red-200 transition-all duration-200 hover:shadow-md hover:shadow-red-500/10 hover:border-red-300 hover:-translate-y-0.5 cursor-pointer">
             <AlertCircle className="h-5 w-5 text-red-600 shrink-0" />
             <div className="flex-1">
               <p className="text-sm font-medium text-red-800">
@@ -49,7 +49,7 @@ export function NotificationBanner() {
 
       {todayCount > 0 && (
         <Link href="/activities" className="block">
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-orange-50 border border-orange-200 hover:bg-orange-100 transition-colors cursor-pointer">
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-orange-50 border border-orange-200 transition-all duration-200 hover:shadow-md hover:shadow-orange-500/10 hover:border-orange-300 hover:-translate-y-0.5 cursor-pointer">
             <Clock className="h-5 w-5 text-orange-600 shrink-0" />
             <div className="flex-1">
               <p className="text-sm font-medium text-orange-800">
