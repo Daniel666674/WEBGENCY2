@@ -11,6 +11,7 @@ import { ContactForm } from "./ContactForm";
 import { ActivityForm } from "@/components/activities/ActivityForm";
 import { AttachmentsTab } from "./AttachmentsTab";
 import { AnalyticsTab } from "./AnalyticsTab";
+import { EntityAvatar } from "@/components/shared/EntityAvatar";
 import {
   ArrowLeft,
   Mail,
@@ -140,6 +141,7 @@ export function ContactDetailClient({
         <Button variant="ghost" size="icon" onClick={() => router.push("/contacts")} className="cursor-pointer">
           <ArrowLeft className="h-5 w-5" />
         </Button>
+        <EntityAvatar name={contact.name} size="md" />
         <div className="flex-1">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold">{contact.name}</h1>

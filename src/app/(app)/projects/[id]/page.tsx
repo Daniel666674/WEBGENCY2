@@ -10,12 +10,13 @@ import { ProjectCalendar } from "@/components/projects/ProjectCalendar";
 import { PROJECT_STATUS_CONFIG } from "@/components/projects/ProjectCard";
 import { formatCurrency } from "@/lib/constants";
 import {
-  ArrowLeft, FolderKanban, Calendar, ExternalLink,
+  ArrowLeft, Calendar, ExternalLink,
   Plus, Milestone, CreditCard, Edit2, Check, X, Paperclip,
   ClipboardList, MessageSquare
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { EntityAvatar } from "@/components/shared/EntityAvatar";
 
 const STATUSES = ["discovery", "design", "dev", "launched", "paused"] as const;
 
@@ -136,8 +137,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       <div className="bg-card border rounded-xl p-5 space-y-4">
         {/* Name + status */}
         <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-2 flex-1">
-            <FolderKanban className="h-5 w-5 text-primary shrink-0" />
+          <div className="flex items-center gap-3 flex-1">
+            <EntityAvatar name={project.name} size="sm" />
             {editingName ? (
               <div className="flex items-center gap-2 flex-1">
                 <input
