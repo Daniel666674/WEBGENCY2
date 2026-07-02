@@ -289,8 +289,8 @@ export default function SettingsPage() {
 
             {/* Her purple presets */}
             <div>
-              <p className="text-sm font-semibold mb-1">Morado de Mi Amor (noche)</p>
-              <p className="text-xs text-muted-foreground mb-3">Color primario para el perfil de ella en modo nocturno</p>
+              <p className="text-sm font-semibold mb-1">Morado de Daniela G. (noche)</p>
+              <p className="text-xs text-muted-foreground mb-3">Color primario para el perfil de Daniela G. en modo nocturno</p>
               <div className="flex flex-wrap gap-2 mb-3">
                 {HER_PURPLE_PRESETS.map((p) => (
                   <button

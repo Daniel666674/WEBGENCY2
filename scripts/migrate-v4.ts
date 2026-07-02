@@ -21,7 +21,7 @@ if (existing.cnt === 0) {
   db.prepare(`INSERT INTO users (id, name, color, is_hers, avatar, created_at) VALUES (?, ?, ?, ?, ?, ?)`)
     .run(randomUUID(), "Daniel", "#0d9a8a", 0, "D", now);
   db.prepare(`INSERT INTO users (id, name, color, is_hers, avatar, created_at) VALUES (?, ?, ?, ?, ?, ?)`)
-    .run(randomUUID(), "Mi Amor", "#e879a0", 1, "♡", now);
+    .run(randomUUID(), "Daniela G.", "#e879a0", 1, "♡", now);
   console.log("Seeded 2 users.");
 }
 
