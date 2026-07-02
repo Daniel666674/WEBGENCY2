@@ -121,13 +121,19 @@ export function Sidebar() {
       >
         {/* Logo */}
         <div className="flex h-16 items-center gap-3 px-4 border-b border-[var(--sidebar-border)] shrink-0">
-          <Image
-            src="/logo.png"
-            alt="OLIWAN"
-            width={38}
-            height={38}
-            className="rounded-lg shrink-0"
-          />
+          <div className="relative shrink-0">
+            <div
+              className="absolute inset-0 rounded-lg blur-md opacity-60"
+              style={{ backgroundColor: "var(--sidebar-primary)", animation: "oliwan-pulse 3.2s ease-in-out infinite" }}
+            />
+            <Image
+              src="/logo.png"
+              alt="OLIWAN"
+              width={38}
+              height={38}
+              className="relative rounded-lg"
+            />
+          </div>
           <span className="text-xl font-bold tracking-tight">OLIWAN</span>
         </div>
 

@@ -14,8 +14,12 @@ interface MRRHeroProps {
 
 export function MRRHero({ mrr, arr, activeClients, conversionRate, overdueFollowups }: MRRHeroProps) {
   return (
-    <Card className="h-full border-primary/20 bg-gradient-to-b from-primary/8 to-primary/3 flex flex-col">
-      <CardContent className="flex flex-col h-full p-6 gap-6">
+    <Card className="h-full border-primary/20 bg-gradient-to-b from-primary/8 to-primary/3 flex flex-col relative overflow-hidden">
+      <div
+        className="pointer-events-none absolute -top-10 -left-10 w-40 h-40 rounded-full blur-3xl opacity-25"
+        style={{ backgroundColor: "var(--primary)" }}
+      />
+      <CardContent className="flex flex-col h-full p-6 gap-6 relative">
         {/* Main MRR */}
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-primary/70 mb-1">

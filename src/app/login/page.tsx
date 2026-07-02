@@ -127,13 +127,6 @@ export default async function LoginPage({
           © {new Date().getFullYear()} OLIWAN Agency
         </p>
       </div>
-
-      <style>{`
-        @keyframes oliwan-pulse {
-          0%, 100% { opacity: 0.5; transform: scale(0.96); }
-          50% { opacity: 0.85; transform: scale(1.06); }
-        }
-      `}</style>
     </div>
   );
 }

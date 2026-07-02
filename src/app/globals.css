@@ -282,3 +282,9 @@ body[data-hers="true"] .hover\:border-primary\/40:hover {
   transform: translateY(-2px);
   transition: all 0.25s ease;
 }
+
+/* OLIWAN logo glow — used on Sidebar, Header, MRRHero, login */
+@keyframes oliwan-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(0.96); }
+  50%      { opacity: 0.85; transform: scale(1.06); }
+}
