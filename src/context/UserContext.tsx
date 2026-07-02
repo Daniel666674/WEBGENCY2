@@ -14,6 +14,7 @@ interface UserContextValue {
   users: AppUser[];
   activeUser: AppUser | null;
   switchUser: (id: string) => void;
+  refetchUsers: () => Promise<void>;
   loading: boolean;
 }
 
@@ -21,6 +22,7 @@ const UserContext = createContext<UserContextValue>({
   users: [],
   activeUser: null,
   switchUser: () => {},
+  refetchUsers: async () => {},
   loading: true,
 });
 
@@ -31,18 +33,21 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [activeUser, setActiveUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetch("/api/users")
-      .then((r) => r.json())
-      .then((data: AppUser[]) => {
-        setUsers(data);
-        const savedId = localStorage.getItem(STORAGE_KEY);
-        const found = data.find((u) => u.id === savedId) ?? data[0] ?? null;
-        setActiveUser(found);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+  const load = useCallback(async () => {
+    const data: AppUser[] = await fetch("/api/users").then((r) => r.json());
+    setUsers(data);
+    setActiveUser((current) => {
+      const savedId = current?.id ?? localStorage.getItem(STORAGE_KEY);
+      return data.find((u) => u.id === savedId) ?? data[0] ?? null;
+    });
+    return data;
   }, []);
+
+  useEffect(() => {
+    load()
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [load]);
 
   const switchUser = useCallback(
     (id: string) => {
@@ -54,8 +59,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     [users]
   );
 
+  const refetchUsers = useCallback(async () => {
+    await load();
+  }, [load]);
+
   return (
-    <UserContext.Provider value={{ users, activeUser, switchUser, loading }}>
+    <UserContext.Provider value={{ users, activeUser, switchUser, refetchUsers, loading }}>
       {children}
     </UserContext.Provider>
   );
