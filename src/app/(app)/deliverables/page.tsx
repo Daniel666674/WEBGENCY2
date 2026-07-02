@@ -8,6 +8,7 @@ import { formatDate } from "@/lib/constants";
 import { Package, Check, Clock } from "lucide-react";
 import { DogSpinnerPage } from "@/components/shared/DogSpinner";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { StatTile } from "@/components/shared/StatTile";
 
 interface Proposal {
   id: string;
@@ -50,27 +51,20 @@ export default function DeliverablesPage() {
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
-                  <Package className="h-4 w-4" /> Total Entregables
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{allDeliverables.length}</div>
-                <p className="text-xs text-muted-foreground">En {proposals.length} propuestas</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
-                  <Clock className="h-4 w-4" /> Propuestas con Entregables
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{proposals.length}</div>
-              </CardContent>
-            </Card>
+            <StatTile
+              icon={Package}
+              label="Total Entregables"
+              value={allDeliverables.length}
+              subtext={`En ${proposals.length} propuestas`}
+              color="primary"
+              highlight
+            />
+            <StatTile
+              icon={Clock}
+              label="Propuestas con Entregables"
+              value={proposals.length}
+              color="amber"
+            />
           </div>
 
           {proposals.length === 0 ? (

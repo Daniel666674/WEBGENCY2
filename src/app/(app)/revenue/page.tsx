@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/constants";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { StatTile } from "@/components/shared/StatTile";
 
 interface ActiveClient {
   id: string;
@@ -124,24 +125,29 @@ export default function RevenuePage() {
       value: formatCurrency(data.mrr),
       icon: DollarSign,
       description: "Ingreso mensual recurrente",
+      color: "primary" as const,
+      highlight: true,
     },
     {
       title: "ARR",
       value: formatCurrency(data.arr),
       icon: TrendingUp,
       description: "Ingreso anual recurrente",
+      color: "green" as const,
     },
     {
       title: "Pipeline (Ponderado)",
       value: formatCurrency(data.weightedPipeline),
       icon: TrendingUp,
       description: `Total pipeline: ${formatCurrency(data.pipelineValue)}`,
+      color: "purple" as const,
     },
     {
       title: "Clientes Activos",
       value: String(data.activeClientsCount),
       icon: Users,
       description: "Clientes con pagos activos",
+      color: "amber" as const,
     },
   ];
 
@@ -162,20 +168,15 @@ export default function RevenuePage() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((kpi) => (
-          <Card key={kpi.title}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {kpi.title}
-              </CardTitle>
-              <kpi.icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{kpi.value}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {kpi.description}
-              </p>
-            </CardContent>
-          </Card>
+          <StatTile
+            key={kpi.title}
+            icon={kpi.icon}
+            label={kpi.title}
+            value={kpi.value}
+            subtext={kpi.description}
+            color={kpi.color}
+            highlight={kpi.highlight}
+          />
         ))}
       </div>
 

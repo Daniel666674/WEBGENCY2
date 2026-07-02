@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Calendar, DollarSign, Percent, FileText } from "lucide-react";
 import { formatCurrency, formatDate, formatRelativeDate } from "@/lib/constants";
 import { ACTIVITY_TYPE_CONFIG } from "@/lib/constants";
+import { StatTile } from "@/components/shared/StatTile";
+import { EntityAvatar } from "@/components/shared/EntityAvatar";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +51,7 @@ export default async function DealDetailPage({
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
+        <EntityAvatar name={deal.title} size="sm" />
         <div className="flex-1">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold">{deal.title}</h1>
@@ -73,48 +76,15 @@ export default async function DealDetailPage({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-              <DollarSign className="h-4 w-4" />
-              Valor
-            </div>
-            <p className="text-xl font-bold text-primary">
-              {formatCurrency(deal.value)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-              <Percent className="h-4 w-4" />
-              Probabilidad
-            </div>
-            <p className="text-xl font-bold">{deal.probability}%</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-              <Calendar className="h-4 w-4" />
-              Cierre estimado
-            </div>
-            <p className="text-xl font-bold">
-              {formatDate(deal.expectedClose)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-              <DollarSign className="h-4 w-4" />
-              Valor ponderado
-            </div>
-            <p className="text-xl font-bold">
-              {formatCurrency(Math.round(deal.value * (deal.probability / 100)))}
-            </p>
-          </CardContent>
-        </Card>
+        <StatTile icon={DollarSign} label="Valor" value={formatCurrency(deal.value)} color="primary" highlight />
+        <StatTile icon={Percent} label="Probabilidad" value={`${deal.probability}%`} color="amber" progress={deal.probability} />
+        <StatTile icon={Calendar} label="Cierre estimado" value={formatDate(deal.expectedClose)} color="muted" />
+        <StatTile
+          icon={DollarSign}
+          label="Valor ponderado"
+          value={formatCurrency(Math.round(deal.value * (deal.probability / 100)))}
+          color="green"
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

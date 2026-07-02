@@ -14,7 +14,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { Plus, Briefcase, Download } from "lucide-react";
+import { StatTile } from "@/components/shared/StatTile";
+import { Plus, Briefcase, Download, DollarSign, Percent } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/constants";
 import { DealForm } from "@/components/deals/DealForm";
 
@@ -80,6 +81,26 @@ export default function DealsPage() {
           onAction={() => setShowForm(true)}
         />
       ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <StatTile icon={Briefcase} label="Total Deals" value={deals.length} color="primary" highlight />
+            <StatTile
+              icon={DollarSign}
+              label="Valor en Pipeline"
+              value={formatCurrency(deals.reduce((s, d) => s + d.value, 0))}
+              color="green"
+            />
+            <StatTile
+              icon={Percent}
+              label="Probabilidad Promedio"
+              value={
+                deals.length > 0
+                  ? `${Math.round(deals.reduce((s, d) => s + d.probability, 0) / deals.length)}%`
+                  : "—"
+              }
+              color="amber"
+            />
+          </div>
         <div className="rounded-lg border">
           <Table>
             <TableHeader>
@@ -126,6 +147,7 @@ export default function DealsPage() {
             </TableBody>
           </Table>
         </div>
+        </>
       )}
 
       <DealForm open={showForm} onClose={() => setShowForm(false)} />

@@ -16,6 +16,7 @@ import {
 import { formatCurrency, formatDate, CLIENT_STATUS_CONFIG } from "@/lib/constants";
 import { UserCheck, DollarSign, Calendar } from "lucide-react";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { StatTile } from "@/components/shared/StatTile";
 import type { ClientStatus } from "@/types";
 
 interface Client {
@@ -56,36 +57,9 @@ export default function ClientsPage() {
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
-                  <UserCheck className="h-4 w-4" /> Clientes Activos
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{clients.length}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
-                  <DollarSign className="h-4 w-4" /> MRR
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-primary">{formatCurrency(mrr)}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
-                  <Calendar className="h-4 w-4" /> ARR
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(mrr * 12)}</div>
-              </CardContent>
-            </Card>
+            <StatTile icon={UserCheck} label="Clientes Activos" value={clients.length} color="green" />
+            <StatTile icon={DollarSign} label="MRR" value={formatCurrency(mrr)} color="primary" highlight />
+            <StatTile icon={Calendar} label="ARR" value={formatCurrency(mrr * 12)} color="purple" />
           </div>
 
           <Card>
