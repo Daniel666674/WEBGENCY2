@@ -76,6 +76,8 @@ export const proposals = sqliteTable("proposals", {
   automations: text("automations").notNull().default("[]"),
   deliverables: text("deliverables").notNull().default("[]"),
   notes: text("notes"),
+  pricingMeta: text("pricing_meta").notNull().default("{}"),
+  validUntil: integer("valid_until", { mode: "timestamp" }),
   shareToken: text("share_token"),
   viewedAt: integer("viewed_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" })

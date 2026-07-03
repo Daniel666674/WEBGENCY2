@@ -8,6 +8,11 @@ import {
   ADDON_MODULES,
   MAINTENANCE_TIERS,
   COMMUNITY_MANAGER_TIERS,
+  CONTRACT_TERMS,
+  PAYMENT_SCHEDULES,
+  IVA_RATE,
+  DOMAIN_HOSTING_RENEWAL,
+  RUSH_DELIVERY,
   MODULE_CATEGORY_LABELS,
   CUSTOM_FOUNDATION,
   CUSTOM_PAGE_ADDON,
@@ -19,6 +24,7 @@ import { toast } from "sonner";
 import {
   Calculator, Globe, Wrench, Layers, Check, ChevronDown, ChevronUp,
   TrendingUp, User, Share2, Info, Sparkles, Minus, Plus, Megaphone,
+  CalendarClock, Wallet, EyeOff,
 } from "lucide-react";
 
 function fmt(cents: number) {
@@ -232,6 +238,38 @@ function QuantityCard({
   );
 }
 
+function ToggleCard({
+  checked, onChange, label, description,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  label: string;
+  description: string;
+}) {
+  return (
+    <div
+      onClick={onChange}
+      className={cn(
+        "border rounded-xl p-3 cursor-pointer transition-all select-none flex items-start gap-3",
+        checked ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:border-primary/40 hover:bg-muted/20"
+      )}
+    >
+      <div
+        className={cn(
+          "w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors",
+          checked ? "bg-primary border-primary" : "border-muted-foreground/40"
+        )}
+      >
+        {checked && <Check className="h-3 w-3 text-white" />}
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-medium">{label}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+      </div>
+    </div>
+  );
+}
+
 function SummaryLine({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
   return (
     <div className={cn("flex items-baseline justify-between gap-2", muted && "opacity-60")}>
@@ -260,6 +298,14 @@ export default function CalculatorPage() {
   const [moduleQty, setModuleQty] = useState<Record<string, number>>({});
   const [maintenanceId, setMaintenanceId] = useState<string | null>("maint_crecimiento");
   const [communityManagerId, setCommunityManagerId] = useState<string | null>(null);
+
+  const [termId, setTermId] = useState<string>("term_3y");
+  const [paymentScheduleId, setPaymentScheduleId] = useState<string>("pago_50_50");
+  const [taxIncluded, setTaxIncluded] = useState(false);
+  const [rushDelivery, setRushDelivery] = useState(false);
+  const [ownsDomain, setOwnsDomain] = useState(false);
+  const [showMargin, setShowMargin] = useState(false);
+  const [marginCostPct, setMarginCostPct] = useState(45);
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactId, setContactId] = useState("");
@@ -340,6 +386,9 @@ export default function CalculatorPage() {
   const communityManagerFee = communityManagerTier
     ? Math.round((communityManagerTier.monthlyFeeMin + communityManagerTier.monthlyFeeMax) / 2)
     : 0;
+  const term = CONTRACT_TERMS.find((t) => t.id === termId) ?? CONTRACT_TERMS[0];
+  const paymentSchedule = PAYMENT_SCHEDULES.find((p) => p.id === paymentScheduleId) ?? PAYMENT_SCHEDULES[0];
+  const hasWebsiteComponent = buildMode === "custom" || (buildMode === "tiers" && track === "website");
 
   const addonsOneTime = selectedAddonObjects.reduce((s, m) => s + m.oneTimeFee * getQty(m.id), 0);
   const addonsMonthly = selectedAddonObjects.reduce((s, m) => s + (m.monthlyFee ?? 0) * getQty(m.id), 0);
@@ -349,9 +398,42 @@ export default function CalculatorPage() {
       ? baseTier?.oneTimeFee ?? 0
       : CUSTOM_FOUNDATION.oneTimeFee + pageQty * CUSTOM_PAGE_ADDON.oneTimeFee;
 
-  const totalOneTime = baseOneTime + addonsOneTime;
-  const totalMonthly = (maintenanceTier?.monthlyFee ?? 0) + addonsMonthly + communityManagerFee;
-  const threeYearValue = totalOneTime + totalMonthly * 36;
+  // ── One-time chain: rush surcharge → payment-schedule discount → IVA ──
+  const rawOneTime = baseOneTime + addonsOneTime;
+  const rushFee = rushDelivery ? Math.round(rawOneTime * (RUSH_DELIVERY.surchargePct / 100)) : 0;
+  const oneTimeBeforeScheduleDiscount = rawOneTime + rushFee;
+  const scheduleDiscount = paymentSchedule.discountPct
+    ? Math.round(oneTimeBeforeScheduleDiscount * (paymentSchedule.discountPct / 100))
+    : 0;
+  const oneTimeSubtotal = oneTimeBeforeScheduleDiscount - scheduleDiscount;
+  const taxOneTime = taxIncluded ? Math.round(oneTimeSubtotal * IVA_RATE) : 0;
+  const totalOneTime = oneTimeSubtotal + taxOneTime;
+
+  // ── Monthly chain: permanencia discount → IVA ──
+  const rawMonthly = (maintenanceTier?.monthlyFee ?? 0) + addonsMonthly + communityManagerFee;
+  const termDiscount = term.discountPct ? Math.round(rawMonthly * (term.discountPct / 100)) : 0;
+  const monthlySubtotal = rawMonthly - termDiscount;
+  const taxMonthly = taxIncluded ? Math.round(monthlySubtotal * IVA_RATE) : 0;
+  const totalMonthly = monthlySubtotal + taxMonthly;
+
+  const renewalApplies = hasWebsiteComponent && !ownsDomain;
+  const renewalFee = renewalApplies ? DOMAIN_HOSTING_RENEWAL.annualFee : 0;
+  const threeYearValue = totalOneTime + totalMonthly * 36 + renewalFee * 2;
+
+  const installments = useMemo(() => {
+    const pcts = paymentSchedule.installments;
+    const amounts = pcts.map((inst) => Math.round(totalOneTime * (inst.pct / 100)));
+    const sum = amounts.reduce((s, a) => s + a, 0);
+    if (amounts.length > 0) amounts[amounts.length - 1] += totalOneTime - sum;
+    return pcts.map((inst, i) => ({ label: inst.label, amount: amounts[i] }));
+  }, [paymentSchedule, totalOneTime]);
+
+  const marginCostOneTime = Math.round(totalOneTime * (marginCostPct / 100));
+  const marginProfitOneTime = totalOneTime - marginCostOneTime;
+  const marginPctOneTime = totalOneTime > 0 ? Math.round((marginProfitOneTime / totalOneTime) * 100) : 0;
+  const marginCostMonthly = Math.round(totalMonthly * (marginCostPct / 100));
+  const marginProfitMonthly = totalMonthly - marginCostMonthly;
+  const marginPctMonthly = totalMonthly > 0 ? Math.round((marginProfitMonthly / totalMonthly) * 100) : 0;
 
   async function handleSaveProposal() {
     if (!contactId) { toast.error("Selecciona un contacto"); return; }
@@ -386,7 +468,36 @@ export default function CalculatorPage() {
         buildMode === "tiers"
           ? track === "website" ? "Sitio Web (por plan)" : "Sistema a Medida"
           : "Sitio 100% Personalizado";
-      const notes = `Cotización generada con la calculadora — ${modeLabel}. Valor total a 3 años: ${fmt(threeYearValue)}.`;
+      const extras: string[] = [];
+      if (term.discountPct > 0) extras.push(`Permanencia ${term.name} (-${term.discountPct}% mensual)`);
+      if (paymentSchedule.discountPct) extras.push(`Pago ${paymentSchedule.name} (-${paymentSchedule.discountPct}% único)`);
+      else extras.push(`Forma de pago: ${paymentSchedule.name}`);
+      if (rushDelivery) extras.push(`Entrega prioritaria (+${RUSH_DELIVERY.surchargePct}%)`);
+      if (taxIncluded) extras.push(`IVA incluido (${IVA_RATE * 100}%)`);
+      if (renewalFee > 0) extras.push(`Renovación dominio/hosting: ${fmt(renewalFee)}/año desde año 2`);
+      const notes = `Cotización generada con la calculadora — ${modeLabel}. ${extras.join(". ")}. Valor total a 3 años: ${fmt(threeYearValue)}.`;
+
+      const pricingMeta = {
+        termMonths: term.months,
+        termName: term.name,
+        termDiscountPct: term.discountPct,
+        paymentScheduleId: paymentSchedule.id,
+        paymentScheduleName: paymentSchedule.name,
+        paymentScheduleDiscountPct: paymentSchedule.discountPct ?? 0,
+        installments,
+        taxIncluded,
+        taxRate: IVA_RATE,
+        taxOneTime,
+        taxMonthly,
+        rushDelivery,
+        rushFee,
+        ownsDomain,
+        renewalFee,
+        renewalYears: renewalApplies ? 2 : 0,
+        subtotalOneTime: oneTimeSubtotal,
+        subtotalMonthly: monthlySubtotal,
+        threeYearValue,
+      };
 
       const res = await fetch("/api/proposals", {
         method: "POST",
@@ -401,6 +512,7 @@ export default function CalculatorPage() {
           automations: [],
           deliverables,
           notes,
+          pricingMeta,
         }),
       });
       if (!res.ok) throw new Error();
@@ -655,6 +767,70 @@ export default function CalculatorPage() {
               ))}
             </div>
           </div>
+
+          {/* Condiciones comerciales */}
+          <div className="space-y-4">
+            <SectionHeader icon={CalendarClock} title="Condiciones comerciales" badge="Plazo, pago e impuestos" />
+
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground px-0.5">Plazo de permanencia</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {CONTRACT_TERMS.map((t) => (
+                  <PlanCard
+                    key={t.id}
+                    selected={termId === t.id}
+                    onClick={() => { setTermId(t.id); setSavedProposalId(null); }}
+                    label={t.name}
+                    price={t.discountPct > 0 ? `-${t.discountPct}%` : "—"}
+                    priceLabel={t.discountPct > 0 ? "mensualidad" : undefined}
+                    sub={t.description}
+                    features={[]}
+                    accent={t.id === "term_3y"}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground px-0.5">Forma de pago</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {PAYMENT_SCHEDULES.map((p) => (
+                  <PlanCard
+                    key={p.id}
+                    selected={paymentScheduleId === p.id}
+                    onClick={() => { setPaymentScheduleId(p.id); setSavedProposalId(null); }}
+                    label={p.name}
+                    price={p.discountPct ? `-${p.discountPct}%` : "—"}
+                    sub={p.description}
+                    features={p.installments.map((i) => `${i.label}: ${i.pct}%`)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <ToggleCard
+                checked={rushDelivery}
+                onChange={() => { setRushDelivery((v) => !v); setSavedProposalId(null); }}
+                label={RUSH_DELIVERY.name}
+                description={`+${RUSH_DELIVERY.surchargePct}% sobre el pago único — ${RUSH_DELIVERY.description}`}
+              />
+              <ToggleCard
+                checked={taxIncluded}
+                onChange={() => { setTaxIncluded((v) => !v); setSavedProposalId(null); }}
+                label={`Incluir IVA (${IVA_RATE * 100}%)`}
+                description="Colombia — tarifa general sobre el subtotal, único y mensual"
+              />
+              {hasWebsiteComponent && (
+                <ToggleCard
+                  checked={ownsDomain}
+                  onChange={() => { setOwnsDomain((v) => !v); setSavedProposalId(null); }}
+                  label="Cliente gestiona su propio dominio/hosting"
+                  description={`Si no, se incluye renovación de ${fmt(DOMAIN_HOSTING_RENEWAL.annualFee)}/año desde el año 2`}
+                />
+              )}
+            </div>
+          </div>
         </div>
 
         {/* ── Right: summary + save ── */}
@@ -696,6 +872,18 @@ export default function CalculatorPage() {
               {communityManagerTier && (
                 <SummaryLine label={`Community Manager ${communityManagerTier.name}`} value={`${fmt(communityManagerFee)}/mes`} />
               )}
+              {rushFee > 0 && (
+                <SummaryLine label={`${RUSH_DELIVERY.name} (+${RUSH_DELIVERY.surchargePct}%)`} value={fmt(rushFee)} />
+              )}
+              {scheduleDiscount > 0 && (
+                <SummaryLine label={`Descuento ${paymentSchedule.name}`} value={`-${fmt(scheduleDiscount)}`} />
+              )}
+              {termDiscount > 0 && (
+                <SummaryLine label={`Descuento permanencia (${term.discountPct}%)`} value={`-${fmt(termDiscount)}/mes`} />
+              )}
+              {taxIncluded && (
+                <SummaryLine label={`IVA (${IVA_RATE * 100}%)`} value={`${fmt(taxOneTime)} + ${fmt(taxMonthly)}/mes`} />
+              )}
             </div>
             <div className="border-t pt-3 space-y-1">
               <div className="flex justify-between items-baseline">
@@ -709,6 +897,16 @@ export default function CalculatorPage() {
                 </span>
               </div>
             </div>
+            {paymentSchedule.installments.length > 1 && (
+              <div className="border-t pt-3 space-y-1.5">
+                <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                  <Wallet className="h-3 w-3" /> Cronograma de pago
+                </p>
+                {installments.map((inst, i) => (
+                  <SummaryLine key={i} label={inst.label} value={fmt(inst.amount)} />
+                ))}
+              </div>
+            )}
           </div>
 
           {/* 3-year value */}
@@ -719,9 +917,50 @@ export default function CalculatorPage() {
             </div>
             <p className="text-2xl font-bold text-primary">{fmt(threeYearValue)}</p>
             <p className="text-xs text-muted-foreground">
-              {fmt(totalOneTime)} setup + {fmt(totalMonthly)}/mes × 36 meses — un cliente retenido vale más que
-              una venta única.
+              {fmt(totalOneTime)} setup + {fmt(totalMonthly)}/mes × 36 meses
+              {renewalFee > 0 && ` + ${fmt(renewalFee)}/año renovación dominio/hosting (años 2–3)`} — un cliente
+              retenido vale más que una venta única.
             </p>
+          </div>
+
+          {/* Internal margin — never sent to the client */}
+          <div className="border border-dashed rounded-xl p-4 space-y-2 bg-muted/10">
+            <button
+              onClick={() => setShowMargin((v) => !v)}
+              className="w-full flex items-center justify-between text-xs font-semibold text-muted-foreground cursor-pointer"
+            >
+              <span className="flex items-center gap-1.5">
+                <EyeOff className="h-3.5 w-3.5" /> Margen interno (solo tú lo ves)
+              </span>
+              {showMargin ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            </button>
+            {showMargin && (
+              <div className="space-y-2 pt-1">
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  Costo estimado
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={marginCostPct}
+                    onChange={(e) => setMarginCostPct(Number(e.target.value))}
+                    className="w-14 border rounded px-1.5 py-0.5 text-xs bg-background"
+                  />
+                  % del precio
+                </label>
+                <SummaryLine label="Costo estimado (único)" value={fmt(marginCostOneTime)} muted />
+                <SummaryLine label="Margen (único)" value={`${fmt(marginProfitOneTime)} (${marginPctOneTime}%)`} />
+                {totalMonthly > 0 && (
+                  <>
+                    <SummaryLine label="Costo estimado (mensual)" value={fmt(marginCostMonthly)} muted />
+                    <SummaryLine label="Margen (mensual)" value={`${fmt(marginProfitMonthly)} (${marginPctMonthly}%)`} />
+                  </>
+                )}
+                <p className="text-[10px] text-muted-foreground italic">
+                  Estimación interna — nunca se incluye en la propuesta del cliente.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Save as proposal */}

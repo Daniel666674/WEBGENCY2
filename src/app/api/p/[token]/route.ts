@@ -29,6 +29,8 @@ export async function GET(
       automations: JSON.parse(row.automations || "[]"),
       deliverables: JSON.parse(row.deliverables || "[]"),
       notes: row.notes,
+      pricingMeta: JSON.parse(row.pricingMeta || "{}"),
+      validUntil: row.validUntil,
       createdAt: row.createdAt,
       viewedAt: row.viewedAt,
       contact: contact

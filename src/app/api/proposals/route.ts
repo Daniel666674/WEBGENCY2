@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
     addOns: JSON.parse(p.addOns || "[]"),
     automations: JSON.parse(p.automations || "[]"),
     deliverables: JSON.parse(p.deliverables || "[]"),
+    pricingMeta: JSON.parse(p.pricingMeta || "{}"),
   }));
 
   return NextResponse.json(parsed);
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "JSON invalido" }, { status: 400 });
   }
 
-  const { contactId, planName, oneTimeFee, monthlyFee, features, addOns, automations, deliverables, notes } = body;
+  const { contactId, planName, oneTimeFee, monthlyFee, features, addOns, automations, deliverables, notes, pricingMeta } = body;
 
   if (!contactId) {
     return NextResponse.json({ error: "contactId requerido" }, { status: 400 });
@@ -53,6 +54,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const now = new Date();
+    const validUntil = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 dias, como en las propuestas reales
     const result = db
       .insert(proposals)
       .values({
@@ -65,6 +67,8 @@ export async function POST(request: NextRequest) {
         automations: JSON.stringify(automations || []),
         deliverables: JSON.stringify(deliverables || []),
         notes: notes || null,
+        pricingMeta: JSON.stringify(pricingMeta || {}),
+        validUntil,
         createdAt: now,
         updatedAt: now,
       })
@@ -77,6 +81,7 @@ export async function POST(request: NextRequest) {
       addOns: JSON.parse(result.addOns || "[]"),
       automations: JSON.parse(result.automations || "[]"),
       deliverables: JSON.parse(result.deliverables || "[]"),
+      pricingMeta: JSON.parse(result.pricingMeta || "{}"),
     }, { status: 201 });
   } catch (error) {
     return NextResponse.json(

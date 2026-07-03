@@ -416,6 +416,99 @@ export const COMMUNITY_MANAGER_TIERS: CommunityManagerTier[] = [
   },
 ];
 
+// ─── Plazo de permanencia — descuento por compromiso, no solo proyección ───
+
+export interface ContractTerm {
+  id: string;
+  name: string;
+  months: number;
+  discountPct: number; // % de descuento sobre el total mensual
+  description: string;
+}
+
+export const CONTRACT_TERMS: ContractTerm[] = [
+  {
+    id: "term_mensual",
+    name: "Mes a mes",
+    months: 1,
+    discountPct: 0,
+    description: "Sin permanencia, cancela cuando quieras",
+  },
+  {
+    id: "term_1y",
+    name: "1 año",
+    months: 12,
+    discountPct: 5,
+    description: "5% de descuento en la mensualidad por permanencia de 1 año",
+  },
+  {
+    id: "term_3y",
+    name: "3 años",
+    months: 36,
+    discountPct: 10,
+    description: "10% de descuento en la mensualidad — nuestro mejor precio, para el cliente que se queda",
+  },
+];
+
+// ─── Forma de pago — cuándo entra el efectivo, no solo cuánto ──────────────
+
+export interface PaymentSchedule {
+  id: string;
+  name: string;
+  description: string;
+  discountPct?: number; // % de descuento sobre el pago único, si aplica
+  installments: { label: string; pct: number }[]; // % del pago único, suman 100
+}
+
+export const PAYMENT_SCHEDULES: PaymentSchedule[] = [
+  {
+    id: "pago_completo",
+    name: "Pago completo al inicio",
+    description: "5% de descuento por pago anticipado del 100%",
+    discountPct: 5,
+    installments: [{ label: "Al confirmar", pct: 100 }],
+  },
+  {
+    id: "pago_50_50",
+    name: "50% inicio / 50% entrega",
+    description: "La forma de pago más común",
+    installments: [
+      { label: "Al confirmar", pct: 50 },
+      { label: "Al entregar", pct: 50 },
+    ],
+  },
+  {
+    id: "pago_3_cuotas",
+    name: "3 cuotas",
+    description: "Inicio, mitad de proyecto y entrega",
+    installments: [
+      { label: "Al confirmar", pct: 34 },
+      { label: "A mitad de proyecto", pct: 33 },
+      { label: "Al entregar", pct: 33 },
+    ],
+  },
+];
+
+// ─── IVA, renovación de dominio/hosting y entrega prioritaria ──────────────
+
+export const IVA_RATE = 0.19; // Colombia, tarifa general
+
+export const DOMAIN_HOSTING_RENEWAL = {
+  id: "domain_hosting_renewal",
+  name: "Renovación dominio + hosting",
+  description: "Año 1 incluido en la fundación del sitio; se renueva a partir del año 2.",
+  annualFee: 22000000, // $220,000/año
+  sourceLabel: "Estimado — dominio .com + hosting básico, no cotizado aún como línea propia",
+};
+
+export const RUSH_DELIVERY = {
+  id: "rush_delivery",
+  name: "Entrega prioritaria",
+  description: "Reduce el tiempo de entrega estándar a la mitad, con dedicación exclusiva del equipo.",
+  surchargePct: 20,
+  sourceLabel: "Estimado — recargo estándar de la industria por prioridad",
+};
+
 // ─── Legacy exports kept for the free-text tag checklists on Proposals ─────
 
 export const ADD_ONS_CATALOG = [
