@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { DogSpinnerPage } from "@/components/shared/DogSpinner";
 import { formatCurrency } from "@/lib/constants";
-import { AGENCY_PLANS, ADD_ONS_CATALOG, AUTOMATIONS_CATALOG, DELIVERABLES_CATALOG } from "@/lib/catalog";
+import { BASE_TIERS, MAINTENANCE_TIERS, ADD_ONS_CATALOG, AUTOMATIONS_CATALOG, DELIVERABLES_CATALOG } from "@/lib/catalog";
 import { toast } from "sonner";
 import {
   FileText, DollarSign, Plus, X, Share2, FolderPlus, ChevronDown, ChevronUp,
@@ -103,10 +103,11 @@ export default function ProposalsPage() {
 
   function handlePlanChange(name: string) {
     setPlanName(name);
-    const plan = AGENCY_PLANS.find((p) => p.name === name);
+    const plan = BASE_TIERS.find((p) => p.track === "website" && p.name === name);
     if (plan) {
+      const maintenance = MAINTENANCE_TIERS.find((m) => m.id === plan.recommendedMaintenanceId);
       setOneTimePesos(plan.oneTimeFee ? String(plan.oneTimeFee / 100) : "");
-      setMonthlyPesos(plan.monthlyFee ? String(plan.monthlyFee / 100) : "");
+      setMonthlyPesos(maintenance?.monthlyFee ? String(maintenance.monthlyFee / 100) : "");
       setFeatures([...plan.features]);
     }
   }
@@ -180,7 +181,7 @@ export default function ProposalsPage() {
     setConverting(null);
   }
 
-  const currentPlan = AGENCY_PLANS.find((p) => p.name === planName);
+  const currentPlan = BASE_TIERS.find((p) => p.track === "website" && p.name === planName);
   const featureOptions = Array.from(new Set([...(currentPlan?.features || []), ...features]));
 
   const totalOneTime = proposals.reduce((s, p) => s + p.oneTimeFee, 0);
@@ -253,7 +254,7 @@ export default function ProposalsPage() {
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Plan</label>
             <div className="flex flex-wrap gap-1.5">
-              {[...AGENCY_PLANS.map((p) => p.name), "Custom"].map((name) => (
+              {[...BASE_TIERS.filter((p) => p.track === "website").map((p) => p.name), "Custom"].map((name) => (
                 <button
                   key={name}
                   type="button"

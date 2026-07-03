@@ -28,6 +28,6 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api/auth|api/webhook|api/webhooks|login|p/|_next/static|_next/image|favicon.ico|logo.png|icon-192.png|icon-512.png|apple-touch-icon.png|manifest.json|spinner-1.png|spinner-2.png).*)",
+    "/((?!api/auth|api/webhook|api/webhooks|api/p/|login|p/|_next/static|_next/image|favicon.ico|logo.png|icon-192.png|icon-512.png|apple-touch-icon.png|manifest.json|spinner-1.png|spinner-2.png).*)",
   ],
 };

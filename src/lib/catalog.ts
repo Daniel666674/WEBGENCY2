@@ -1,80 +1,231 @@
-export interface AgencyPlan {
+// Single source of truth for pricing across the CRM (Calculator + Proposals).
+// Every number here is derived from the 7 real, detailed proposals stored in
+// this CRM (Stike, ESCENA, PROTECTAPPF, Skinny Boy, Real Comfort, Alivia,
+// Cobra Repuestos) — not generic guesses. Items marked `estimated: true` were
+// bundled inside a larger real quote rather than sold standalone; their price
+// is derived from the delta between tiers, not a directly-quoted line item.
+
+export type Track = "website" | "custom";
+
+export interface BaseTier {
+  id: string;
   name: string;
+  track: Track;
   oneTimeFee: number; // centavos COP
-  monthlyFee: number; // centavos COP
-  features: string[];
   description: string;
+  features: string[];
+  sourceLabel: string;
+  recommendedMaintenanceId: string;
 }
 
-export const AGENCY_PLANS: AgencyPlan[] = [
+export const BASE_TIERS: BaseTier[] = [
   {
-    name: "Basico",
-    oneTimeFee: 150000000, // $1,500,000 COP
-    monthlyFee: 30000000,  // $300,000 COP
-    description: "Presencia web esencial para negocios que arrancan",
+    id: "web_basico",
+    name: "Básico",
+    track: "website",
+    oneTimeFee: 150000000, // $1,500,000
+    description: "De mockup a sitio en producción",
     features: [
-      "Sitio web hasta 5 paginas",
-      "Diseno responsivo movil",
-      "Formulario de contacto",
-      "Google Maps integrado",
-      "1 revision por mes",
+      "Auditoría y pulido de contenido, fotos y precios reales",
+      "Dominio propio conectado + 1 correo corporativo",
+      "Cumplimiento legal Colombia (Ley 1581/2012, Ley 1480/2011): privacidad, términos, cookies",
+      "Google Analytics 4 + Search Console conectados",
+      "Revisión de velocidad y experiencia mobile",
+      "1 semana de soporte post-lanzamiento",
     ],
+    sourceLabel: "Precio real — Stike Bike Shop, ESCENA Bike Shop",
+    recommendedMaintenanceId: "maint_esencial",
   },
   {
-    name: "Estandar",
-    oneTimeFee: 200000000, // $2,000,000 COP
-    monthlyFee: 40000000,  // $400,000 COP
-    description: "Sitio web profesional con SEO y blog",
+    id: "web_estandar",
+    name: "Estándar",
+    track: "website",
+    oneTimeFee: 280000000, // $2,800,000
+    description: "Catálogo grande con pedidos organizados",
     features: [
-      "Sitio web hasta 10 paginas",
-      "Diseno responsivo movil",
-      "SEO basico on-page",
-      "Blog integrado",
-      "Optimizacion de velocidad",
-      "GEO (Generative Engine Optimization)",
-      "Google Analytics",
-      "2 revisiones por mes",
+      "Todo lo del plan Básico",
+      "Panel/CMS para catálogo: alta y edición en lote, importar/exportar CSV o Excel",
+      "Gestión de fotos y categorías sin tocar código",
+      "Registro estructurado de pedidos + notificación automática a la tienda",
+      "Confirmación automática al cliente de que su pedido fue recibido",
+      "Reglas de envío por zona",
+      "2 semanas de soporte post-lanzamiento",
     ],
+    sourceLabel: "Precio real — Stike Premium $2.500.000, ESCENA Premium $3.200.000",
+    recommendedMaintenanceId: "maint_crecimiento",
   },
   {
-    name: "Premium",
-    oneTimeFee: 300000000, // $3,000,000 COP
-    monthlyFee: 60000000,  // $600,000 COP
-    description: "Presencia digital completa con marketing",
+    id: "web_avanzado",
+    name: "Avanzado",
+    track: "website",
+    oneTimeFee: 350000000, // $3,500,000
+    description: "Cobrando solo, con datos de conversión",
     features: [
-      "Sitio web ilimitado",
-      "Diseno UI/UX personalizado",
-      "SEO avanzado",
-      "Blog + estrategia de contenido",
-      "Catalogo de productos",
-      "Integracion WhatsApp Business",
-      "Google Analytics + Search Console",
-      "Reportes mensuales",
-      "Revisiones ilimitadas",
+      "Todo lo del plan Estándar",
+      "Pasarela de pago real (Bold: tarjeta débito/crédito, PSE, Nequi) con confirmación automática",
+      "Dashboard de conversión (visitas → pedidos)",
+      "1 mes de soporte + 1 ronda de ajustes con datos reales de uso",
     ],
+    sourceLabel:
+      "Precio real — Stike Avanzado $3.500.000 (validado con ESCENA $6.200.000 menos portal de mayoristas y WhatsApp 24/7, vendidos aparte)",
+    recommendedMaintenanceId: "maint_crecimiento",
   },
   {
-    name: "Marketing",
-    oneTimeFee: 250000000, // $2,500,000 COP
-    monthlyFee: 150000000, // $1,500,000 COP
-    description: "Sitio web + community manager dedicado",
+    id: "custom_sistema",
+    name: "Sistema a Medida",
+    track: "custom",
+    oneTimeFee: 500000000, // $5,000,000
+    description: "CRM / ERP a medida para el negocio",
     features: [
-      "Todo el plan Estandar",
-      "Community manager dedicado",
-      "Gestion de redes sociales (3 plataformas)",
-      "4 publicaciones semanales",
-      "Campanas de pauta basica",
-      "Reportes de engagement mensuales",
+      "Panel de gestión completo a medida (clientes, inventario, cartera o pedidos según el negocio)",
+      "Tareas y flujos de trabajo asignables por equipo",
+      "Dashboard ejecutivo con KPIs en tiempo real",
+      "Historial de interacciones y actividad por cliente o cuenta",
+      "2 sesiones de capacitación al equipo",
+      "Manual de operación documentado",
     ],
-  },
-  {
-    name: "Custom",
-    oneTimeFee: 0,
-    monthlyFee: 0,
-    description: "Propuesta personalizada segun necesidades",
-    features: [],
+    sourceLabel: "Precio real — Real Comfort $5.500.000, Alivia $4.500.000, Cobra Repuestos $4.500.000",
+    recommendedMaintenanceId: "maint_pro",
   },
 ];
+
+export interface AddonModule {
+  id: string;
+  name: string;
+  description: string;
+  oneTimeFee: number; // centavos COP
+  monthlyFee?: number; // centavos COP
+  tracks: Track[];
+  sourceLabel: string;
+  estimated?: boolean;
+}
+
+export const ADDON_MODULES: AddonModule[] = [
+  {
+    id: "addon_portal_mayoristas",
+    name: "Portal de mayoristas",
+    description:
+      "Zona con login para tiendas registradas: catálogo y precios diferenciados, aprobación manual de cuentas nuevas.",
+    oneTimeFee: 180000000, // $1,800,000
+    tracks: ["website"],
+    sourceLabel: "Precio real — ESCENA Bike Shop",
+  },
+  {
+    id: "addon_whatsapp_ia",
+    name: "WhatsApp 24/7 con IA",
+    description:
+      "Responde catálogo, precios y disponibilidad, toma pedidos simples 24/7, escala a un humano en horario laboral.",
+    oneTimeFee: 140000000, // $1,400,000
+    monthlyFee: 24000000, // $240,000 (rango real $180.000–$300.000)
+    tracks: ["website", "custom"],
+    sourceLabel: "Precio real — ESCENA Bike Shop ($1.400.000 + $180.000–$300.000/mes)",
+  },
+  {
+    id: "addon_addi_sistecredito",
+    name: "Addi + Sistecrédito",
+    description:
+      "Botones de pago a crédito integrados al checkout (requiere estar ya autorizado como comercio con ambos).",
+    oneTimeFee: 80000000, // $800,000
+    tracks: ["website"],
+    sourceLabel: "Precio real — Stike Bike Shop",
+  },
+  {
+    id: "addon_rediseno",
+    name: "Rediseño completo del sitio",
+    description: "Rediseño visual completo, más allá de la auditoría y el pulido incluidos en el plan Básico.",
+    oneTimeFee: 130000000, // $1,300,000
+    tracks: ["website"],
+    sourceLabel: "Estimado — derivado de PROTECTAPPF ($2.800.000 menos plan Básico $1.500.000)",
+    estimated: true,
+  },
+  {
+    id: "addon_contable",
+    name: "Integración contable (Alegra + DIAN)",
+    description: "Facturación electrónica automática por cada venta, con validación DIAN en tiempo real.",
+    oneTimeFee: 100000000, // $1,000,000
+    monthlyFee: 20000000, // $200,000
+    tracks: ["website", "custom"],
+    sourceLabel: "Estimado — derivado de Real Comfort, Alivia",
+    estimated: true,
+  },
+  {
+    id: "addon_docs",
+    name: "Automatización de documentos",
+    description: "Clasificación automática de facturas y documentos entrantes por Gmail, WhatsApp y Google Drive.",
+    oneTimeFee: 70000000, // $700,000
+    tracks: ["custom"],
+    sourceLabel: "Estimado — derivado de Alivia (8 automatizaciones documentales)",
+    estimated: true,
+  },
+  {
+    id: "addon_ia_voz",
+    name: "IA de voz para cobranza",
+    description: "Llamadas de voz automatizadas en español para gestión de cobranza o seguimiento de clientes en mora.",
+    oneTimeFee: 90000000, // $900,000
+    monthlyFee: 15000000, // $150,000
+    tracks: ["custom"],
+    sourceLabel: "Estimado — derivado de Real Comfort (Dapta AI)",
+    estimated: true,
+  },
+  {
+    id: "addon_seo_blog",
+    name: "SEO/GEO avanzado + Blog",
+    description: "Blog con estrategia de contenido, SEO avanzado y GEO (posicionamiento en buscadores de IA).",
+    oneTimeFee: 50000000, // $500,000
+    tracks: ["website"],
+    sourceLabel: "Estimado — derivado de Skinny Boy, B-Line Design",
+    estimated: true,
+  },
+];
+
+export interface MaintenanceTier {
+  id: string;
+  name: string;
+  monthlyFee: number; // centavos COP
+  features: string[];
+  recommended?: boolean;
+}
+
+export const MAINTENANCE_TIERS: MaintenanceTier[] = [
+  {
+    id: "maint_esencial",
+    name: "Esencial",
+    monthlyFee: 20000000, // $200,000
+    features: [
+      "Monitoreo de disponibilidad y respaldo del código/contenido",
+      "Hasta 3 cambios pequeños al mes (precios, textos, fotos)",
+      "Revisión mensual de enlaces, formularios y WhatsApp",
+      "Soporte por WhatsApp/correo, respuesta en 48 h",
+    ],
+  },
+  {
+    id: "maint_crecimiento",
+    name: "Crecimiento",
+    monthlyFee: 41500000, // $415,000
+    features: [
+      "Todo lo de Esencial",
+      "Hasta 15 altas/bajas de producto al mes vía el panel",
+      "Reporte mensual de analítica (visitas, productos más vistos, origen de tráfico)",
+      "Revisión SEO mensual (sitemap, metadatos, velocidad)",
+      "Soporte con respuesta en 24 h",
+    ],
+    recommended: true,
+  },
+  {
+    id: "maint_pro",
+    name: "Pro",
+    monthlyFee: 77500000, // $775,000
+    features: [
+      "Todo lo de Crecimiento",
+      "Altas/bajas de inventario ilimitadas (uso razonable)",
+      "Ajuste mensual de automatizaciones e IA según resultados reales",
+      "Gestión de cuentas mayoristas nuevas (revisión y aprobación asistida)",
+      "Llamada mensual de estrategia + soporte prioritario el mismo día",
+    ],
+  },
+];
+
+// ─── Legacy exports kept for the free-text tag checklists on Proposals ─────
 
 export const ADD_ONS_CATALOG = [
   "Tienda en linea (e-commerce)",
@@ -138,9 +289,9 @@ export function getAgencySuggestions(ctx: SuggestionContext): string[] {
   }
 
   if (text.includes("tienda") || text.includes("shop") || text.includes("ropa") || text.includes("perfume") || text.includes("bici")) {
-    suggestions.push("Tienda en linea con catalogo de productos");
+    suggestions.push("Panel/CMS para catálogo grande (plan Estándar)");
     suggestions.push("Integracion con Mercado Libre para mas ventas");
-    suggestions.push("Pasarela de pagos (PSE / Nequi / Daviplata)");
+    suggestions.push("Pasarela de pagos real (plan Avanzado)");
     suggestions.push("Notificacion automatica de nuevo pedido por WhatsApp");
   }
 
@@ -166,9 +317,9 @@ export function getAgencySuggestions(ctx: SuggestionContext): string[] {
   }
 
   if (text.includes("legal") || text.includes("abogad") || text.includes("consul") || text.includes("contador")) {
-    suggestions.push("Portal de documentos para clientes");
-    suggestions.push("Sistema de citas y consultas");
-    suggestions.push("Blog legal para posicionamiento SEO");
+    suggestions.push("Sistema a Medida: portal de documentos y tareas por cliente");
+    suggestions.push("Automatización de documentos (Gmail + Drive)");
+    suggestions.push("Integración contable (Alegra + DIAN)");
     suggestions.push("Chat en vivo para consultas rapidas");
   }
 
@@ -179,163 +330,12 @@ export function getAgencySuggestions(ctx: SuggestionContext): string[] {
     suggestions.push("Google My Business optimizado");
   }
 
-  if (ctx.currentPlan === "Basico") {
-    suggestions.push("Upgrade a plan Estandar para incluir SEO y blog");
+  if (ctx.currentPlan === "Básico") {
+    suggestions.push("Upgrade a plan Estándar para incluir panel de catálogo grande");
   }
-  if (ctx.currentPlan === "Estandar") {
-    suggestions.push("Agrega community manager con plan Marketing");
+  if (ctx.currentPlan === "Estándar") {
+    suggestions.push("Agrega el plan Avanzado para pasarela de pago real");
   }
 
   return suggestions.slice(0, 5);
 }
-
-// ─── Real service catalog from proposals ────────────────────────────────────
-
-export interface WebsitePlan {
-  id: string;
-  name: string;
-  oneTimeFee: number; // centavos COP
-  features: string[];
-}
-
-export const WEBSITE_PLANS: WebsitePlan[] = [
-  {
-    id: "basico",
-    name: "Básico",
-    oneTimeFee: 150000000,
-    features: [
-      "Hasta 3 páginas (Inicio, Catálogo, Contacto)",
-      "Diseño limpio y responsivo",
-      "Formulario de contacto + redes sociales",
-      "Optimización básica SEO",
-      "Dominio y hosting primer año incluido",
-    ],
-  },
-  {
-    id: "estandar",
-    name: "Estándar",
-    oneTimeFee: 250000000,
-    features: [
-      "Hasta 6 páginas personalizadas",
-      "Catálogo de productos con filtros",
-      "Sección de reseñas / testimonios",
-      "SEO intermedio + Google Analytics",
-      "Dominio y hosting primer año incluido",
-    ],
-  },
-  {
-    id: "avanzado",
-    name: "Avanzado",
-    oneTimeFee: 350000000,
-    features: [
-      "Páginas ilimitadas en el alcance",
-      "Diseño UI/UX personalizado",
-      "Tienda en línea (carrito + favoritos)",
-      "Panel de administración de productos",
-      "SEO avanzado + configuración Analytics",
-      "Dominio y hosting primer año incluido",
-    ],
-  },
-];
-
-export interface ChatbotPlan {
-  id: string;
-  name: string;
-  oneTimeFee: number;
-  monthlyFee: number;
-  features: string[];
-}
-
-export const CHATBOT_PLANS: ChatbotPlan[] = [
-  {
-    id: "esencial",
-    name: "Esencial",
-    oneTimeFee: 90000000,
-    monthlyFee: 35000000,
-    features: [
-      "Respuestas automáticas a preguntas frecuentes",
-      "Menú de catálogo y horarios de atención",
-      "Captura de pedido y datos del cliente",
-      "Transferencia a asesor humano (handoff)",
-      "Operación, plataforma y soporte incluidos",
-    ],
-  },
-  {
-    id: "profesional",
-    name: "Profesional",
-    oneTimeFee: 150000000,
-    monthlyFee: 50000000,
-    features: [
-      "Todo el plan Esencial",
-      "Respuestas con IA en lenguaje natural",
-      "Recomendación de productos según gustos",
-      "1 campaña/mes (reactivación o venta cruzada)",
-      "Reporte mensual de conversaciones y resultados",
-    ],
-  },
-  {
-    id: "premium",
-    name: "Premium",
-    oneTimeFee: 250000000,
-    monthlyFee: 75000000,
-    features: [
-      "Todo el plan Profesional",
-      "Catálogo sincronizado dentro del bot",
-      "Campañas masivas gestionadas",
-      "Seguimiento de pedidos automatizado",
-      "Múltiples flujos + soporte prioritario",
-    ],
-  },
-];
-
-export interface MaintenancePlan {
-  id: string;
-  name: string;
-  monthlyFee: number;
-  monthlyFeeMax?: number;
-  features: string[];
-}
-
-export const MAINTENANCE_PLANS: MaintenancePlan[] = [
-  {
-    id: "soporte",
-    name: "Mantenimiento & Soporte",
-    monthlyFee: 30000000,
-    features: [
-      "1 sesión de edición/semana (hasta 5 cambios)",
-      "Soporte WhatsApp lun–vie 8:00–18:00",
-      "Resolución de fallos en 2–3 horas sin costo",
-      "Monitoreo básico de disponibilidad",
-      "Revisión mensual de Google Analytics",
-    ],
-  },
-  {
-    id: "remota",
-    name: "Gestión Remota",
-    monthlyFee: 155000000,
-    monthlyFeeMax: 165000000,
-    features: [
-      "Parrilla de contenidos mensual",
-      "Guiones detallados por red social",
-      "Edición de videos y piezas a partir de material propio",
-      "Instagram, Facebook/WhatsApp y TikTok",
-    ],
-  },
-  {
-    id: "completa",
-    name: "Gestión Completa",
-    monthlyFee: 180000000,
-    monthlyFeeMax: 200000000,
-    features: [
-      "Todo el plan Gestión Remota",
-      "2 visitas/mes para grabación (Bogotá)",
-      "Fotografía de producto en sede",
-      "Diseño, edición y publicación incluidos",
-    ],
-  },
-];
-
-export const EXTRAS_CATALOG = [
-  { id: "pagina", label: "Página adicional", oneTimeFee: 15000000, note: "Desde $150.000 c/u" },
-  { id: "urgencia", label: "Urgencia fuera de horario", oneTimeFee: 6000000, note: "$60.000/intervención" },
-];

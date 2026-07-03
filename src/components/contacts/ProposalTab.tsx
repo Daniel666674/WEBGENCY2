@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/constants";
-import { AGENCY_PLANS, ADD_ONS_CATALOG, AUTOMATIONS_CATALOG, DELIVERABLES_CATALOG, getAgencySuggestions } from "@/lib/catalog";
+import { BASE_TIERS, MAINTENANCE_TIERS, ADD_ONS_CATALOG, AUTOMATIONS_CATALOG, DELIVERABLES_CATALOG, getAgencySuggestions } from "@/lib/catalog";
 import { toast } from "sonner";
 import { Plus, Lightbulb, ChevronDown, ChevronUp, Package, FileText, Zap, Check, Share2, FolderPlus, Copy } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -99,10 +99,11 @@ export function ProposalTab({ contactId, contactNotes, contactCompany }: Proposa
 
   const handlePlanChange = (name: string) => {
     setPlanName(name);
-    const plan = AGENCY_PLANS.find((p) => p.name === name);
+    const plan = BASE_TIERS.find((p) => p.track === "website" && p.name === name);
     if (plan) {
+      const maintenance = MAINTENANCE_TIERS.find((m) => m.id === plan.recommendedMaintenanceId);
       setOneTimePesos(plan.oneTimeFee ? String(plan.oneTimeFee / 100) : "");
-      setMonthlyPesos(plan.monthlyFee ? String(plan.monthlyFee / 100) : "");
+      setMonthlyPesos(maintenance?.monthlyFee ? String(maintenance.monthlyFee / 100) : "");
       setFeatures([...plan.features]);
     }
   };
@@ -138,7 +139,7 @@ export function ProposalTab({ contactId, contactNotes, contactCompany }: Proposa
     if (trimmed && !features.includes(trimmed)) { setFeatures([...features, trimmed]); setCustomFeature(""); }
   };
 
-  const currentPlan = AGENCY_PLANS.find((p) => p.name === planName);
+  const currentPlan = BASE_TIERS.find((p) => p.track === "website" && p.name === planName);
   const featureOptions = Array.from(new Set([...(currentPlan?.features || []), ...features]));
   const toCurrency = (v: string) => formatCurrency(Math.round((parseFloat(v) || 0) * 100));
 
@@ -215,7 +216,7 @@ export function ProposalTab({ contactId, contactNotes, contactCompany }: Proposa
               <Select value={planName} onValueChange={(v) => v && handlePlanChange(v)}>
                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {AGENCY_PLANS.map((p) => (
+                  {BASE_TIERS.filter((p) => p.track === "website").map((p) => (
                     <SelectItem key={p.name} value={p.name}>{p.name} - {p.description}</SelectItem>
                   ))}
                 </SelectContent>
