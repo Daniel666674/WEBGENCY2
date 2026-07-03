@@ -89,12 +89,33 @@ export const BASE_TIERS: BaseTier[] = [
   },
 ];
 
+export type ModuleCategory =
+  | "catalogo"
+  | "automatizacion"
+  | "marketing"
+  | "seo"
+  | "acceso"
+  | "diseno"
+  | "pagos";
+
+export const MODULE_CATEGORY_LABELS: Record<ModuleCategory, string> = {
+  catalogo: "Catálogo / Inventario",
+  automatizacion: "Automatizaciones y chatbot",
+  marketing: "Marketing y redes sociales",
+  seo: "SEO",
+  acceso: "Accesos (admin / cliente)",
+  diseno: "Diseño y medios",
+  pagos: "Pagos y financiación",
+};
+
 export interface AddonModule {
   id: string;
+  category: ModuleCategory;
   name: string;
   description: string;
-  oneTimeFee: number; // centavos COP
+  oneTimeFee: number; // centavos COP (precio por unidad si `unit` está definido)
   monthlyFee?: number; // centavos COP
+  unit?: "video"; // si está definido, se selecciona por cantidad en vez de on/off
   tracks: Track[];
   sourceLabel: string;
   estimated?: boolean;
@@ -103,6 +124,7 @@ export interface AddonModule {
 export const ADDON_MODULES: AddonModule[] = [
   {
     id: "addon_portal_mayoristas",
+    category: "catalogo",
     name: "Portal de mayoristas",
     description:
       "Zona con login para tiendas registradas: catálogo y precios diferenciados, aprobación manual de cuentas nuevas.",
@@ -112,6 +134,7 @@ export const ADDON_MODULES: AddonModule[] = [
   },
   {
     id: "addon_whatsapp_ia",
+    category: "automatizacion",
     name: "WhatsApp 24/7 con IA",
     description:
       "Responde catálogo, precios y disponibilidad, toma pedidos simples 24/7, escala a un humano en horario laboral.",
@@ -121,7 +144,20 @@ export const ADDON_MODULES: AddonModule[] = [
     sourceLabel: "Precio real — ESCENA Bike Shop ($1.400.000 + $180.000–$300.000/mes)",
   },
   {
+    id: "addon_chatbot_web",
+    category: "automatizacion",
+    name: "Chatbot web (FAQ + captura de leads)",
+    description:
+      "Widget de chat en el sitio que responde preguntas frecuentes y captura datos de contacto 24/7, sin depender de WhatsApp.",
+    oneTimeFee: 60000000, // $600,000
+    monthlyFee: 6000000, // $60,000
+    tracks: ["website"],
+    sourceLabel: "Estimado — aún no vendido como línea independiente en una propuesta real",
+    estimated: true,
+  },
+  {
     id: "addon_addi_sistecredito",
+    category: "pagos",
     name: "Addi + Sistecrédito",
     description:
       "Botones de pago a crédito integrados al checkout (requiere estar ya autorizado como comercio con ambos).",
@@ -131,6 +167,7 @@ export const ADDON_MODULES: AddonModule[] = [
   },
   {
     id: "addon_rediseno",
+    category: "diseno",
     name: "Rediseño completo del sitio",
     description: "Rediseño visual completo, más allá de la auditoría y el pulido incluidos en el plan Básico.",
     oneTimeFee: 130000000, // $1,300,000
@@ -139,7 +176,29 @@ export const ADDON_MODULES: AddonModule[] = [
     estimated: true,
   },
   {
+    id: "addon_video",
+    category: "diseno",
+    name: "Video corporativo / reel",
+    description: "Producción y edición de un video corto para el sitio o redes sociales. Precio por unidad.",
+    oneTimeFee: 35000000, // $350,000 por video
+    unit: "video",
+    tracks: ["website", "custom"],
+    sourceLabel: "Estimado — tarifa de mercado por video, no cotizado aún como línea propia",
+    estimated: true,
+  },
+  {
+    id: "addon_fotografia",
+    category: "diseno",
+    name: "Sesión de fotografía de producto/negocio",
+    description: "Sesión profesional para renovar las fotos de catálogo o del local.",
+    oneTimeFee: 30000000, // $300,000
+    tracks: ["website"],
+    sourceLabel: "Estimado — tarifa de mercado, no cotizado aún como línea propia",
+    estimated: true,
+  },
+  {
     id: "addon_contable",
+    category: "automatizacion",
     name: "Integración contable (Alegra + DIAN)",
     description: "Facturación electrónica automática por cada venta, con validación DIAN en tiempo real.",
     oneTimeFee: 100000000, // $1,000,000
@@ -150,6 +209,7 @@ export const ADDON_MODULES: AddonModule[] = [
   },
   {
     id: "addon_docs",
+    category: "automatizacion",
     name: "Automatización de documentos",
     description: "Clasificación automática de facturas y documentos entrantes por Gmail, WhatsApp y Google Drive.",
     oneTimeFee: 70000000, // $700,000
@@ -159,6 +219,7 @@ export const ADDON_MODULES: AddonModule[] = [
   },
   {
     id: "addon_ia_voz",
+    category: "automatizacion",
     name: "IA de voz para cobranza",
     description: "Llamadas de voz automatizadas en español para gestión de cobranza o seguimiento de clientes en mora.",
     oneTimeFee: 90000000, // $900,000
@@ -168,7 +229,50 @@ export const ADDON_MODULES: AddonModule[] = [
     estimated: true,
   },
   {
+    id: "addon_redes_sociales",
+    category: "marketing",
+    name: "Conexión y optimización de redes sociales",
+    description: "Vincula Instagram, Facebook, TikTok y demás perfiles al sitio, con pixel de seguimiento configurado.",
+    oneTimeFee: 12000000, // $120,000
+    tracks: ["website"],
+    sourceLabel: "Estimado — no cotizado aún como línea propia",
+    estimated: true,
+  },
+  {
+    id: "addon_campanas_ads",
+    category: "marketing",
+    name: "Campañas de pauta (Meta/Google Ads)",
+    description: "Configuración inicial de campañas + gestión y optimización mensual de la pauta.",
+    oneTimeFee: 40000000, // $400,000
+    monthlyFee: 25000000, // $250,000
+    tracks: ["website", "custom"],
+    sourceLabel: "Estimado — no cotizado aún como línea propia",
+    estimated: true,
+  },
+  {
+    id: "addon_seo_onpage",
+    category: "seo",
+    name: "SEO técnico inicial",
+    description: "Metadatos, sitemap, datos estructurados y velocidad, más allá del GA4 + Search Console de base.",
+    oneTimeFee: 30000000, // $300,000
+    tracks: ["website"],
+    sourceLabel: "Estimado — no cotizado aún como línea propia",
+    estimated: true,
+  },
+  {
+    id: "addon_seo_mensual",
+    category: "seo",
+    name: "SEO mensual (contenido + mejoras continuas)",
+    description: "Optimización continua mes a mes: contenido nuevo, ajustes técnicos y seguimiento de posiciones.",
+    oneTimeFee: 0,
+    monthlyFee: 25000000, // $250,000/mes
+    tracks: ["website", "custom"],
+    sourceLabel: "Estimado — derivado de la revisión SEO mensual del plan de mantenimiento Crecimiento",
+    estimated: true,
+  },
+  {
     id: "addon_seo_blog",
+    category: "seo",
     name: "SEO/GEO avanzado + Blog",
     description: "Blog con estrategia de contenido, SEO avanzado y GEO (posicionamiento en buscadores de IA).",
     oneTimeFee: 50000000, // $500,000
@@ -176,7 +280,48 @@ export const ADDON_MODULES: AddonModule[] = [
     sourceLabel: "Estimado — derivado de Skinny Boy, B-Line Design",
     estimated: true,
   },
+  {
+    id: "addon_login_admin",
+    category: "acceso",
+    name: "Panel de administración con login",
+    description: "Acceso protegido para el equipo editar textos, precios y fotos sin un CMS completo de catálogo.",
+    oneTimeFee: 40000000, // $400,000
+    tracks: ["website"],
+    sourceLabel: "Estimado — no cotizado aún como línea propia",
+    estimated: true,
+  },
+  {
+    id: "addon_login_cliente",
+    category: "acceso",
+    name: "Portal de cliente con login",
+    description: "Zona privada para que cada cliente vea sus pedidos, historial y documentos.",
+    oneTimeFee: 90000000, // $900,000
+    tracks: ["website"],
+    sourceLabel: "Estimado — no cotizado aún como línea propia",
+    estimated: true,
+  },
 ];
+
+// ─── "Sitio 100% personalizado" mode — building from scratch, not from a tier ─
+
+export const CUSTOM_FOUNDATION = {
+  id: "custom_fundacion",
+  name: "Fundación del sitio (hasta 5 páginas)",
+  description:
+    "Diseño y desarrollo de un sitio nuevo desde cero: hasta 5 páginas, dominio propio + correo corporativo, " +
+    "cumplimiento legal Colombia (Ley 1581/2012, Ley 1480/2011), GA4 + Search Console, optimizado para velocidad y mobile.",
+  oneTimeFee: 150000000, // $1,500,000
+  sourceLabel: "Precio real — equivalente al plan Básico (Stike Bike Shop, ESCENA Bike Shop)",
+};
+
+export const CUSTOM_PAGE_ADDON = {
+  id: "custom_pagina_adicional",
+  name: "Página adicional",
+  description:
+    "Cada página más allá de las 5 incluidas en la fundación (ej. nosotros, servicios, landing de campaña).",
+  oneTimeFee: 15000000, // $150,000 por página
+  sourceLabel: "Estimado — tarifa por página adicional",
+};
 
 export interface MaintenanceTier {
   id: string;

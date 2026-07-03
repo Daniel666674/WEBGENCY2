@@ -3,17 +3,30 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { formatCurrency } from "@/lib/constants";
-import { BASE_TIERS, ADDON_MODULES, MAINTENANCE_TIERS, type Track } from "@/lib/catalog";
+import {
+  BASE_TIERS,
+  ADDON_MODULES,
+  MAINTENANCE_TIERS,
+  MODULE_CATEGORY_LABELS,
+  CUSTOM_FOUNDATION,
+  CUSTOM_PAGE_ADDON,
+  type Track,
+  type ModuleCategory,
+} from "@/lib/catalog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
   Calculator, Globe, Wrench, Layers, Check, ChevronDown, ChevronUp,
-  TrendingUp, User, Share2, Info,
+  TrendingUp, User, Share2, Info, Sparkles, Minus, Plus,
 } from "lucide-react";
 
 function fmt(cents: number) {
   return formatCurrency(cents);
 }
+
+const CATEGORY_ORDER: ModuleCategory[] = [
+  "catalogo", "automatizacion", "marketing", "seo", "acceso", "diseno", "pagos",
+];
 
 function PlanCard({
   selected, onClick, label, price, priceLabel, sub, features, sourceLabel, accent,
@@ -101,39 +114,72 @@ function SectionHeader({ icon: Icon, title, badge }: { icon: typeof Globe; title
 }
 
 function ModuleRow({
-  selected, onClick, name, description, oneTimeFee, monthlyFee, estimated,
+  qty, onToggle, onIncrement, onDecrement, name, description, oneTimeFee, monthlyFee, estimated, unit,
 }: {
-  selected: boolean;
-  onClick: () => void;
+  qty: number;
+  onToggle?: () => void;
+  onIncrement?: () => void;
+  onDecrement?: () => void;
   name: string;
   description: string;
   oneTimeFee: number;
   monthlyFee?: number;
   estimated?: boolean;
+  unit?: string;
 }) {
+  const selected = qty > 0;
+  const multiplier = unit ? Math.max(qty, 1) : 1;
+
   return (
     <div
-      onClick={onClick}
+      onClick={unit ? undefined : onToggle}
       className={cn(
-        "border rounded-xl p-3 cursor-pointer transition-all select-none flex items-start gap-3",
+        "border rounded-xl p-3 transition-all select-none flex items-start gap-3",
+        !unit && "cursor-pointer",
         selected ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:border-primary/40 hover:bg-muted/20"
       )}
     >
-      <div
-        className={cn(
-          "w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors",
-          selected ? "bg-primary border-primary" : "border-muted-foreground/40"
-        )}
-      >
-        {selected && <Check className="h-3 w-3 text-white" />}
-      </div>
+      {unit ? (
+        <div className="flex items-center gap-1 shrink-0 mt-0.5">
+          <button
+            onClick={(e) => { e.stopPropagation(); onDecrement?.(); }}
+            disabled={qty === 0}
+            className="w-5 h-5 rounded-md border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
+          >
+            <Minus className="h-3 w-3" />
+          </button>
+          <span className="w-5 text-center text-xs font-semibold">{qty}</span>
+          <button
+            onClick={(e) => { e.stopPropagation(); onIncrement?.(); }}
+            className="w-5 h-5 rounded-md border flex items-center justify-center hover:bg-muted transition-colors"
+          >
+            <Plus className="h-3 w-3" />
+          </button>
+        </div>
+      ) : (
+        <div
+          className={cn(
+            "w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors",
+            selected ? "bg-primary border-primary" : "border-muted-foreground/40"
+          )}
+        >
+          {selected && <Check className="h-3 w-3 text-white" />}
+        </div>
+      )}
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <p className="text-sm font-medium">{name}</p>
           <div className="text-right shrink-0">
-            <p className="text-sm font-bold text-primary">{fmt(oneTimeFee)}</p>
-            {monthlyFee !== undefined && (
-              <p className="text-[10px] text-muted-foreground">+ {fmt(monthlyFee)}/mes</p>
+            {oneTimeFee > 0 ? (
+              <p className="text-sm font-bold text-primary">
+                {fmt(oneTimeFee * multiplier)}
+                {unit && <span className="text-[10px] font-normal text-muted-foreground"> ({fmt(oneTimeFee)}/{unit})</span>}
+              </p>
+            ) : (
+              <p className="text-sm font-bold text-primary">{fmt(monthlyFee ?? 0)}<span className="text-[10px] font-normal text-muted-foreground">/mes</span></p>
+            )}
+            {oneTimeFee > 0 && monthlyFee !== undefined && monthlyFee > 0 && (
+              <p className="text-[10px] text-muted-foreground">+ {fmt(monthlyFee * multiplier)}/mes</p>
             )}
           </div>
         </div>
@@ -143,6 +189,43 @@ function ModuleRow({
             Precio estimado
           </span>
         )}
+      </div>
+    </div>
+  );
+}
+
+function QuantityCard({
+  label, description, qty, unitPrice, onIncrement, onDecrement,
+}: {
+  label: string;
+  description: string;
+  qty: number;
+  unitPrice: number;
+  onIncrement: () => void;
+  onDecrement: () => void;
+}) {
+  return (
+    <div className="border rounded-xl p-3.5 flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold">{label}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+        <p className="text-[10px] text-muted-foreground mt-1">{fmt(unitPrice)} c/u</p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={onDecrement}
+          disabled={qty === 0}
+          className="w-7 h-7 rounded-md border flex items-center justify-center disabled:opacity-30 hover:bg-muted transition-colors"
+        >
+          <Minus className="h-3.5 w-3.5" />
+        </button>
+        <span className="w-6 text-center text-sm font-bold">{qty}</span>
+        <button
+          onClick={onIncrement}
+          className="w-7 h-7 rounded-md border flex items-center justify-center hover:bg-muted transition-colors"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
       </div>
     </div>
   );
@@ -163,12 +246,17 @@ interface Contact {
   company: string | null;
 }
 
+type BuildMode = "tiers" | "custom";
+
 export default function CalculatorPage() {
   const router = useRouter();
 
+  const [buildMode, setBuildMode] = useState<BuildMode>("tiers");
+
   const [track, setTrack] = useState<Track>("website");
   const [baseTierId, setBaseTierId] = useState<string | null>("web_estandar");
-  const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+  const [pageQty, setPageQty] = useState(0);
+  const [moduleQty, setModuleQty] = useState<Record<string, number>>({});
   const [maintenanceId, setMaintenanceId] = useState<string | null>("maint_crecimiento");
 
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -182,15 +270,42 @@ export default function CalculatorPage() {
   }, []);
 
   const availableBaseTiers = useMemo(() => BASE_TIERS.filter((t) => t.track === track), [track]);
-  const availableAddons = useMemo(() => ADDON_MODULES.filter((m) => m.tracks.includes(track)), [track]);
+  const availableAddons = useMemo(
+    () => ADDON_MODULES.filter((m) => m.tracks.includes(buildMode === "custom" ? "website" : track)),
+    [track, buildMode]
+  );
+  const addonsByCategory = useMemo(() => {
+    const map = new Map<ModuleCategory, typeof ADDON_MODULES>();
+    for (const cat of CATEGORY_ORDER) {
+      const items = availableAddons.filter((m) => m.category === cat);
+      if (items.length > 0) map.set(cat, items);
+    }
+    return map;
+  }, [availableAddons]);
+
+  function resetSelections() {
+    setModuleQty({});
+    setPageQty(0);
+    setSavedProposalId(null);
+  }
+
+  function handleBuildModeChange(next: BuildMode) {
+    setBuildMode(next);
+    resetSelections();
+    if (next === "tiers") {
+      const firstTier = BASE_TIERS.find((t) => t.track === track);
+      setMaintenanceId(firstTier?.recommendedMaintenanceId ?? null);
+    } else {
+      setMaintenanceId("maint_crecimiento");
+    }
+  }
 
   function handleTrackChange(next: Track) {
     setTrack(next);
     const firstTier = BASE_TIERS.find((t) => t.track === next);
     setBaseTierId(firstTier?.id ?? null);
     setMaintenanceId(firstTier?.recommendedMaintenanceId ?? null);
-    setSelectedAddons([]);
-    setSavedProposalId(null);
+    resetSelections();
   }
 
   function handleBaseTierChange(id: string) {
@@ -200,42 +315,74 @@ export default function CalculatorPage() {
     setSavedProposalId(null);
   }
 
-  function toggleAddon(id: string) {
-    setSelectedAddons((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  function getQty(id: string) {
+    return moduleQty[id] ?? 0;
+  }
+  function toggleModule(id: string) {
+    setModuleQty((prev) => ({ ...prev, [id]: (prev[id] ?? 0) > 0 ? 0 : 1 }));
+    setSavedProposalId(null);
+  }
+  function incrementModule(id: string) {
+    setModuleQty((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }));
+    setSavedProposalId(null);
+  }
+  function decrementModule(id: string) {
+    setModuleQty((prev) => ({ ...prev, [id]: Math.max(0, (prev[id] ?? 0) - 1) }));
     setSavedProposalId(null);
   }
 
   const baseTier = BASE_TIERS.find((t) => t.id === baseTierId);
-  const selectedAddonObjects = availableAddons.filter((m) => selectedAddons.includes(m.id));
+  const selectedAddonObjects = ADDON_MODULES.filter((m) => getQty(m.id) > 0);
   const maintenanceTier = MAINTENANCE_TIERS.find((t) => t.id === maintenanceId);
 
-  const addonsOneTime = selectedAddonObjects.reduce((s, m) => s + m.oneTimeFee, 0);
-  const addonsMonthly = selectedAddonObjects.reduce((s, m) => s + (m.monthlyFee ?? 0), 0);
+  const addonsOneTime = selectedAddonObjects.reduce((s, m) => s + m.oneTimeFee * getQty(m.id), 0);
+  const addonsMonthly = selectedAddonObjects.reduce((s, m) => s + (m.monthlyFee ?? 0) * getQty(m.id), 0);
 
-  const totalOneTime = (baseTier?.oneTimeFee ?? 0) + addonsOneTime;
+  const baseOneTime =
+    buildMode === "tiers"
+      ? baseTier?.oneTimeFee ?? 0
+      : CUSTOM_FOUNDATION.oneTimeFee + pageQty * CUSTOM_PAGE_ADDON.oneTimeFee;
+
+  const totalOneTime = baseOneTime + addonsOneTime;
   const totalMonthly = (maintenanceTier?.monthlyFee ?? 0) + addonsMonthly;
   const threeYearValue = totalOneTime + totalMonthly * 36;
 
   async function handleSaveProposal() {
     if (!contactId) { toast.error("Selecciona un contacto"); return; }
-    if (!baseTier) { toast.error("Selecciona un plan base"); return; }
+    if (buildMode === "tiers" && !baseTier) { toast.error("Selecciona un plan base"); return; }
     setSaving(true);
     try {
-      const features = [...baseTier.features];
-      const addOns = selectedAddonObjects.map((m) =>
-        m.monthlyFee ? `${m.name} — ${fmt(m.oneTimeFee)} + ${fmt(m.monthlyFee)}/mes` : `${m.name} — ${fmt(m.oneTimeFee)}`
-      );
+      const features =
+        buildMode === "tiers"
+          ? [...(baseTier?.features ?? [])]
+          : [
+              CUSTOM_FOUNDATION.name,
+              ...(pageQty > 0 ? [`${pageQty} página${pageQty !== 1 ? "s" : ""} adicional${pageQty !== 1 ? "es" : ""}`] : []),
+            ];
+      const addOns = selectedAddonObjects.map((m) => {
+        const qty = getQty(m.id);
+        const qtyLabel = m.unit && qty > 1 ? ` x${qty}` : "";
+        const oneTime = m.oneTimeFee * qty;
+        const monthly = (m.monthlyFee ?? 0) * qty;
+        if (oneTime > 0 && monthly > 0) return `${m.name}${qtyLabel} — ${fmt(oneTime)} + ${fmt(monthly)}/mes`;
+        if (monthly > 0) return `${m.name}${qtyLabel} — ${fmt(monthly)}/mes`;
+        return `${m.name}${qtyLabel} — ${fmt(oneTime)}`;
+      });
       const deliverables = maintenanceTier
         ? [`Mantenimiento ${maintenanceTier.name} — ${fmt(maintenanceTier.monthlyFee)}/mes`, ...maintenanceTier.features]
         : [];
-      const notes = `Cotización generada con la calculadora — Track: ${track === "website" ? "Sitio Web" : "Sistema a Medida"}. Valor total a 3 años: ${fmt(threeYearValue)}.`;
+      const modeLabel =
+        buildMode === "tiers"
+          ? track === "website" ? "Sitio Web (por plan)" : "Sistema a Medida"
+          : "Sitio 100% Personalizado";
+      const notes = `Cotización generada con la calculadora — ${modeLabel}. Valor total a 3 años: ${fmt(threeYearValue)}.`;
 
       const res = await fetch("/api/proposals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contactId,
-          planName: baseTier.name,
+          planName: buildMode === "tiers" ? baseTier!.name : "Sitio Personalizado",
           oneTimeFee: totalOneTime,
           monthlyFee: totalMonthly,
           features,
@@ -292,71 +439,156 @@ export default function CalculatorPage() {
         </p>
       </div>
 
+      {/* Build mode toggle */}
+      <div className="flex gap-1 bg-muted/50 p-1 rounded-lg w-fit">
+        <button
+          onClick={() => handleBuildModeChange("tiers")}
+          className={cn(
+            "flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md font-medium transition-colors",
+            buildMode === "tiers" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Layers className="h-3.5 w-3.5" /> Por planes
+        </button>
+        <button
+          onClick={() => handleBuildModeChange("custom")}
+          className={cn(
+            "flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md font-medium transition-colors",
+            buildMode === "custom" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Sparkles className="h-3.5 w-3.5" /> Sitio 100% personalizado
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 items-start">
         {/* ── Left: builder ── */}
         <div className="space-y-6">
-          {/* Track selector */}
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => handleTrackChange("website")}
-              className={cn(
-                "border rounded-xl p-4 text-left transition-all",
-                track === "website" ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:border-primary/40"
-              )}
-            >
-              <p className="text-sm font-semibold flex items-center gap-2"><Globe className="h-4 w-4 text-primary" /> Sitio Web / E-commerce</p>
-              <p className="text-xs text-muted-foreground mt-1">Mockup a producción, catálogo, pagos</p>
-            </button>
-            <button
-              onClick={() => handleTrackChange("custom")}
-              className={cn(
-                "border rounded-xl p-4 text-left transition-all",
-                track === "custom" ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:border-primary/40"
-              )}
-            >
-              <p className="text-sm font-semibold flex items-center gap-2"><Layers className="h-4 w-4 text-primary" /> Sistema a Medida</p>
-              <p className="text-xs text-muted-foreground mt-1">CRM / ERP para operación del negocio</p>
-            </button>
-          </div>
+          {buildMode === "tiers" ? (
+            <>
+              {/* Track selector */}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => handleTrackChange("website")}
+                  className={cn(
+                    "border rounded-xl p-4 text-left transition-all",
+                    track === "website" ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:border-primary/40"
+                  )}
+                >
+                  <p className="text-sm font-semibold flex items-center gap-2"><Globe className="h-4 w-4 text-primary" /> Sitio Web / E-commerce</p>
+                  <p className="text-xs text-muted-foreground mt-1">Mockup a producción, catálogo, pagos</p>
+                </button>
+                <button
+                  onClick={() => handleTrackChange("custom")}
+                  className={cn(
+                    "border rounded-xl p-4 text-left transition-all",
+                    track === "custom" ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:border-primary/40"
+                  )}
+                >
+                  <p className="text-sm font-semibold flex items-center gap-2"><Layers className="h-4 w-4 text-primary" /> Sistema a Medida</p>
+                  <p className="text-xs text-muted-foreground mt-1">CRM / ERP para operación del negocio</p>
+                </button>
+              </div>
 
-          {/* Base tier */}
-          <div className="space-y-3">
-            <SectionHeader icon={Globe} title="Plan base" badge="Pago único · elige uno" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {availableBaseTiers.map((t) => (
-                <PlanCard
-                  key={t.id}
-                  selected={baseTierId === t.id}
-                  onClick={() => handleBaseTierChange(t.id)}
-                  label={t.name}
-                  price={fmt(t.oneTimeFee)}
-                  sub={t.description}
-                  features={t.features}
-                  sourceLabel={t.sourceLabel}
-                  accent={t.id === "web_estandar" || t.id === "custom_sistema"}
+              {/* Base tier */}
+              <div className="space-y-3">
+                <SectionHeader icon={Globe} title="Plan base" badge="Pago único · elige uno" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {availableBaseTiers.map((t) => (
+                    <PlanCard
+                      key={t.id}
+                      selected={baseTierId === t.id}
+                      onClick={() => handleBaseTierChange(t.id)}
+                      label={t.name}
+                      price={fmt(t.oneTimeFee)}
+                      sub={t.description}
+                      features={t.features}
+                      sourceLabel={t.sourceLabel}
+                      accent={t.id === "web_estandar" || t.id === "custom_sistema"}
+                    />
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Foundation (fixed) */}
+              <div className="space-y-3">
+                <SectionHeader icon={Globe} title="Fundación del sitio" badge="Incluida · pago único" />
+                <div className="border rounded-xl p-3.5 bg-muted/20">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-semibold">{CUSTOM_FOUNDATION.name}</p>
+                    <p className="text-sm font-bold text-primary shrink-0">{fmt(CUSTOM_FOUNDATION.oneTimeFee)}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">{CUSTOM_FOUNDATION.description}</p>
+                  <p className="mt-2 text-[10px] text-muted-foreground italic flex items-start gap-1">
+                    <Info className="h-3 w-3 shrink-0 mt-0.5" /> {CUSTOM_FOUNDATION.sourceLabel}
+                  </p>
+                </div>
+                <QuantityCard
+                  label={CUSTOM_PAGE_ADDON.name}
+                  description={CUSTOM_PAGE_ADDON.description}
+                  qty={pageQty}
+                  unitPrice={CUSTOM_PAGE_ADDON.oneTimeFee}
+                  onIncrement={() => { setPageQty((q) => q + 1); setSavedProposalId(null); }}
+                  onDecrement={() => { setPageQty((q) => Math.max(0, q - 1)); setSavedProposalId(null); }}
                 />
-              ))}
-            </div>
-          </div>
+              </div>
 
-          {/* Add-on modules */}
-          <div className="space-y-3">
-            <SectionHeader icon={Layers} title="Módulos a la carte" badge="Opcional · solo lo que necesite" />
-            <div className="space-y-2">
-              {availableAddons.map((m) => (
-                <ModuleRow
-                  key={m.id}
-                  selected={selectedAddons.includes(m.id)}
-                  onClick={() => toggleAddon(m.id)}
-                  name={m.name}
-                  description={m.description}
-                  oneTimeFee={m.oneTimeFee}
-                  monthlyFee={m.monthlyFee}
-                  estimated={m.estimated}
-                />
-              ))}
+              {/* Modules grouped by category */}
+              <div className="space-y-5">
+                <SectionHeader icon={Sparkles} title="Arma tu sitio a la carte" badge="Elige lo que el cliente realmente necesita" />
+                {Array.from(addonsByCategory.entries()).map(([cat, items]) => (
+                  <div key={cat} className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground px-0.5">
+                      {MODULE_CATEGORY_LABELS[cat]}
+                    </p>
+                    <div className="space-y-2">
+                      {items.map((m) => (
+                        <ModuleRow
+                          key={m.id}
+                          qty={getQty(m.id)}
+                          onToggle={() => toggleModule(m.id)}
+                          onIncrement={() => incrementModule(m.id)}
+                          onDecrement={() => decrementModule(m.id)}
+                          name={m.name}
+                          description={m.description}
+                          oneTimeFee={m.oneTimeFee}
+                          monthlyFee={m.monthlyFee}
+                          estimated={m.estimated}
+                          unit={m.unit}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Add-on modules (tiers mode only — custom mode shows its own grouped list above) */}
+          {buildMode === "tiers" && (
+            <div className="space-y-3">
+              <SectionHeader icon={Layers} title="Módulos a la carte" badge="Opcional · solo lo que necesite" />
+              <div className="space-y-2">
+                {availableAddons.map((m) => (
+                  <ModuleRow
+                    key={m.id}
+                    qty={getQty(m.id)}
+                    onToggle={() => toggleModule(m.id)}
+                    onIncrement={() => incrementModule(m.id)}
+                    onDecrement={() => decrementModule(m.id)}
+                    name={m.name}
+                    description={m.description}
+                    oneTimeFee={m.oneTimeFee}
+                    monthlyFee={m.monthlyFee}
+                    estimated={m.estimated}
+                    unit={m.unit}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Maintenance */}
           <div className="space-y-3">
@@ -392,14 +624,32 @@ export default function CalculatorPage() {
           <div className="border rounded-xl p-4 space-y-3 bg-card">
             <p className="text-sm font-semibold">Desglose completo</p>
             <div className="space-y-1.5">
-              {baseTier && <SummaryLine label={`Plan ${baseTier.name}`} value={fmt(baseTier.oneTimeFee)} />}
-              {selectedAddonObjects.map((m) => (
-                <SummaryLine
-                  key={m.id}
-                  label={m.name}
-                  value={m.monthlyFee ? `${fmt(m.oneTimeFee)} + ${fmt(m.monthlyFee)}/mes` : fmt(m.oneTimeFee)}
-                />
-              ))}
+              {buildMode === "tiers" ? (
+                baseTier && <SummaryLine label={`Plan ${baseTier.name}`} value={fmt(baseTier.oneTimeFee)} />
+              ) : (
+                <>
+                  <SummaryLine label={CUSTOM_FOUNDATION.name} value={fmt(CUSTOM_FOUNDATION.oneTimeFee)} />
+                  {pageQty > 0 && (
+                    <SummaryLine
+                      label={`${pageQty} × ${CUSTOM_PAGE_ADDON.name}`}
+                      value={fmt(pageQty * CUSTOM_PAGE_ADDON.oneTimeFee)}
+                    />
+                  )}
+                </>
+              )}
+              {selectedAddonObjects.map((m) => {
+                const qty = getQty(m.id);
+                const oneTime = m.oneTimeFee * qty;
+                const monthly = (m.monthlyFee ?? 0) * qty;
+                const label = m.unit && qty > 1 ? `${m.name} ×${qty}` : m.name;
+                const value =
+                  oneTime > 0 && monthly > 0
+                    ? `${fmt(oneTime)} + ${fmt(monthly)}/mes`
+                    : monthly > 0
+                    ? `${fmt(monthly)}/mes`
+                    : fmt(oneTime);
+                return <SummaryLine key={m.id} label={label} value={value} />;
+              })}
               {maintenanceTier && (
                 <SummaryLine label={`Mantenimiento ${maintenanceTier.name}`} value={`${fmt(maintenanceTier.monthlyFee)}/mes`} />
               )}
@@ -450,7 +700,7 @@ export default function CalculatorPage() {
             {!savedProposalId ? (
               <button
                 onClick={handleSaveProposal}
-                disabled={saving || !contactId || !baseTier}
+                disabled={saving || !contactId || (buildMode === "tiers" && !baseTier)}
                 className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium disabled:opacity-50 cursor-pointer"
               >
                 {saving ? "Guardando..." : "Guardar propuesta"}
