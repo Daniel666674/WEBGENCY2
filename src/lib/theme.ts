@@ -8,11 +8,20 @@ export interface ThemeColors {
   border: string;
 }
 
+export interface DarkOverride {
+  background: string;
+  foreground: string;
+  card: string;
+  muted: string;
+  border: string;
+}
+
 export interface ThemeConfig {
   switchHour: number; // 0-23, hour to switch to night theme
   day: ThemeColors;
   night: ThemeColors;
   herNightPrimary: string; // Her purple override for night
+  danielDark: DarkOverride; // Daniel's dark-mode override (background/card/etc only — primary/sidebar stay as configured)
 }
 
 export const DEFAULT_DAY: ThemeColors = {
@@ -35,11 +44,20 @@ export const DEFAULT_NIGHT: ThemeColors = {
   border: "#e8e2d0",
 };
 
+export const DEFAULT_DANIEL_DARK: DarkOverride = {
+  background: "#0a0a0a",
+  foreground: "#e8e8e8",
+  card: "#161616",
+  muted: "#1f1f1f",
+  border: "#2a2a2a",
+};
+
 export const DEFAULT_CONFIG: ThemeConfig = {
   switchHour: 18,
   day: DEFAULT_DAY,
   night: DEFAULT_NIGHT,
   herNightPrimary: "#a855f7",
+  danielDark: DEFAULT_DANIEL_DARK,
 };
 
 export const HER_PURPLE_PRESETS = [

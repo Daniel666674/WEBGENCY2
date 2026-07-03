@@ -11,6 +11,7 @@ import {
   HER_PURPLE_PRESETS,
   type ThemeConfig,
   type ThemeColors,
+  type DarkOverride,
 } from "@/lib/theme";
 import { reloadThemeConfig } from "@/components/shared/ThemeEngine";
 
@@ -49,6 +50,10 @@ export default function AparienciaPage() {
 
   function setNight(patch: Partial<ThemeColors>) {
     setTheme((t) => ({ ...t, night: { ...t.night, ...patch } }));
+  }
+
+  function setDanielDark(patch: Partial<DarkOverride>) {
+    setTheme((t) => ({ ...t, danielDark: { ...t.danielDark, ...patch } }));
   }
 
   return (
@@ -141,6 +146,23 @@ export default function AparienciaPage() {
               value={theme.herNightPrimary}
               onChange={(v) => setTheme((t) => ({ ...t, herNightPrimary: v }))}
             />
+          </div>
+
+          <Separator />
+
+          {/* Daniel's dark mode */}
+          <div>
+            <p className="text-sm font-semibold mb-1">Modo oscuro de Daniel</p>
+            <p className="text-xs text-muted-foreground mb-3">
+              Reemplaza los fondos claros por oscuros en el perfil de Daniel — el color primario y el sidebar no cambian
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <ColorPicker label="Fondo" value={theme.danielDark.background} onChange={(v) => setDanielDark({ background: v })} />
+              <ColorPicker label="Texto" value={theme.danielDark.foreground} onChange={(v) => setDanielDark({ foreground: v })} />
+              <ColorPicker label="Tarjetas" value={theme.danielDark.card} onChange={(v) => setDanielDark({ card: v })} />
+              <ColorPicker label="Muted" value={theme.danielDark.muted} onChange={(v) => setDanielDark({ muted: v })} />
+              <ColorPicker label="Bordes" value={theme.danielDark.border} onChange={(v) => setDanielDark({ border: v })} />
+            </div>
           </div>
 
           <div className="flex justify-end pt-2">

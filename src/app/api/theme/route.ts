@@ -12,7 +12,12 @@ export async function GET() {
     if (rows.length === 0) {
       return NextResponse.json(DEFAULT_CONFIG);
     }
-    return NextResponse.json(JSON.parse(rows[0].value) as ThemeConfig);
+    const stored = JSON.parse(rows[0].value) as Partial<ThemeConfig>;
+    return NextResponse.json({
+      ...DEFAULT_CONFIG,
+      ...stored,
+      danielDark: { ...DEFAULT_CONFIG.danielDark, ...stored.danielDark },
+    });
   } catch {
     return NextResponse.json(DEFAULT_CONFIG);
   }

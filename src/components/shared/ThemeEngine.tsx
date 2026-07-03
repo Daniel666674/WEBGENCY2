@@ -68,6 +68,15 @@ function applyTheme(config: ThemeConfig, isHers: boolean) {
     colors.sidebar = darkenHex(config.herNightPrimary, 0.45);
   }
 
+  if (!isHers) {
+    // Daniel's dark mode — only the "white" surfaces change, primary/sidebar stay as configured
+    colors.background = config.danielDark.background;
+    colors.foreground = config.danielDark.foreground;
+    colors.card = config.danielDark.card;
+    colors.muted = config.danielDark.muted;
+    colors.border = config.danielDark.border;
+  }
+
   const vars = deriveThemeVars(colors);
   const root = document.documentElement;
   for (const [k, v] of Object.entries(vars)) {
