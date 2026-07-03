@@ -7,6 +7,7 @@ import {
   BASE_TIERS,
   ADDON_MODULES,
   MAINTENANCE_TIERS,
+  COMMUNITY_MANAGER_TIERS,
   MODULE_CATEGORY_LABELS,
   CUSTOM_FOUNDATION,
   CUSTOM_PAGE_ADDON,
@@ -17,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
   Calculator, Globe, Wrench, Layers, Check, ChevronDown, ChevronUp,
-  TrendingUp, User, Share2, Info, Sparkles, Minus, Plus,
+  TrendingUp, User, Share2, Info, Sparkles, Minus, Plus, Megaphone,
 } from "lucide-react";
 
 function fmt(cents: number) {
@@ -258,6 +259,7 @@ export default function CalculatorPage() {
   const [pageQty, setPageQty] = useState(0);
   const [moduleQty, setModuleQty] = useState<Record<string, number>>({});
   const [maintenanceId, setMaintenanceId] = useState<string | null>("maint_crecimiento");
+  const [communityManagerId, setCommunityManagerId] = useState<string | null>(null);
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactId, setContactId] = useState("");
@@ -334,6 +336,10 @@ export default function CalculatorPage() {
   const baseTier = BASE_TIERS.find((t) => t.id === baseTierId);
   const selectedAddonObjects = ADDON_MODULES.filter((m) => getQty(m.id) > 0);
   const maintenanceTier = MAINTENANCE_TIERS.find((t) => t.id === maintenanceId);
+  const communityManagerTier = COMMUNITY_MANAGER_TIERS.find((t) => t.id === communityManagerId);
+  const communityManagerFee = communityManagerTier
+    ? Math.round((communityManagerTier.monthlyFeeMin + communityManagerTier.monthlyFeeMax) / 2)
+    : 0;
 
   const addonsOneTime = selectedAddonObjects.reduce((s, m) => s + m.oneTimeFee * getQty(m.id), 0);
   const addonsMonthly = selectedAddonObjects.reduce((s, m) => s + (m.monthlyFee ?? 0) * getQty(m.id), 0);
@@ -344,7 +350,7 @@ export default function CalculatorPage() {
       : CUSTOM_FOUNDATION.oneTimeFee + pageQty * CUSTOM_PAGE_ADDON.oneTimeFee;
 
   const totalOneTime = baseOneTime + addonsOneTime;
-  const totalMonthly = (maintenanceTier?.monthlyFee ?? 0) + addonsMonthly;
+  const totalMonthly = (maintenanceTier?.monthlyFee ?? 0) + addonsMonthly + communityManagerFee;
   const threeYearValue = totalOneTime + totalMonthly * 36;
 
   async function handleSaveProposal() {
@@ -368,9 +374,14 @@ export default function CalculatorPage() {
         if (monthly > 0) return `${m.name}${qtyLabel} — ${fmt(monthly)}/mes`;
         return `${m.name}${qtyLabel} — ${fmt(oneTime)}`;
       });
-      const deliverables = maintenanceTier
-        ? [`Mantenimiento ${maintenanceTier.name} — ${fmt(maintenanceTier.monthlyFee)}/mes`, ...maintenanceTier.features]
-        : [];
+      const deliverables = [
+        ...(maintenanceTier
+          ? [`Mantenimiento ${maintenanceTier.name} — ${fmt(maintenanceTier.monthlyFee)}/mes`, ...maintenanceTier.features]
+          : []),
+        ...(communityManagerTier
+          ? [`Community Manager ${communityManagerTier.name} — ${fmt(communityManagerFee)}/mes`, ...communityManagerTier.features]
+          : []),
+      ];
       const modeLabel =
         buildMode === "tiers"
           ? track === "website" ? "Sitio Web (por plan)" : "Sistema a Medida"
@@ -616,6 +627,34 @@ export default function CalculatorPage() {
               ))}
             </div>
           </div>
+
+          {/* Community Manager */}
+          <div className="space-y-3">
+            <SectionHeader icon={Megaphone} title="Community Manager" badge="Opcional · recurrente" />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <PlanCard
+                selected={communityManagerId === null}
+                onClick={() => { setCommunityManagerId(null); setSavedProposalId(null); }}
+                label="Sin community manager"
+                price="—"
+                features={[]}
+                sub="El cliente gestiona sus redes"
+              />
+              {COMMUNITY_MANAGER_TIERS.map((t) => (
+                <PlanCard
+                  key={t.id}
+                  selected={communityManagerId === t.id}
+                  onClick={() => { setCommunityManagerId(t.id); setSavedProposalId(null); }}
+                  label={t.name}
+                  price={`${fmt(t.monthlyFeeMin)}–${fmt(t.monthlyFeeMax)}`}
+                  priceLabel="/mes"
+                  sub={t.tagline}
+                  features={t.features}
+                  sourceLabel={t.sourceLabel}
+                />
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* ── Right: summary + save ── */}
@@ -654,6 +693,9 @@ export default function CalculatorPage() {
                 <SummaryLine label={`Mantenimiento ${maintenanceTier.name}`} value={`${fmt(maintenanceTier.monthlyFee)}/mes`} />
               )}
               {!maintenanceTier && <SummaryLine label="Mantenimiento" value="—" muted />}
+              {communityManagerTier && (
+                <SummaryLine label={`Community Manager ${communityManagerTier.name}`} value={`${fmt(communityManagerFee)}/mes`} />
+              )}
             </div>
             <div className="border-t pt-3 space-y-1">
               <div className="flex justify-between items-baseline">

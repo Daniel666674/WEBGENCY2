@@ -370,6 +370,52 @@ export const MAINTENANCE_TIERS: MaintenanceTier[] = [
   },
 ];
 
+// ─── Community Manager — recurring content/social media management ────────
+// Distinct from technical Mantenimiento above and from the one-off
+// "Campañas de pauta" add-on: this is ongoing content production and
+// publishing, sold as its own monthly service in the real Parra Shop quote.
+
+export interface CommunityManagerTier {
+  id: string;
+  name: string;
+  tagline: string;
+  monthlyFeeMin: number; // centavos COP
+  monthlyFeeMax: number; // centavos COP
+  features: string[];
+  sourceLabel: string;
+}
+
+export const COMMUNITY_MANAGER_TIERS: CommunityManagerTier[] = [
+  {
+    id: "cm_gestion_remota",
+    name: "Gestión Remota",
+    tagline: "Tú grabas, nosotros producimos",
+    monthlyFeeMin: 155000000, // $1,550,000
+    monthlyFeeMax: 165000000, // $1,650,000
+    features: [
+      "Parrilla de contenidos mensual",
+      "Guiones detallados con indicaciones de ángulos, iluminación y encuadre",
+      "Edición de videos y piezas a partir del material grabado por el cliente",
+    ],
+    sourceLabel: "Precio real — Parra Shop ($1.550.000–$1.650.000/mes)",
+  },
+  {
+    id: "cm_gestion_completa",
+    name: "Gestión Completa",
+    tagline: "Nosotros nos encargamos de todo",
+    monthlyFeeMin: 180000000, // $1,800,000
+    monthlyFeeMax: 200000000, // $2,000,000
+    features: [
+      "Parrilla de contenidos mensual para Instagram, Facebook/WhatsApp y TikTok",
+      "Redacción de guiones y copy para cada red social",
+      "2 visitas al mes para grabación de video y fotografía en la sede del cliente",
+      "Diseño y edición de todo el contenido",
+      "Programación y publicación del contenido",
+    ],
+    sourceLabel: "Precio real — Parra Shop ($1.800.000–$2.000.000/mes)",
+  },
+];
+
 // ─── Legacy exports kept for the free-text tag checklists on Proposals ─────
 
 export const ADD_ONS_CATALOG = [
