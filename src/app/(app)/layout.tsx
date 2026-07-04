@@ -5,6 +5,7 @@ import { AlertBanner } from "@/components/shared/AlertBanner";
 import { UserProvider } from "@/context/UserContext";
 import { GlitterOverlay } from "@/components/user/GlitterOverlay";
 import { HersThemeApplier } from "@/components/user/HersThemeApplier";
+import { HersWelcomePopup } from "@/components/user/HersWelcomePopup";
 import { ThemeEngine } from "@/components/shared/ThemeEngine";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -13,6 +14,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <ThemeEngine />
       <HersThemeApplier />
       <GlitterOverlay />
+      <HersWelcomePopup />
       <Sidebar />
       <div className="flex flex-col min-h-screen">
         <Header />
