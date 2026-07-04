@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useUser } from "@/context/UserContext";
 import { Heart, X } from "lucide-react";
 
-const STORAGE_KEY = "oliwan-hers-welcome-seen";
+const STORAGE_KEY = "oliwan-hers-welcome-last-shown";
+const INTERVAL_MS = 3 * 60 * 60 * 1000; // 3 horas
 
 export function HersWelcomePopup() {
   const { activeUser } = useUser();
@@ -12,14 +13,23 @@ export function HersWelcomePopup() {
 
   useEffect(() => {
     if (!activeUser?.isHers) return;
-    if (!localStorage.getItem(STORAGE_KEY)) {
-      setOpen(true);
+
+    function shouldShow() {
+      const last = Number(localStorage.getItem(STORAGE_KEY) || 0);
+      return Date.now() - last >= INTERVAL_MS;
     }
+
+    if (shouldShow()) setOpen(true);
+    const id = setInterval(() => {
+      if (shouldShow()) setOpen(true);
+    }, 60_000);
+
+    return () => clearInterval(id);
   }, [activeUser?.isHers]);
 
   function close() {
     setOpen(false);
-    localStorage.setItem(STORAGE_KEY, "true");
+    localStorage.setItem(STORAGE_KEY, String(Date.now()));
   }
 
   if (!open) return null;
