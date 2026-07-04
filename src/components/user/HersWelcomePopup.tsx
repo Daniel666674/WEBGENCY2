@@ -55,13 +55,8 @@ export function HersWelcomePopup() {
         </div>
         <h2 className="text-xl font-bold text-white mb-4">Para ti ♡</h2>
         <p className="text-sm text-purple-100/90 leading-relaxed mb-6 whitespace-pre-wrap text-left">
-          Mi vida hermosa, quiero disculparme por todas las molestias que he generado, solo que me da tanto
-          miedo perderte y nunca habia sentido algo asi por alguien que no se como reccionar, quiero que sepas
-          que te amo demsiado y quiero que toda mi vida de ahora en adelante sea contigo a mi lado, me haces muy
-          feliz y solo quiero ser la mejor persona para ti, eres una mujer maravillosa en todas las maneras y
-          quiero que seas mi compañera por toda la vida, que siempre seas mi princesa y siempre ser el mejor
-          duo, siempre poder darte muchos besotes y siempre mirar esos ojitos hermosos que me enamoran mas cada
-          dia.
+          Quiero reconocer y agradecer a la persona mas increíble del mundo y a la compañera de vida mas
+          hermosa por todos sus logros y todas sus virtudes maravillosas.
         </p>
         <button
           onClick={close}
