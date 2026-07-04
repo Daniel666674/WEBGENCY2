@@ -55,8 +55,9 @@ export function HersWelcomePopup() {
         </div>
         <h2 className="text-xl font-bold text-white mb-4">Para ti ♡</h2>
         <p className="text-sm text-purple-100/90 leading-relaxed mb-6 whitespace-pre-wrap text-left">
-          Quiero reconocer y agradecer a la persona mas increíble del mundo y a la compañera de vida mas
-          hermosa por todos sus logros y todas sus virtudes maravillosas.
+          Hoy quiero dejar por escrito lo que a veces no digo lo suficiente: eres la persona más increíble que
+          conozco, y tenerte como compañera de vida es de lo mejor que me ha pasado. Cada logro tuyo, cada
+          virtud tuya, me sigue enamorando más.
         </p>
         <button
           onClick={close}
