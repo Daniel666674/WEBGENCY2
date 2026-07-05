@@ -29,6 +29,25 @@ export async function POST(
       .returning()
       .get();
 
+    // Converting a proposal means the client just signed — start the
+    // recurring billing cycle so the 48h payment-standing rule has a due
+    // date to check against (previously nothing ever set these fields).
+    if (proposal.monthlyFee > 0) {
+      const now = new Date();
+      const signedDate = contact?.signedDate ?? now;
+      const nextPaymentDate = new Date(signedDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+      db.update(contacts)
+        .set({
+          clientStatus: "active_client",
+          signedDate,
+          monthlyPayment: proposal.monthlyFee,
+          nextPaymentDate,
+          updatedAt: now,
+        })
+        .where(eq(contacts.id, proposal.contactId))
+        .run();
+    }
+
     return NextResponse.json({ projectId: project.id }, { status: 201 });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });

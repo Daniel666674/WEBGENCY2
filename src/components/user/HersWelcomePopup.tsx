@@ -4,22 +4,16 @@ import { useEffect, useState } from "react";
 import { useUser } from "@/context/UserContext";
 import { Heart, X } from "lucide-react";
 
-const STORAGE_KEY = "oliwan-hers-welcome-seen";
-
 export function HersWelcomePopup() {
   const { activeUser } = useUser();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!activeUser?.isHers) return;
-    if (!localStorage.getItem(STORAGE_KEY)) {
-      setOpen(true);
-    }
+    if (activeUser?.isHers) setOpen(true);
   }, [activeUser?.isHers]);
 
   function close() {
     setOpen(false);
-    localStorage.setItem(STORAGE_KEY, "true");
   }
 
   if (!open) return null;

@@ -19,6 +19,8 @@ export const contacts = sqliteTable("contacts", {
   monthlyPayment: integer("monthly_payment"),
   clientStatus: text("client_status").notNull().default("prospect"),
   nextPaymentDate: integer("next_payment_date", { mode: "timestamp" }),
+  automationsSuspended: integer("automations_suspended").notNull().default(0),
+  lastPaymentRef: text("last_payment_ref"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
