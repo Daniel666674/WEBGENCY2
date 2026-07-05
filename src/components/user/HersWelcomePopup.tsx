@@ -39,9 +39,13 @@ export function HersWelcomePopup() {
         </div>
         <h2 className="text-xl font-bold text-white mb-4">Para ti ♡</h2>
         <p className="text-sm text-purple-100/90 leading-relaxed mb-6 whitespace-pre-wrap text-left">
-          Hoy quiero dejar por escrito lo que a veces no digo lo suficiente: eres la persona más increíble que
-          conozco, y tenerte como compañera de vida es de lo mejor que me ha pasado. Cada logro tuyo, cada
-          virtud tuya, me sigue enamorando más.
+          Hola mi vida preciosa, solo pasaba a decirte que te extraño mucho y espero que hoy te sientas un poquito mejor 
+
+          Nunca olvides que eres la mejor parte de mi vida y que estoy muy orgulloso de ti. 
+
+          Descansa mucho por que cuando nos veamos te debo un monton de besitos y abrazos para hacerte sentir mejor 
+
+          Te amo muchisimo 
         </p>
         <button
           onClick={close}
