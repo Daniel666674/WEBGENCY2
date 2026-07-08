@@ -6,10 +6,8 @@ import { useUser } from "@/context/UserContext";
 import { Heart, X } from "lucide-react";
 
 const PHOTOS = [
-  { src: "/hers/hers-1.webp", alt: "Nosotros" },
-  { src: "/hers/hers-2.webp", alt: "Nosotros" },
-  { src: "/hers/hers-3.webp", alt: "Perrito" },
-  { src: "/hers/hers-4.webp", alt: "Los perritos" },
+  { src: "/hers/hers-1.jpeg", alt: "Nosotros" },
+  { src: "/hers/hers-2.jpeg", alt: "Nosotros" },
 ];
 
 export function HersWelcomePopup() {
@@ -46,12 +44,9 @@ export function HersWelcomePopup() {
           <Heart className="h-7 w-7 text-pink-200 fill-pink-200" />
         </div>
         <h2 className="text-xl font-bold text-white mb-4">Para ti ♡</h2>
-        <p className="text-sm text-purple-100/90 leading-relaxed mb-3 whitespace-pre-wrap text-left">
-          Buenos dias para la mujer mas hermosa del mundo y la mejor mama perruna que existe! Tambien para los
-          dos perritos mas guapos del mundo que hacen muy feliz al amor de mi vida,
-        </p>
         <p className="text-sm text-purple-100/90 leading-relaxed mb-6 whitespace-pre-wrap text-left">
-          Me encantas mi princesa y no imaginas las ganas que tengo de verte yaaa y darte muchisimos besitos
+          Buenos dias mi princesa preciosa y futura esposa🥺, quiero que tengas una bonita mañana y me pienses
+          mucho🥸🥸, cuento las horas para verte y darte besitos de nuevo
         </p>
         <div className="grid grid-cols-2 gap-2.5 mb-6">
           {PHOTOS.map((photo) => (

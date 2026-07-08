@@ -152,4 +152,37 @@ const sqlite = createDatabase();
 initTables(sqlite);
 seedDefaultStages(sqlite);
 
+// On Vercel, mirror every write to Blob storage so demo data survives cold
+// starts (see src/lib/dbPersist.ts). Wraps prepare() so any statement whose
+// run() mutates data schedules a re-upload of the DB file. No-op locally.
+if (process.env.VERCEL && process.env.BLOB_READ_WRITE_TOKEN) {
+  // Deferred import keeps module init sync; upload itself is fire-and-forget.
+  const persist = () => {
+    import("@/lib/dbPersist")
+      .then(({ uploadDbToBlob }) =>
+        uploadDbToBlob(() => {
+          try {
+            sqlite.pragma("wal_checkpoint(TRUNCATE)");
+          } catch {}
+        })
+      )
+      .catch(() => {});
+  };
+
+  const MUTATING = /^\s*(insert|update|delete|replace)\b/i;
+  const originalPrepare = sqlite.prepare.bind(sqlite);
+  sqlite.prepare = ((source: string) => {
+    const stmt = originalPrepare(source);
+    if (MUTATING.test(source)) {
+      const originalRun = stmt.run.bind(stmt);
+      stmt.run = ((...args: unknown[]) => {
+        const result = originalRun(...(args as Parameters<typeof originalRun>));
+        persist();
+        return result;
+      }) as typeof stmt.run;
+    }
+    return stmt;
+  }) as typeof sqlite.prepare;
+}
+
 export const db = drizzle(sqlite, { schema });

@@ -24,7 +24,7 @@ import { toast } from "sonner";
 import {
   Calculator, Globe, Wrench, Layers, Check, ChevronDown, ChevronUp,
   TrendingUp, User, Share2, Info, Sparkles, Minus, Plus, Megaphone,
-  CalendarClock, Wallet, EyeOff,
+  CalendarClock, Wallet, EyeOff, Download,
 } from "lucide-react";
 
 function fmt(cents: number) {
@@ -533,6 +533,84 @@ export default function CalculatorPage() {
     }
   }
 
+  function handleDownloadCsv() {
+    const contact = contacts.find((c) => c.id === contactId);
+    const clientLabel = contact ? contact.company || contact.name : "";
+    const modeLabel =
+      buildMode === "tiers"
+        ? track === "website" ? "Sitio Web (por plan)" : "Sistema a Medida"
+        : "Sitio 100% Personalizado";
+
+    // Excel es-CO: separador ; y BOM para tildes/emoji
+    const rows: string[][] = [];
+    rows.push(["OLIWAN Agency — Cotización"]);
+    rows.push(["Fecha", new Date().toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" })]);
+    if (clientLabel) rows.push(["Cliente", clientLabel]);
+    rows.push(["Tipo", modeLabel]);
+    rows.push([]);
+    rows.push(["Concepto", "Tipo", "Valor"]);
+
+    if (buildMode === "tiers" && baseTier) {
+      rows.push([`Plan ${baseTier.name}`, "Pago único", fmt(baseTier.oneTimeFee)]);
+    } else if (buildMode === "custom") {
+      rows.push([CUSTOM_FOUNDATION.name, "Pago único", fmt(CUSTOM_FOUNDATION.oneTimeFee)]);
+      if (pageQty > 0) {
+        rows.push([`${pageQty} × ${CUSTOM_PAGE_ADDON.name}`, "Pago único", fmt(pageQty * CUSTOM_PAGE_ADDON.oneTimeFee)]);
+      }
+    }
+    for (const m of selectedAddonObjects) {
+      const qty = getQty(m.id);
+      const label = m.unit && qty > 1 ? `${m.name} ×${qty}` : m.name;
+      const oneTime = m.oneTimeFee * qty;
+      const monthly = (m.monthlyFee ?? 0) * qty;
+      if (oneTime > 0) rows.push([label, "Pago único", fmt(oneTime)]);
+      if (monthly > 0) rows.push([label, "Mensual", `${fmt(monthly)}/mes`]);
+    }
+    if (maintenanceTier) {
+      rows.push([`Mantenimiento ${maintenanceTier.name}`, "Mensual", `${fmt(maintenanceTier.monthlyFee)}/mes`]);
+    }
+    if (communityManagerTier) {
+      rows.push([`Community Manager ${communityManagerTier.name}`, "Mensual", `${fmt(communityManagerFee)}/mes`]);
+    }
+    if (rushFee > 0) rows.push([`${RUSH_DELIVERY.name} (+${RUSH_DELIVERY.surchargePct}%)`, "Pago único", fmt(rushFee)]);
+    if (scheduleDiscount > 0) rows.push([`Descuento ${paymentSchedule.name}`, "Pago único", `-${fmt(scheduleDiscount)}`]);
+    if (termDiscount > 0) rows.push([`Descuento permanencia ${term.name} (${term.discountPct}%)`, "Mensual", `-${fmt(termDiscount)}/mes`]);
+    if (taxIncluded) {
+      rows.push([`IVA (${IVA_RATE * 100}%)`, "Pago único", fmt(taxOneTime)]);
+      rows.push([`IVA (${IVA_RATE * 100}%)`, "Mensual", `${fmt(taxMonthly)}/mes`]);
+    }
+    rows.push([]);
+    rows.push(["TOTAL ÚNICO", "", fmt(totalOneTime)]);
+    rows.push(["TOTAL MENSUAL", "", totalMonthly > 0 ? `${fmt(totalMonthly)}/mes` : "—"]);
+    rows.push([`Permanencia`, "", term.name]);
+    rows.push([]);
+    rows.push(["Cronograma de pago", "", paymentSchedule.name]);
+    for (const inst of installments) {
+      rows.push([inst.label, "", fmt(inst.amount)]);
+    }
+    if (renewalFee > 0) {
+      rows.push([]);
+      rows.push([DOMAIN_HOSTING_RENEWAL.name, "Anual desde año 2", `${fmt(renewalFee)}/año`]);
+    }
+    rows.push([]);
+    rows.push(["VALOR TOTAL A 3 AÑOS", "", fmt(threeYearValue)]);
+    rows.push([]);
+    rows.push([`Cotización válida por 30 días · Precios en COP${taxIncluded ? " · IVA incluido" : " · IVA no incluido"}`]);
+
+    const csv = rows
+      .map((r) => r.map((cell) => `"${(cell ?? "").replace(/"/g, '""')}"`).join(";"))
+      .join("\r\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const datePart = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `cotizacion-oliwan${clientLabel ? "-" + clientLabel.toLowerCase().replace(/[^a-z0-9]+/g, "-") : ""}-${datePart}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("CSV descargado");
+  }
+
   async function handleShare() {
     if (!savedProposalId) return;
     setSharing(true);
@@ -907,6 +985,13 @@ export default function CalculatorPage() {
                 ))}
               </div>
             )}
+            <button
+              onClick={handleDownloadCsv}
+              disabled={totalOneTime === 0 && totalMonthly === 0}
+              className="w-full flex items-center justify-center gap-1.5 px-4 py-2 border rounded-lg text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              <Download className="h-3.5 w-3.5" /> Descargar cotización (CSV)
+            </button>
           </div>
 
           {/* 3-year value */}
