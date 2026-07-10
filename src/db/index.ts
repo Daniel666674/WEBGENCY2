@@ -197,4 +197,11 @@ if (process.env.VERCEL && process.env.BLOB_READ_WRITE_TOKEN) {
   }) as typeof sqlite.prepare;
 }
 
+/** Flush the WAL into the main DB file (used before mirroring it to Blob). */
+export function checkpointDb(): void {
+  try {
+    sqlite.pragma("wal_checkpoint(TRUNCATE)");
+  } catch {}
+}
+
 export const db = drizzle(sqlite, { schema });
