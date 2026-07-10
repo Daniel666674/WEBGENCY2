@@ -154,9 +154,16 @@ seedDefaultStages(sqlite);
 
 // On Vercel, mirror every write to Blob storage so demo data survives cold
 // starts (see src/lib/dbPersist.ts). Wraps prepare() so any statement whose
-// run() mutates data schedules a re-upload of the DB file. No-op locally.
+// run() mutates data schedules a re-upload of the DB file.
+//
+// The upload MUST be scheduled via next/server's after() rather than fired
+// and forgotten: Vercel freezes a serverless function's execution the
+// moment its HTTP response is sent, so a bare `.then()` chain routinely got
+// killed mid-upload before ever reaching Blob — data appeared to save (the
+// response came back fine) but never actually persisted. after() is the
+// platform-supported way to keep the function alive until this finishes.
+// No-op locally (no VERCEL env, no after() call, nothing changes).
 if (process.env.VERCEL && process.env.BLOB_READ_WRITE_TOKEN) {
-  // Deferred import keeps module init sync; upload itself is fire-and-forget.
   const persist = () => {
     import("@/lib/dbPersist")
       .then(({ uploadDbToBlob }) =>
@@ -169,6 +176,12 @@ if (process.env.VERCEL && process.env.BLOB_READ_WRITE_TOKEN) {
       .catch(() => {});
   };
 
+  const schedulePersist = () => {
+    import("next/server")
+      .then(({ after }) => after(persist))
+      .catch(() => persist()); // outside request scope (e.g. a script) — best effort
+  };
+
   const MUTATING = /^\s*(insert|update|delete|replace)\b/i;
   const originalPrepare = sqlite.prepare.bind(sqlite);
   sqlite.prepare = ((source: string) => {
@@ -177,7 +190,7 @@ if (process.env.VERCEL && process.env.BLOB_READ_WRITE_TOKEN) {
       const originalRun = stmt.run.bind(stmt);
       stmt.run = ((...args: unknown[]) => {
         const result = originalRun(...(args as Parameters<typeof originalRun>));
-        persist();
+        schedulePersist();
         return result;
       }) as typeof stmt.run;
     }
