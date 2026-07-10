@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
+import { after } from "next/server";
 import * as schema from "./schema";
 import path from "path";
 import fs from "fs";
@@ -176,12 +177,6 @@ if (process.env.VERCEL && process.env.BLOB_READ_WRITE_TOKEN) {
       .catch(() => {});
   };
 
-  const schedulePersist = () => {
-    import("next/server")
-      .then(({ after }) => after(persist))
-      .catch(() => persist()); // outside request scope (e.g. a script) — best effort
-  };
-
   const MUTATING = /^\s*(insert|update|delete|replace)\b/i;
   const originalPrepare = sqlite.prepare.bind(sqlite);
   sqlite.prepare = ((source: string) => {
@@ -190,7 +185,11 @@ if (process.env.VERCEL && process.env.BLOB_READ_WRITE_TOKEN) {
       const originalRun = stmt.run.bind(stmt);
       stmt.run = ((...args: unknown[]) => {
         const result = originalRun(...(args as Parameters<typeof originalRun>));
-        schedulePersist();
+        try {
+          after(persist); // must be called synchronously within the request for AsyncLocalStorage to track it
+        } catch {
+          persist(); // called outside a request scope (e.g. a script) — best effort
+        }
         return result;
       }) as typeof stmt.run;
     }
