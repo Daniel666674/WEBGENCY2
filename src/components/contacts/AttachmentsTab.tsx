@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { upload } from "@vercel/blob/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -86,20 +87,54 @@ export function AttachmentsTab({
 
   useEffect(() => { load(); }, []);
 
-  const uploadFile = async (file: File) => {
+  const uploadViaApiRoute = async (file: File) => {
     if (file.size > 10 * 1024 * 1024) {
-      toast.error("Archivo muy grande (máx 10MB)");
-      return;
+      toast.error("Archivo muy grande (máx 10MB sin almacenamiento en la nube)");
+      return false;
     }
-    setUploading(true);
     const form = new FormData();
     form.append("file", file);
     if (contactId) form.append("contactId", contactId);
     if (proposalId) form.append("proposalId", proposalId);
     if (projectId) form.append("projectId", projectId);
+    const res = await fetch("/api/attachments", { method: "POST", body: form });
+    if (!res.ok) throw new Error();
+    return true;
+  };
 
+  const uploadFile = async (file: File) => {
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("Archivo muy grande (máx 50MB)");
+      return;
+    }
+    setUploading(true);
     try {
-      const res = await fetch("/api/attachments", { method: "POST", body: form });
+      // Upload straight from the browser to Blob storage — the file bytes
+      // never pass through our API route, so Vercel's 4.5MB serverless
+      // function body limit (which silently kills larger contracts/docs
+      // routed through a normal route handler) doesn't apply here.
+      let blob;
+      try {
+        blob = await upload(`attachments/${crypto.randomUUID()}/${file.name}`, file, {
+          access: "public",
+          handleUploadUrl: "/api/attachments/blob-upload",
+        });
+      } catch {
+        // Blob not configured (e.g. local dev) — fall back to the old path.
+        const ok = await uploadViaApiRoute(file);
+        if (ok) { toast.success("Archivo subido"); load(); }
+        return;
+      }
+
+      const res = await fetch("/api/attachments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contactId, proposalId, projectId,
+          name: file.name, type: "file",
+          url: blob.url, mimeType: file.type, size: file.size,
+        }),
+      });
       if (!res.ok) throw new Error();
       toast.success("Archivo subido");
       load();
@@ -177,7 +212,7 @@ export function AttachmentsTab({
         <p className="text-sm text-muted-foreground">
           {uploading ? "Subiendo..." : "Arrastra un archivo aquí o haz clic para seleccionar"}
         </p>
-        <p className="text-xs text-muted-foreground mt-1">PDF, imagen, ZIP, etc. · Máx 10MB</p>
+        <p className="text-xs text-muted-foreground mt-1">PDF, imagen, ZIP, etc. · Máx 50MB</p>
         <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileInput} />
       </div>
 
