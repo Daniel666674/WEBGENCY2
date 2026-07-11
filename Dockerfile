@@ -17,11 +17,7 @@ COPY . .
 # Build the application
 RUN npm run build
 
-# Create data directory
-RUN mkdir -p data
-
-# Initialize database
-RUN npx tsx scripts/init.ts
+RUN chmod +x docker-entrypoint.sh
 
 # Expose port
 EXPOSE 3000
@@ -29,4 +25,7 @@ EXPOSE 3000
 ENV NODE_ENV=production
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["npm", "start"]
+# data/ is mounted as a host volume in docker-compose.yml, which shadows
+# anything created here at build time — actual initialization has to happen
+# at container start, against the real mounted volume. See docker-entrypoint.sh.
+ENTRYPOINT ["./docker-entrypoint.sh"]

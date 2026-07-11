@@ -128,10 +128,25 @@ npm run dev
 npm run local  # build + init + start en puerto 3000
 ```
 
-### Docker
+### Docker (VPS)
 ```bash
-docker compose up -d  # Corre en puerto 3000, datos persisten en ./data/
+cp .env.example .env      # completar CRM_USERNAME / CRM_PASSWORD / SESSION_SECRET — REQUERIDOS
+docker compose up -d --build
 ```
+Sin esas 3 variables el login queda cerrado para todos (falla cerrado, no abierto).
+
+**HTTPS es obligatorio para poder iniciar sesion**: la cookie de sesion tiene el flag
+`Secure`, que el navegador ignora por completo sobre `http://` plano — sin TLS el login
+entra en loop infinito de vuelta a `/login`. Con un dominio ya apuntando al VPS:
+```bash
+cp Caddyfile.example Caddyfile   # editar el dominio adentro
+docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d --build
+```
+Esto agrega Caddy como reverse proxy con TLS automatico (Let's Encrypt) y deja de exponer
+el puerto 3000 directamente al host.
+
+Los datos viven en `./data/` (bind mount, sobrevive a reinicios y redeploys — a diferencia
+de Vercel, aqui el filesystem es persistente de verdad, sin necesidad de mirroring a Blob).
 
 ### MCP (Claude Desktop/Web)
 Agregar a `~/.claude/claude_desktop_config.json`:
