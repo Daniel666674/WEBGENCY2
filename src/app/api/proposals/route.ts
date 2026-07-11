@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db";
+import { db, persistNow } from "@/db";
 import { proposals, contacts } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 
@@ -75,6 +75,7 @@ export async function POST(request: NextRequest) {
       .returning()
       .get();
 
+    await persistNow();
     return NextResponse.json({
       ...result,
       features: JSON.parse(result.features || "[]"),

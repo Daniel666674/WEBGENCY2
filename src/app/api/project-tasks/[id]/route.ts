@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db";
+import { db, persistNow } from "@/db";
 import { projectTasks } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -24,6 +24,7 @@ export async function PUT(
       .where(eq(projectTasks.id, id))
       .run();
 
+    await persistNow();
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
@@ -37,6 +38,7 @@ export async function DELETE(
   const { id } = await params;
   try {
     db.delete(projectTasks).where(eq(projectTasks.id, id)).run();
+    await persistNow();
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });

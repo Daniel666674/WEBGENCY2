@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db";
+import { db, persistNow } from "@/db";
 import { attachments } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -37,6 +37,7 @@ export async function DELETE(
   try {
     const { id } = await params;
     await db.delete(attachments).where(eq(attachments.id, id));
+    await persistNow();
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error(e);
