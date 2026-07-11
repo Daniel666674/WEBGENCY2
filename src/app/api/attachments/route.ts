@@ -72,9 +72,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(row, { status: 201 });
     }
 
-    // JSON body for links / API endpoints
+    // JSON body for links / API endpoints, and for files already uploaded
+    // straight to Blob storage client-side (see /api/attachments/blob-upload)
     const body = await req.json();
-    const { contactId, proposalId, projectId, name, type = "link", url } = body;
+    const { contactId, proposalId, projectId, name, type = "link", url, mimeType, size } = body;
 
     if (!name || !url) return NextResponse.json({ error: "name and url required" }, { status: 400 });
 
@@ -85,6 +86,8 @@ export async function POST(req: NextRequest) {
       name,
       type,
       url,
+      mimeType: mimeType || undefined,
+      size: size || undefined,
     }).returning();
 
     await persistNow();

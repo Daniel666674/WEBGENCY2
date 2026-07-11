@@ -23,6 +23,13 @@ export async function GET(
       });
     }
 
+    // Files uploaded straight to Blob storage (no fileData in SQLite) —
+    // send the browser to the blob URL directly instead of proxying bytes
+    // through this function.
+    if (row.type === "file" && row.url) {
+      return NextResponse.redirect(row.url, { status: 307 });
+    }
+
     return NextResponse.json(row);
   } catch (e) {
     console.error(e);
