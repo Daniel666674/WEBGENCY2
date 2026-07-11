@@ -1,34 +1,25 @@
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
 import { auth, signIn } from "@/auth";
-import { ArrowRight } from "lucide-react";
-
-const DEMO_COOKIE = "oliwan-demo-session";
-const DEMO_COOKIE_MAX_AGE = 60 * 60 * 8; // 8h
+import { ArrowRight, Lock } from "lucide-react";
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ callbackUrl?: string }>;
+  searchParams: Promise<{ callbackUrl?: string; error?: string }>;
 }) {
-  const { callbackUrl } = await searchParams;
+  const { callbackUrl, error } = await searchParams;
   const authEnabled = process.env.AUTH_ENABLED === "true";
 
   if (authEnabled) {
     const session = await auth();
     if (session) redirect(callbackUrl || "/");
-  } else {
-    const cookieStore = await cookies();
-    if (cookieStore.get(DEMO_COOKIE)) redirect(callbackUrl || "/");
   }
-
-  async function enterDemo() {
-    "use server";
-    const cookieStore = await cookies();
-    cookieStore.set(DEMO_COOKIE, "1", { maxAge: DEMO_COOKIE_MAX_AGE, path: "/" });
-    redirect(callbackUrl || "/");
-  }
+  // Credentials mode's own "already logged in" check happens via proxy.ts —
+  // if this page is reachable, the signed cookie is missing or expired.
+  // The form below posts to /api/session-login (a plain route, not a
+  // server action) — standard HTTP semantics, works with or without JS,
+  // and is directly testable with curl.
 
   async function enterWithGoogle() {
     "use server";
@@ -104,21 +95,49 @@ export default async function LoginPage({
                 </button>
               </form>
             ) : (
-              <>
-                <form action={enterDemo} className="w-full">
-                  <button
-                    type="submit"
-                    className="group w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer"
-                    style={{ backgroundColor: "#0d9a8a" }}
-                  >
-                    Entrar al CRM
-                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                  </button>
-                </form>
-                <p className="text-[11px] text-white/40 text-center leading-relaxed">
-                  Modo demo — el login con Google se activará cuando<br />se configuren las credenciales reales.
-                </p>
-              </>
+              <form action="/api/session-login" method="POST" className="w-full flex flex-col gap-3">
+                <input type="hidden" name="callbackUrl" value={callbackUrl || "/"} />
+                <div className="w-full flex flex-col gap-1.5">
+                  <label className="text-xs text-white/50 font-medium">Usuario</label>
+                  <input
+                    type="text"
+                    name="username"
+                    required
+                    autoFocus
+                    autoComplete="username"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-[#0d9a8a] focus:border-[#0d9a8a] transition-colors"
+                  />
+                </div>
+                <div className="w-full flex flex-col gap-1.5">
+                  <label className="text-xs text-white/50 font-medium">Contraseña</label>
+                  <input
+                    type="password"
+                    name="password"
+                    required
+                    autoComplete="current-password"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-[#0d9a8a] focus:border-[#0d9a8a] transition-colors"
+                  />
+                </div>
+
+                {error === "1" && (
+                  <p className="text-xs text-red-400 text-center -mb-1">Usuario o contraseña incorrectos</p>
+                )}
+                {error === "config" && (
+                  <p className="text-xs text-amber-400 text-center -mb-1">
+                    Falta CRM_USERNAME / CRM_PASSWORD / SESSION_SECRET en el servidor
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  className="group w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer mt-1"
+                  style={{ backgroundColor: "#0d9a8a" }}
+                >
+                  <Lock className="h-3.5 w-3.5" />
+                  Entrar
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </button>
+              </form>
             )}
           </div>
         </div>
