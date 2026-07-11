@@ -1,0 +1,35 @@
+# Optional HTTPS reverse proxy. The login cookie is flagged Secure, so it
+# will NOT be stored by the browser over plain http:// — login is broken
+# without this once you're testing from an actual domain instead of
+# localhost. Requires a domain's DNS already pointed at this VPS's IP
+# (Let's Encrypt needs to reach this server to issue the certificate).
+#
+# Usage:
+#   cp Caddyfile.example Caddyfile   # then edit the domain inside
+#   docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d --build
+#
+# This removes the crm service's direct host port binding (3000 is only
+# reachable from Caddy inside the Docker network from then on) and exposes
+# 80/443 instead.
+services:
+  crm:
+    ports: !reset []
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - crm
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

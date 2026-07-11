@@ -45,6 +45,9 @@ next-env.d.ts
 /crm-config.json
 !public/crm-config.json
 
+# caddy reverse proxy config (real domain — see Caddyfile.example)
+/Caddyfile
+
 # database (wal/journal files only — crm.db committed for demo)
 data/crm.db-journal
 data/crm.db-wal

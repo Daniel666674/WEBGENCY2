@@ -10,6 +10,12 @@ services:
       - ./crm-config.json:/app/crm-config.json
     environment:
       - NODE_ENV=production
-      # Optional: uncomment and set your API key for AI features
-      # - ANTHROPIC_API_KEY=sk-ant-...
+    # All secrets (auth, email digest, etc.) live in a .env file next to this
+    # compose file — NOT hardcoded here, since this file is committed to git.
+    # Copy .env.example to .env and fill it in before first `docker compose up`.
+    # CRM_USERNAME / CRM_PASSWORD / SESSION_SECRET are REQUIRED — without them
+    # the login gate fails closed and nobody (including you) can get in.
+    env_file:
+      - path: .env
+        required: false
     restart: unless-stopped
