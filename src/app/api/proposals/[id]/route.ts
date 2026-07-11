@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db";
+import { db, persistNow } from "@/db";
 import { proposals } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -47,6 +47,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     if (!result) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
+    await persistNow();
     return NextResponse.json({
       ...result,
       features: JSON.parse(result.features || "[]"),
@@ -65,5 +66,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   db.delete(proposals).where(eq(proposals.id, id)).run();
+  await persistNow();
   return NextResponse.json({ success: true });
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db";
+import { db, persistNow } from "@/db";
 import { attachments } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 
@@ -68,6 +68,7 @@ export async function POST(req: NextRequest) {
         size: file.size,
       }).returning();
 
+      await persistNow();
       return NextResponse.json(row, { status: 201 });
     }
 
@@ -86,6 +87,7 @@ export async function POST(req: NextRequest) {
       url,
     }).returning();
 
+    await persistNow();
     return NextResponse.json(row, { status: 201 });
   } catch (e) {
     console.error(e);

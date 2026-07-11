@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db";
+import { db, persistNow } from "@/db";
 import { contacts } from "@/db/schema";
 import { eq, like, or, desc } from "drizzle-orm";
 
@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
       .returning()
       .get();
 
+    await persistNow();
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
     return NextResponse.json(

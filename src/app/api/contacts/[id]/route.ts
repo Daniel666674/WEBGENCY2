@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db";
+import { db, persistNow } from "@/db";
 import { contacts, deals, activities } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -91,6 +91,7 @@ export async function PUT(
     .returning()
     .get();
 
+  await persistNow();
   return NextResponse.json(result);
 }
 
@@ -114,5 +115,6 @@ export async function DELETE(
   }
 
   db.delete(contacts).where(eq(contacts.id, id)).run();
+  await persistNow();
   return NextResponse.json({ success: true });
 }

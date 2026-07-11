@@ -126,8 +126,6 @@ export async function restoreDbFromBlob(): Promise<void> {
   }
 }
 
-let uploadPending = false;
-
 export interface UploadResult {
   ok: boolean;
   size?: number;
@@ -136,14 +134,7 @@ export interface UploadResult {
   error?: string;
 }
 
-/**
- * Called via next/server's after() once a mutating statement runs. Deduped
- * so a burst of writes in one request produces a single upload.
- */
-export async function uploadDbToBlob(checkpoint: () => void): Promise<UploadResult> {
-  if (!isBlobPersistEnabled()) return { ok: false, skipped: "persist disabled (no VERCEL or no token)" };
-  if (uploadPending) return { ok: true, skipped: "upload already in flight" };
-  uploadPending = true;
+async function doUpload(checkpoint: () => void): Promise<UploadResult> {
   const t0 = Date.now();
   try {
     checkpoint(); // flush WAL so the main file is complete
@@ -168,9 +159,28 @@ export async function uploadDbToBlob(checkpoint: () => void): Promise<UploadResu
     const error = e instanceof Error ? e.message : String(e);
     console.error(`[dbPersist] upload failed after ${Date.now() - t0}ms:`, error);
     return { ok: false, durationMs: Date.now() - t0, error };
-  } finally {
-    uploadPending = false;
   }
+}
+
+// Serializes concurrent callers instead of the old "skip if one is already
+// in flight" behavior. That dedup was fine when uploads were fire-and-forget,
+// but persistNow() is now awaited by the request handler as proof the
+// response's own write reached Blob — a caller getting back a stale "skipped,
+// someone else is uploading" without ever confirming *its* write landed would
+// defeat that guarantee. Chaining onto the previous call means every caller
+// still gets a real upload that runs after its own (synchronous) DB write,
+// just possibly batched with others queued at the same moment.
+let uploadChain: Promise<UploadResult> = Promise.resolve({ ok: true, skipped: "not run yet" });
+
+/** Awaited directly by persistNow(), and also reachable via the legacy after()-based hook. */
+export async function uploadDbToBlob(checkpoint: () => void): Promise<UploadResult> {
+  if (!isBlobPersistEnabled()) return { ok: false, skipped: "persist disabled (no VERCEL or no token)" };
+  const run = uploadChain.then(
+    () => doUpload(checkpoint),
+    () => doUpload(checkpoint)
+  );
+  uploadChain = run;
+  return run;
 }
 
 /** Local-file side of the diagnostics picture. */

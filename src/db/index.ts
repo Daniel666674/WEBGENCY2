@@ -204,4 +204,27 @@ export function checkpointDb(): void {
   } catch {}
 }
 
+/**
+ * Awaitable persistence for routes that write data the user must actually
+ * see stick — contacts, deals, proposals, activities, projects, tasks,
+ * attachments. Call and await this right before returning the response.
+ *
+ * Why this exists alongside the after()-based hook above: after() is the
+ * platform-documented mechanism for background work post-response, but its
+ * exact time budget on every hosting tier isn't something this codebase can
+ * verify from here, and a background task that gets cut off looks
+ * identical to "nothing was ever wrong" — no error, no log the user sees,
+ * just data that silently isn't there next time. Awaiting the upload before
+ * the response is sent removes that uncertainty outright: if this resolves,
+ * the response the client receives is proof the data reached Blob, not a
+ * hope that a background task will finish after they've already left the
+ * page. No-op locally and in any deployment without Blob persistence
+ * configured (isBlobPersistEnabled() gates the actual work).
+ */
+export async function persistNow(): Promise<void> {
+  if (!(process.env.VERCEL && process.env.BLOB_READ_WRITE_TOKEN)) return;
+  const { uploadDbToBlob } = await import("@/lib/dbPersist");
+  await uploadDbToBlob(checkpointDb);
+}
+
 export const db = drizzle(sqlite, { schema });

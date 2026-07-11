@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db";
+import { db, persistNow } from "@/db";
 import { deals, contacts, pipelineStages } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 
@@ -87,6 +87,7 @@ export async function POST(request: NextRequest) {
       .returning()
       .get();
 
+    await persistNow();
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown";
