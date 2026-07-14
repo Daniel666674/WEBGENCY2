@@ -120,7 +120,7 @@ export function InfraestructuraTab({ contactId, initialData }: { contactId: stri
         <CardContent className="space-y-3">
           {accessMap.map((a, i) => (
             <div key={i} className="flex items-start gap-2 text-sm p-2.5 rounded-lg border">
-              <div className="flex-1 min-w-0 grid grid-cols-3 gap-2">
+              <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <span className="font-medium truncate">{a.system}</span>
                 <span className="truncate">{a.whoHasAccess}</span>
                 <span className="text-muted-foreground truncate">{a.howToRequest}</span>
@@ -130,7 +130,7 @@ export function InfraestructuraTab({ contactId, initialData }: { contactId: stri
               </button>
             </div>
           ))}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <Input placeholder="Sistema" value={newAccess.system} onChange={(e) => setNewAccess({ ...newAccess, system: e.target.value })} className="h-8" />
             <Input placeholder="Quien tiene acceso" value={newAccess.whoHasAccess} onChange={(e) => setNewAccess({ ...newAccess, whoHasAccess: e.target.value })} className="h-8" />
             <Input placeholder="Como pedirlo" value={newAccess.howToRequest} onChange={(e) => setNewAccess({ ...newAccess, howToRequest: e.target.value })} className="h-8" />
