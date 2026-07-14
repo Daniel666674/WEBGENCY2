@@ -3,6 +3,7 @@ import { contacts, deals, activities, pipelineStages } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { ContactDetailClient } from "@/components/contacts/ContactDetail";
+import { parseContactJsonFields } from "@/lib/contactJsonFields";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +14,9 @@ export default async function ContactDetailPage({
 }) {
   const { id } = await params;
 
-  const contact = db.select().from(contacts).where(eq(contacts.id, id)).get();
-  if (!contact) notFound();
+  const rawContact = db.select().from(contacts).where(eq(contacts.id, id)).get();
+  if (!rawContact) notFound();
+  const contact = parseContactJsonFields(rawContact);
 
   const contactDeals = db
     .select({
