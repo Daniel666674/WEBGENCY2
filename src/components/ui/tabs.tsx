@@ -44,12 +44,19 @@ function TabsList({
   ...props
 }: TabsPrimitive.List.Props & VariantProps<typeof tabsListVariants>) {
   return (
-    <TabsPrimitive.List
-      data-slot="tabs-list"
-      data-variant={variant}
-      className={cn(tabsListVariants({ variant }), className)}
-      {...props}
-    />
+    // The scroll container is a separate element from TabsList itself so
+    // that when a tab far off-screen is activated, the browser's
+    // scroll-into-view only shifts this row — not the page's shared scroll
+    // context, which is what was dragging the whole page sideways whenever
+    // a tab bar had more tabs than fit on a mobile screen.
+    <div className="max-w-full overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <TabsPrimitive.List
+        data-slot="tabs-list"
+        data-variant={variant}
+        className={cn(tabsListVariants({ variant }), "shrink-0", className)}
+        {...props}
+      />
+    </div>
   )
 }
 
