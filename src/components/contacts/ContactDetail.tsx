@@ -11,6 +11,12 @@ import { ContactForm } from "./ContactForm";
 import { ActivityForm } from "@/components/activities/ActivityForm";
 import { AttachmentsTab } from "./AttachmentsTab";
 import { AnalyticsTab } from "./AnalyticsTab";
+import { InfraestructuraTab } from "./InfraestructuraTab";
+import { SeoTab } from "./SeoTab";
+import { SeguridadTab } from "./SeguridadTab";
+import { BitacoraTab } from "./BitacoraTab";
+import { AccountHealthCard } from "./AccountHealthCard";
+import { SalesHealthCard } from "./SalesHealthCard";
 import { EntityAvatar } from "@/components/shared/EntityAvatar";
 import {
   ArrowLeft,
@@ -34,7 +40,18 @@ import {
 import { formatCurrency, formatDate, formatRelativeDate, cleanPhoneForWhatsApp, CLIENT_STATUS_CONFIG } from "@/lib/constants";
 import { ACTIVITY_TYPE_CONFIG, SOURCE_LABELS } from "@/lib/constants";
 import { toast } from "sonner";
-import type { Temperature, ActivityType, LeadSource, ClientStatus } from "@/types";
+import type {
+  Temperature,
+  ActivityType,
+  LeadSource,
+  ClientStatus,
+  InfraData,
+  SeoData,
+  SecurityData,
+  DecisionLogEntry,
+  AccountHealth,
+  InventoryHealth,
+} from "@/types";
 
 const activityIcons: Record<string, typeof Phone> = {
   call: Phone,
@@ -61,6 +78,14 @@ interface ContactDetailClientProps {
     monthlyPayment: number | null;
     clientStatus: string;
     nextPaymentDate: number | Date | null;
+    infraData: InfraData | null;
+    seoData: SeoData | null;
+    securityData: SecurityData | null;
+    decisionLog: DecisionLogEntry[];
+    accountHealth: AccountHealth | null;
+    inventoryHealth: InventoryHealth | null;
+    salesDataNotes: string | null;
+    funnelTracking: string | null;
     createdAt: number | Date;
   };
   deals: Array<{
@@ -196,6 +221,10 @@ export function ContactDetailClient({
           <TabsTrigger value="payments" className="cursor-pointer">Pagos</TabsTrigger>
           <TabsTrigger value="analytics" className="cursor-pointer">Analiticas</TabsTrigger>
           <TabsTrigger value="attachments" className="cursor-pointer">Archivos</TabsTrigger>
+          <TabsTrigger value="infra" className="cursor-pointer">Infraestructura</TabsTrigger>
+          <TabsTrigger value="seo" className="cursor-pointer">SEO</TabsTrigger>
+          <TabsTrigger value="security" className="cursor-pointer">Seguridad</TabsTrigger>
+          <TabsTrigger value="bitacora" className="cursor-pointer">Bitacora</TabsTrigger>
         </TabsList>
 
         {/* INFO TAB */}
@@ -294,6 +323,10 @@ export function ContactDetailClient({
                 </div>
               </CardContent>
             </Card>
+
+            {contact.clientStatus === "active_client" && (
+              <AccountHealthCard contactId={contact.id} accountHealth={contact.accountHealth} />
+            )}
           </div>
         </TabsContent>
 
@@ -430,6 +463,13 @@ export function ContactDetailClient({
               </CardContent>
             </Card>
           )}
+
+          <SalesHealthCard
+            contactId={contact.id}
+            salesDataNotes={contact.salesDataNotes}
+            inventoryHealth={contact.inventoryHealth}
+            funnelTracking={contact.funnelTracking}
+          />
         </TabsContent>
 
         {/* ANALYTICS TAB */}
@@ -447,6 +487,26 @@ export function ContactDetailClient({
               <AttachmentsTab contactId={contact.id} />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* INFRAESTRUCTURA TAB */}
+        <TabsContent value="infra">
+          <InfraestructuraTab contactId={contact.id} initialData={contact.infraData} />
+        </TabsContent>
+
+        {/* SEO TAB */}
+        <TabsContent value="seo">
+          <SeoTab contactId={contact.id} initialData={contact.seoData} />
+        </TabsContent>
+
+        {/* SEGURIDAD TAB */}
+        <TabsContent value="security">
+          <SeguridadTab contactId={contact.id} initialData={contact.securityData} />
+        </TabsContent>
+
+        {/* BITACORA TAB */}
+        <TabsContent value="bitacora">
+          <BitacoraTab contactId={contact.id} initialLog={contact.decisionLog} />
         </TabsContent>
       </Tabs>
 

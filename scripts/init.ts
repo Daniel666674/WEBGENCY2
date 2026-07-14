@@ -98,7 +98,7 @@ sqlite.close();
 {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const cp = require("child_process");
-  for (let v = 2; v <= 10; v++) {
+  for (let v = 2; v <= 11; v++) {
     cp.execSync(`npx tsx scripts/migrate-v${v}.ts`, { stdio: "inherit", cwd: process.cwd() });
   }
 }

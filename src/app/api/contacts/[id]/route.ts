@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, persistNow } from "@/db";
 import { contacts, deals, activities } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { parseContactJsonFields, applyContactJsonFields } from "@/lib/contactJsonFields";
 
 export async function GET(
   _request: NextRequest,
@@ -35,7 +36,7 @@ export async function GET(
     .all();
 
   return NextResponse.json({
-    ...contact,
+    ...parseContactJsonFields(contact),
     deals: contactDeals,
     activities: contactActivities,
   });
@@ -83,6 +84,7 @@ export async function PUT(
   if (body.monthlyPayment !== undefined) updateData.monthlyPayment = body.monthlyPayment || null;
   if (body.clientStatus !== undefined) updateData.clientStatus = body.clientStatus;
   if (body.nextPaymentDate !== undefined) updateData.nextPaymentDate = body.nextPaymentDate ? new Date(body.nextPaymentDate) : null;
+  applyContactJsonFields(body, updateData);
 
   const result = db
     .update(contacts)
@@ -92,7 +94,7 @@ export async function PUT(
     .get();
 
   await persistNow();
-  return NextResponse.json(result);
+  return NextResponse.json(parseContactJsonFields(result));
 }
 
 export async function DELETE(

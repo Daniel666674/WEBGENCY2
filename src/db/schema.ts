@@ -21,6 +21,17 @@ export const contacts = sqliteTable("contacts", {
   nextPaymentDate: integer("next_payment_date", { mode: "timestamp" }),
   automationsSuspended: integer("automations_suspended").notNull().default(0),
   lastPaymentRef: text("last_payment_ref"),
+  // Post-close account depth (JSON-serialized, parsed at the API layer —
+  // same convention as proposals.features etc.). All nullable/optional so
+  // existing rows and the read path never break.
+  infraData: text("infra_data"),
+  seoData: text("seo_data"),
+  securityData: text("security_data"),
+  decisionLog: text("decision_log").notNull().default("[]"),
+  accountHealth: text("account_health"),
+  inventoryHealth: text("inventory_health"),
+  salesDataNotes: text("sales_data_notes"),
+  funnelTracking: text("funnel_tracking"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
