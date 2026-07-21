@@ -4,27 +4,22 @@ import { db } from "@/db";
 import { analyticsProperties, accounts } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
+import { getServiceAccountAuth } from "@/lib/googleAnalytics";
 
-// Live GA4 + GSC pull. Returns { connected: false, reason } until:
-//   1. AUTH_ENABLED=true and a real Google session exists, and
-//   2. the client's GA4 property ID / GSC site URL are configured below.
-// This is intentionally honest rather than showing placeholder numbers —
-// wire-compatible now, goes live the moment Google OAuth is turned on.
+// Live GA4 + GSC pull. Two ways to authenticate, tried in this order:
+//   1. A Google SERVICE ACCOUNT (GOOGLE_SERVICE_ACCOUNT_KEY) — preferred for
+//      an agency showing a client's numbers: no per-user Google sign-in, no
+//      AUTH_ENABLED, just grant the service account read access to the
+//      client's GA4 property + Search Console site once.
+//   2. Interactive Google OAuth — the logged-in CRM user's own Google token
+//      (needs AUTH_ENABLED=true and a Google session).
+// Returns { connected: false, reason } with a specific reason otherwise, so
+// the UI can tell the user exactly what's missing rather than show fake data.
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-
-  if (process.env.AUTH_ENABLED !== "true") {
-    return NextResponse.json({ connected: false, reason: "auth_disabled" });
-  }
-
-  const session = await auth();
-  const userId = (session?.user as { id?: string } | undefined)?.id;
-  if (!session || !userId) {
-    return NextResponse.json({ connected: false, reason: "not_signed_in" });
-  }
 
   const config = db
     .select()
@@ -36,21 +31,40 @@ export async function GET(
     return NextResponse.json({ connected: false, reason: "not_configured" });
   }
 
-  const account = db
-    .select()
-    .from(accounts)
-    .where(eq(accounts.userId, userId))
-    .get();
-
-  if (!account?.refresh_token) {
-    return NextResponse.json({ connected: false, reason: "no_google_token" });
+  // Resolve a Google auth client — service account first, OAuth as fallback.
+  // Typed off the `google` namespace's own auth classes (not the top-level
+  // google-auth-library copy) so it stays assignable to the API constructors
+  // and avoids the dual-package type mismatch.
+  let authClient:
+    | NonNullable<ReturnType<typeof getServiceAccountAuth>>
+    | InstanceType<typeof google.auth.OAuth2>;
+  const serviceAccountAuth = getServiceAccountAuth();
+  if (serviceAccountAuth) {
+    authClient = serviceAccountAuth;
+  } else {
+    if (process.env.AUTH_ENABLED !== "true") {
+      return NextResponse.json({ connected: false, reason: "auth_disabled" });
+    }
+    const session = await auth();
+    const userId = (session?.user as { id?: string } | undefined)?.id;
+    if (!session || !userId) {
+      return NextResponse.json({ connected: false, reason: "not_signed_in" });
+    }
+    const account = db
+      .select()
+      .from(accounts)
+      .where(eq(accounts.userId, userId))
+      .get();
+    if (!account?.refresh_token) {
+      return NextResponse.json({ connected: false, reason: "no_google_token" });
+    }
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET
+    );
+    oauth2Client.setCredentials({ refresh_token: account.refresh_token });
+    authClient = oauth2Client;
   }
-
-  const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET
-  );
-  oauth2Client.setCredentials({ refresh_token: account.refresh_token });
 
   const result: {
     connected: true;
@@ -63,7 +77,7 @@ export async function GET(
 
   if (config.ga4PropertyId) {
     try {
-      const analyticsData = google.analyticsdata({ version: "v1beta", auth: oauth2Client });
+      const analyticsData = google.analyticsdata({ version: "v1beta", auth: authClient });
       const report = await analyticsData.properties.runReport({
         property: `properties/${config.ga4PropertyId}`,
         requestBody: {
@@ -88,7 +102,7 @@ export async function GET(
 
   if (config.gscSiteUrl) {
     try {
-      const searchConsole = google.searchconsole({ version: "v1", auth: oauth2Client });
+      const searchConsole = google.searchconsole({ version: "v1", auth: authClient });
       const report = await searchConsole.searchanalytics.query({
         siteUrl: config.gscSiteUrl,
         requestBody: { startDate, endDate, dimensions: [] },
