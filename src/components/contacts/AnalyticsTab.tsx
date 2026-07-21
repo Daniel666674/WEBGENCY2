@@ -23,12 +23,15 @@ interface ReportData {
 }
 
 const REASON_LABELS: Record<string, string> = {
-  auth_disabled: "El login con Google aun no esta activado en este CRM.",
+  auth_disabled:
+    "Falta conectar Google. Opcion recomendada: agrega una cuenta de servicio (GOOGLE_SERVICE_ACCOUNT_KEY) con acceso de lectura a la propiedad GA4 y al sitio de Search Console — no requiere iniciar sesion con Google.",
   not_signed_in: "Inicia sesion con Google para ver metricas en vivo.",
   not_configured: "Agrega el GA4 Property ID o el sitio de Search Console arriba.",
   no_google_token: "Tu cuenta de Google no tiene un token valido — vuelve a iniciar sesion.",
-  ga4_error: "No se pudo consultar GA4 — revisa el Property ID y los permisos.",
-  gsc_error: "No se pudo consultar Search Console — revisa el sitio y los permisos.",
+  ga4_error:
+    "No se pudo consultar GA4 — revisa que la cuenta de servicio (o tu cuenta) tenga acceso de lectura a esta propiedad y que el Property ID sea correcto.",
+  gsc_error:
+    "No se pudo consultar Search Console — revisa que la cuenta de servicio (o tu cuenta) este agregada como usuario en este sitio.",
 };
 
 export function AnalyticsTab({ contactId }: { contactId: string }) {
