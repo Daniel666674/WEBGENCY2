@@ -17,6 +17,11 @@ const db = createClient({
   authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
+// Wrapped in an async function (not top-level await) because tsx transforms
+// this file as CJS — the project has no "type": "module" in package.json,
+// and top-level await isn't supported under that output format.
+async function main() {
+
 console.log("Seeding database...");
 
 const stagesResult = await db.execute('SELECT id, name FROM pipeline_stages ORDER BY "order"');
@@ -276,3 +281,10 @@ console.log(`Created ${activityData.length} activities`);
 console.log("Seed complete!");
 
 db.close();
+
+}
+
+main().catch((e) => {
+  console.error("FALLO el seed:", e);
+  process.exit(1);
+});
