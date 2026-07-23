@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const row = db.select().from(proposals).where(eq(proposals.id, id)).get();
+  const row = await db.select().from(proposals).where(eq(proposals.id, id)).get();
   if (!row) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
   return NextResponse.json({
     ...row,
@@ -28,7 +28,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const { planName, oneTimeFee, monthlyFee, features, addOns, automations, deliverables, notes } = body;
 
   try {
-    const result = db
+    const result = await db
       .update(proposals)
       .set({
         planName: planName ?? undefined,
@@ -65,7 +65,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  db.delete(proposals).where(eq(proposals.id, id)).run();
+  await db.delete(proposals).where(eq(proposals.id, id)).run();
   await persistNow();
   return NextResponse.json({ success: true });
 }

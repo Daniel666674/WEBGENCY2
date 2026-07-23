@@ -8,7 +8,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const row = db
+  const row = await db
     .select()
     .from(analyticsProperties)
     .where(eq(analyticsProperties.contactId, id))
@@ -33,7 +33,7 @@ export async function PUT(
 
   const { ga4PropertyId, ga4MeasurementId, gscSiteUrl } = body;
 
-  const existing = db
+  const existing = await db
     .select({ id: analyticsProperties.id })
     .from(analyticsProperties)
     .where(eq(analyticsProperties.contactId, id))
@@ -42,7 +42,7 @@ export async function PUT(
   const now = new Date();
 
   if (existing) {
-    const result = db
+    const result = await db
       .update(analyticsProperties)
       .set({
         ga4PropertyId: ga4PropertyId || null,
@@ -56,7 +56,7 @@ export async function PUT(
     return NextResponse.json(result);
   }
 
-  const result = db
+  const result = await db
     .insert(analyticsProperties)
     .values({
       contactId: id,

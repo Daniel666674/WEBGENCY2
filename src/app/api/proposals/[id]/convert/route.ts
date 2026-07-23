@@ -9,13 +9,13 @@ export async function POST(
 ) {
   const { id } = await params;
   try {
-    const proposal = db.select().from(proposals).where(eq(proposals.id, id)).get();
+    const proposal = await db.select().from(proposals).where(eq(proposals.id, id)).get();
     if (!proposal) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
-    const contact = db.select().from(contacts).where(eq(contacts.id, proposal.contactId)).get();
+    const contact = await db.select().from(contacts).where(eq(contacts.id, proposal.contactId)).get();
     const clientLabel = contact?.company || contact?.name || "Cliente";
 
-    const project = db
+    const project = await db
       .insert(projects)
       .values({
         clientId: proposal.contactId,
@@ -36,7 +36,7 @@ export async function POST(
       const now = new Date();
       const signedDate = contact?.signedDate ?? now;
       const nextPaymentDate = new Date(signedDate.getTime() + 30 * 24 * 60 * 60 * 1000);
-      db.update(contacts)
+      await db.update(contacts)
         .set({
           clientStatus: "active_client",
           signedDate,

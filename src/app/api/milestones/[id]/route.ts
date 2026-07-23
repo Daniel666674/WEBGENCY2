@@ -12,7 +12,7 @@ export async function PUT(
     const body = await req.json();
     const { title, dueDate, completedAt, completed } = body;
 
-    db.update(projectMilestones)
+    await db.update(projectMilestones)
       .set({
         ...(title !== undefined && { title }),
         ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
@@ -37,7 +37,7 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
-    db.delete(projectMilestones).where(eq(projectMilestones.id, id)).run();
+    await db.delete(projectMilestones).where(eq(projectMilestones.id, id)).run();
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });

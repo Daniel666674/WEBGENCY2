@@ -21,7 +21,7 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  const config = db
+  const config = await db
     .select()
     .from(analyticsProperties)
     .where(eq(analyticsProperties.contactId, id))
@@ -50,7 +50,7 @@ export async function GET(
     if (!session || !userId) {
       return NextResponse.json({ connected: false, reason: "not_signed_in" });
     }
-    const account = db
+    const account = await db
       .select()
       .from(accounts)
       .where(eq(accounts.userId, userId))

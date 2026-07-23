@@ -5,7 +5,7 @@ import type { InfraData, SecurityData, AccountHealth, DecisionLogEntry } from ".
 
 const CONTACT_ID = "a6a99a16-c706-4e18-a031-b913f656d98b"; // ESCENA Bike Shop
 
-const existing = db.select().from(contacts).where(eq(contacts.id, CONTACT_ID)).get();
+const existing = await db.select().from(contacts).where(eq(contacts.id, CONTACT_ID)).get();
 if (!existing) throw new Error("ESCENA Bike Shop contact not found");
 
 const currentInfra: InfraData = JSON.parse(existing.infraData!);
@@ -80,7 +80,7 @@ const newEntries: DecisionLogEntry[] = [
 
 const decisionLog = [...newEntries, ...currentLog];
 
-db.update(contacts)
+await db.update(contacts)
   .set({
     infraData: JSON.stringify(infraData),
     securityData: JSON.stringify(securityData),
@@ -92,7 +92,7 @@ db.update(contacts)
   .run();
 
 // Analytics tab (live GA4/GSC connection config — separate from seoData snapshot)
-const existingAnalytics = db
+const existingAnalytics = await db
   .select({ id: analyticsProperties.id })
   .from(analyticsProperties)
   .where(eq(analyticsProperties.contactId, CONTACT_ID))
@@ -100,12 +100,12 @@ const existingAnalytics = db
 
 const now = new Date();
 if (existingAnalytics) {
-  db.update(analyticsProperties)
+  await db.update(analyticsProperties)
     .set({ ga4PropertyId: "546141145", gscSiteUrl: "https://escenabmx.com/", updatedAt: now })
     .where(eq(analyticsProperties.contactId, CONTACT_ID))
     .run();
 } else {
-  db.insert(analyticsProperties)
+  await db.insert(analyticsProperties)
     .values({
       contactId: CONTACT_ID,
       ga4PropertyId: "546141145",

@@ -15,15 +15,15 @@ function authorized(request: NextRequest): boolean {
   return !!cronSecret && request.headers.get("x-cron-secret") === cronSecret;
 }
 
-function buildDigest() {
+async function buildDigest() {
   const now = new Date();
   const nowSec = Math.floor(now.getTime() / 1000);
 
-  const allContacts = db.select().from(contacts).all();
-  const allDeals = db.select().from(deals).all();
-  const stages = db.select().from(pipelineStages).orderBy(asc(pipelineStages.order)).all();
+  const allContacts = await db.select().from(contacts).all();
+  const allDeals = await db.select().from(deals).all();
+  const stages = await db.select().from(pipelineStages).orderBy(asc(pipelineStages.order)).all();
 
-  const pendingActivities = db
+  const pendingActivities = await db
     .select({
       description: activities.description,
       scheduledAt: activities.scheduledAt,
@@ -39,7 +39,7 @@ function buildDigest() {
   );
 
   // Tareas y solicitudes pendientes (proyectos)
-  const pendingProjectItems = db
+  const pendingProjectItems = await db
     .select({
       type: projectTasks.type,
       description: projectTasks.description,
@@ -56,7 +56,7 @@ function buildDigest() {
   const pendingSolicitudes = pendingProjectItems.filter((t) => t.type === "solicitud");
 
   // Ofertas: mis propuestas valen 30 dias (proposals.validUntil)
-  const datedProposals = db
+  const datedProposals = await db
     .select({
       planName: proposals.planName,
       oneTimeFee: proposals.oneTimeFee,
@@ -175,7 +175,7 @@ export async function GET(request: NextRequest) {
   if (!authorized(request)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-  const { html } = buildDigest();
+  const { html } = await buildDigest();
   return new NextResponse(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
 
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const { html, subject, summary } = buildDigest();
+  const { html, subject, summary } = await buildDigest();
   const result = await sendMail(subject, html);
 
   if (!result.ok) {

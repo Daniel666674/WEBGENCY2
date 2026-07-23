@@ -4,7 +4,7 @@ import { activities, contacts } from "@/db/schema";
 import { eq, isNull, asc } from "drizzle-orm";
 
 export async function GET() {
-  const pendingFollowups = db
+  const pendingFollowups = await db
     .select({
       id: activities.id,
       type: activities.type,

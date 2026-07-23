@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
   const today = new Date().toISOString().split("T")[0];
 
   if (type === "contacts") {
-    const allContacts = db
+    const allContacts = await db
       .select()
       .from(contacts)
       .orderBy(desc(contacts.createdAt))
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (type === "deals") {
-    const allDeals = db
+    const allDeals = await db
       .select({
         title: deals.title,
         value: deals.value,

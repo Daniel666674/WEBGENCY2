@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
 
   let rows;
   if (contactId) {
-    rows = db
+    rows = await db
       .select({ p: proposals, contactName: contacts.name, contactCompany: contacts.company })
       .from(proposals)
       .leftJoin(contacts, eq(proposals.contactId, contacts.id))
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       .orderBy(desc(proposals.createdAt))
       .all();
   } else {
-    rows = db
+    rows = await db
       .select({ p: proposals, contactName: contacts.name, contactCompany: contacts.company })
       .from(proposals)
       .leftJoin(contacts, eq(proposals.contactId, contacts.id))
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
   try {
     const now = new Date();
     const validUntil = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 dias, como en las propuestas reales
-    const result = db
+    const result = await db
       .insert(proposals)
       .values({
         contactId,

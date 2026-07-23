@@ -16,14 +16,8 @@ if [ ! -f /app/crm-config.json ]; then
   cp /app/public/crm-config.json /app/crm-config.json
 fi
 
-# data/ is a host volume mount, so whatever got baked into the image at
-# build time never actually reaches the running container — the volume
-# shadows it. Initialize the *mounted* database here, at container start,
-# and only if it doesn't already exist (a fresh volume, or a fresh clone
-# without data/crm.db committed) so re-deploys never touch existing data.
-if [ ! -f /app/data/crm.db ]; then
-  echo "No existing database at data/crm.db — initializing..."
-  npx tsx scripts/init.ts
-fi
+# Data lives in Turso (TURSO_DATABASE_URL/TURSO_AUTH_TOKEN), not on the
+# container filesystem — the schema is created automatically on first boot
+# via ensureSchema() (src/instrumentation.ts). Nothing to initialize here.
 
 exec npm start

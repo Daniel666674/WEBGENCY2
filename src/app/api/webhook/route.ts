@@ -77,7 +77,7 @@ function extractFields(
 
 export async function POST(request: NextRequest) {
   // Auth check: if a webhook secret is stored, require it in the header
-  const stored = db
+  const stored = await db
     .select()
     .from(crmSettings)
     .where(eq(crmSettings.key, "webhook_secret"))
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const now = new Date();
-    const contact = db
+    const contact = await db
       .insert(contacts)
       .values({
         name: fields.name,
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
       .get();
 
     // Log activity for the new lead
-    db.insert(activities)
+    await db.insert(activities)
       .values({
         type: "note",
         description: `Lead recibido via webhook${fields.company ? ` (${fields.company})` : ""}`,

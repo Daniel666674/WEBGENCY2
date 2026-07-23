@@ -1,24 +1,26 @@
-import Database from "better-sqlite3";
 import path from "path";
-import fs from "fs";
+import { createClient } from "@libsql/client";
 
-const DB_PATH = path.join(process.cwd(), "data", "crm.db");
-
-const dataDir = path.dirname(DB_PATH);
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+try {
+  process.loadEnvFile(path.join(process.cwd(), ".env.local"));
+} catch {
+  // .env.local not found — assume TURSO_DATABASE_URL/TURSO_AUTH_TOKEN are
+  // already in the environment.
 }
 
-const sqlite = new Database(DB_PATH);
-sqlite.pragma("journal_mode = WAL");
-sqlite.pragma("foreign_keys = ON");
+if (!process.env.TURSO_DATABASE_URL) {
+  throw new Error("TURSO_DATABASE_URL no esta configurado (revisa .env.local)");
+}
+
+const db = createClient({
+  url: process.env.TURSO_DATABASE_URL,
+  authToken: process.env.TURSO_AUTH_TOKEN,
+});
 
 console.log("Seeding database...");
 
-// Get pipeline stages
-const stages = sqlite
-  .prepare('SELECT id, name FROM pipeline_stages ORDER BY "order"')
-  .all() as Array<{ id: string; name: string }>;
+const stagesResult = await db.execute('SELECT id, name FROM pipeline_stages ORDER BY "order"');
+const stages = stagesResult.rows as unknown as Array<{ id: string; name: string }>;
 
 if (stages.length === 0) {
   console.error(
@@ -101,25 +103,24 @@ const contacts = [
   },
 ];
 
-const insertContact = sqlite.prepare(
-  `INSERT OR IGNORE INTO contacts (id, name, email, phone, company, source, temperature, score, notes, created_at, updated_at)
-   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-);
-
 for (const c of contacts) {
-  insertContact.run(
-    c.id,
-    c.name,
-    c.email,
-    c.phone,
-    c.company,
-    c.source,
-    c.temperature,
-    c.score,
-    c.notes,
-    c.created_at,
-    c.updated_at
-  );
+  await db.execute({
+    sql: `INSERT OR IGNORE INTO contacts (id, name, email, phone, company, source, temperature, score, notes, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      c.id,
+      c.name,
+      c.email,
+      c.phone,
+      c.company,
+      c.source,
+      c.temperature,
+      c.score,
+      c.notes,
+      c.created_at,
+      c.updated_at,
+    ],
+  });
 }
 
 console.log(`Created ${contacts.length} contacts`);
@@ -164,24 +165,23 @@ const dealData = [
   },
 ];
 
-const insertDeal = sqlite.prepare(
-  `INSERT OR IGNORE INTO deals (id, title, value, stage_id, contact_id, expected_close, probability, notes, created_at, updated_at)
-   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-);
-
 for (const d of dealData) {
-  insertDeal.run(
-    d.id,
-    d.title,
-    d.value,
-    d.stage_id,
-    d.contact_id,
-    d.expected_close,
-    d.probability,
-    d.notes,
-    d.created_at,
-    d.updated_at
-  );
+  await db.execute({
+    sql: `INSERT OR IGNORE INTO deals (id, title, value, stage_id, contact_id, expected_close, probability, notes, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      d.id,
+      d.title,
+      d.value,
+      d.stage_id,
+      d.contact_id,
+      d.expected_close,
+      d.probability,
+      d.notes,
+      d.created_at,
+      d.updated_at,
+    ],
+  });
 }
 
 console.log(`Created ${dealData.length} deals`);
@@ -255,25 +255,24 @@ const activityData = [
   },
 ];
 
-const insertActivity = sqlite.prepare(
-  `INSERT OR IGNORE INTO activities (id, type, description, contact_id, deal_id, scheduled_at, completed_at, created_at)
-   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-);
-
 for (const a of activityData) {
-  insertActivity.run(
-    a.id,
-    a.type,
-    a.description,
-    a.contact_id,
-    a.deal_id,
-    a.scheduled_at,
-    a.completed_at,
-    a.created_at
-  );
+  await db.execute({
+    sql: `INSERT OR IGNORE INTO activities (id, type, description, contact_id, deal_id, scheduled_at, completed_at, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      a.id,
+      a.type,
+      a.description,
+      a.contact_id,
+      a.deal_id,
+      a.scheduled_at,
+      a.completed_at,
+      a.created_at,
+    ],
+  });
 }
 
 console.log(`Created ${activityData.length} activities`);
 console.log("Seed complete!");
 
-sqlite.close();
+db.close();

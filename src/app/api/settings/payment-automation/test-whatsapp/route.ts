@@ -6,7 +6,7 @@ import {
 } from "@/lib/paymentAutomation";
 
 export async function POST() {
-  const config = getPaymentAutomationConfig();
+  const config = await getPaymentAutomationConfig();
 
   if (!isWhatsAppConfigured(config)) {
     return NextResponse.json(
