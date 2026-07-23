@@ -29,6 +29,10 @@ try {
   // already in the environment (e.g. exported in the shell, or in CI).
 }
 
+// Loaded after loadEnvFile() so ensureSchema()'s own createClient() call
+// (in ../src/db) sees TURSO_DATABASE_URL/TURSO_AUTH_TOKEN already set.
+const { ensureSchema } = await import("../src/db");
+
 const DB_PATH = path.join(process.cwd(), "data", "crm.db");
 
 // Parent tables before the tables that reference them via FOREIGN KEY.
@@ -58,6 +62,9 @@ async function main() {
   if (!process.env.TURSO_DATABASE_URL) {
     throw new Error("TURSO_DATABASE_URL no esta configurado (revisa .env.local)");
   }
+
+  console.log("Creando el schema en Turso si hace falta...");
+  await ensureSchema();
 
   const sqlite = new Database(DB_PATH, { readonly: true });
   const turso = createClient({
