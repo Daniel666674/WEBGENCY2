@@ -9,14 +9,14 @@ export async function GET(
 ) {
   const { id } = await params;
   try {
-    const milestones = db
+    const milestones = await db
       .select()
       .from(projectMilestones)
       .where(eq(projectMilestones.projectId, id))
       .orderBy(projectMilestones.order)
       .all();
 
-    const all = db.select().from(projectDeliverables).all();
+    const all = await db.select().from(projectDeliverables).all();
     const milestoneIds = new Set(milestones.map((m) => m.id));
     const deliverables = all.filter((d) => milestoneIds.has(d.milestoneId));
 
@@ -40,14 +40,14 @@ export async function POST(
     const { title, dueDate, order } = await req.json();
     if (!title) return NextResponse.json({ error: "Titulo requerido" }, { status: 400 });
 
-    const existing = db
+    const existing = await db
       .select({ order: projectMilestones.order })
       .from(projectMilestones)
       .where(eq(projectMilestones.projectId, projectId))
       .all();
     const nextOrder = order ?? (existing.length > 0 ? Math.max(...existing.map((e) => e.order)) + 1 : 1);
 
-    const result = db
+    const result = await db
       .insert(projectMilestones)
       .values({
         projectId,

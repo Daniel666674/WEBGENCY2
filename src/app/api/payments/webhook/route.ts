@@ -15,7 +15,7 @@ const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
 const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
 
 export async function POST(request: NextRequest) {
-  const config = getPaymentAutomationConfig();
+  const config = await getPaymentAutomationConfig();
 
   if (!isGatewayConfigured(config)) {
     return NextResponse.json(
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, ignored: true, status: event.status });
   }
 
-  const contact = db.select().from(contacts).where(eq(contacts.lastPaymentRef, event.reference)).get();
+  const contact = await db.select().from(contacts).where(eq(contacts.lastPaymentRef, event.reference)).get();
   if (!contact) {
     return NextResponse.json(
       { error: `Ningun contacto tiene last_payment_ref = ${event.reference}` },
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  db.insert(payments)
+  await db.insert(payments)
     .values({
       clientId: contact.id,
       amountCents: event.amountCents,
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
   const onTime = dueDate ? event.paidAt.getTime() <= dueDate.getTime() - FORTY_EIGHT_HOURS_MS : null;
   const nextPaymentDate = dueDate ? new Date(dueDate.getTime() + ONE_MONTH_MS) : new Date(event.paidAt.getTime() + ONE_MONTH_MS);
 
-  db.update(contacts)
+  await db.update(contacts)
     .set({
       nextPaymentDate,
       automationsSuspended: onTime === false ? contact.automationsSuspended : 0,

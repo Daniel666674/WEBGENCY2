@@ -9,14 +9,14 @@ export async function POST(
 ) {
   const { id } = await params;
   try {
-    const existing = db.select().from(proposals).where(eq(proposals.id, id)).get();
+    const existing = await db.select().from(proposals).where(eq(proposals.id, id)).get();
     if (!existing) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
     // Reuse existing token or generate new one
     const token = existing.shareToken ?? crypto.randomUUID().replace(/-/g, "");
 
     if (!existing.shareToken) {
-      db.update(proposals)
+      await db.update(proposals)
         .set({ shareToken: token })
         .where(eq(proposals.id, id))
         .run();

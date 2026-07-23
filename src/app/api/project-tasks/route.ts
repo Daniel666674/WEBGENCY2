@@ -3,11 +3,11 @@ import { db, persistNow } from "@/db";
 import { projectTasks, users, projects } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 
-function getOrCreateGeneralProject(): string {
-  const existing = db.select({ id: projects.id }).from(projects)
+async function getOrCreateGeneralProject(): Promise<string> {
+  const existing = await db.select({ id: projects.id }).from(projects)
     .where(eq(projects.name, "General")).get();
   if (existing) return existing.id;
-  const created = db.insert(projects).values({
+  const created = await db.insert(projects).values({
     name: "General",
     status: "discovery",
     budgetCents: 0,
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       query = query.where(eq(projectTasks.type, type)) as typeof query;
     }
 
-    const rows = query.orderBy(desc(projectTasks.createdAt)).all();
+    const rows = await query.orderBy(desc(projectTasks.createdAt)).all();
     return NextResponse.json(rows);
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
@@ -66,9 +66,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "description requerida" }, { status: 400 });
     }
 
-    const resolvedProjectId = projectId || getOrCreateGeneralProject();
+    const resolvedProjectId = projectId || (await getOrCreateGeneralProject());
 
-    const result = db
+    const result = await db
       .insert(projectTasks)
       .values({
         projectId: resolvedProjectId,

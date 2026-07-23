@@ -9,14 +9,14 @@ export async function GET(
 ) {
   const { token } = await params;
   try {
-    const row = db.select().from(proposals).where(eq(proposals.shareToken, token)).get();
+    const row = await db.select().from(proposals).where(eq(proposals.shareToken, token)).get();
     if (!row) return NextResponse.json({ error: "Propuesta no encontrada" }, { status: 404 });
 
-    const contact = db.select().from(contacts).where(eq(contacts.id, row.contactId)).get();
+    const contact = await db.select().from(contacts).where(eq(contacts.id, row.contactId)).get();
 
     // Mark as viewed on first access
     if (!row.viewedAt) {
-      db.update(proposals).set({ viewedAt: new Date() }).where(eq(proposals.id, row.id)).run();
+      await db.update(proposals).set({ viewedAt: new Date() }).where(eq(proposals.id, row.id)).run();
     }
 
     return NextResponse.json({

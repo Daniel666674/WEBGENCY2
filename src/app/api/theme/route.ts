@@ -8,7 +8,7 @@ const KEY = "theme_config";
 
 export async function GET() {
   try {
-    const rows = db.select().from(crmSettings).where(eq(crmSettings.key, KEY)).all();
+    const rows = await db.select().from(crmSettings).where(eq(crmSettings.key, KEY)).all();
     if (rows.length === 0) {
       return NextResponse.json(DEFAULT_CONFIG);
     }
@@ -27,7 +27,7 @@ export async function PUT(req: Request) {
   try {
     const body = await req.json() as ThemeConfig;
     const value = JSON.stringify(body);
-    db.insert(crmSettings)
+    await db.insert(crmSettings)
       .values({ key: KEY, value })
       .onConflictDoUpdate({ target: crmSettings.key, set: { value } })
       .run();

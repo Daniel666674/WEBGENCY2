@@ -110,7 +110,7 @@ const salesDataNotes =
 const funnelTracking =
   "No conversion tracking yet — WhatsApp checkout has no trackable 'purchase complete' event, needs custom GA4 events on cart-add and 'Pedir por WhatsApp' clicks. Flagged gap, not yet built.";
 
-db.update(contacts)
+await db.update(contacts)
   .set({
     infraData: JSON.stringify(infraData),
     seoData: JSON.stringify(seoData),

@@ -7,43 +7,49 @@ export async function GET() {
   try {
     const now = new Date();
 
-    const overdueTasks = db
-      .select({ id: projectTasks.id })
-      .from(projectTasks)
-      .where(
-        and(
-          isNotNull(projectTasks.dueDate),
-          lt(projectTasks.dueDate, now),
-          ne(projectTasks.status, "done"),
-          eq(projectTasks.type, "task")
+    const overdueTasks = (
+      await db
+        .select({ id: projectTasks.id })
+        .from(projectTasks)
+        .where(
+          and(
+            isNotNull(projectTasks.dueDate),
+            lt(projectTasks.dueDate, now),
+            ne(projectTasks.status, "done"),
+            eq(projectTasks.type, "task")
+          )
         )
-      )
-      .all().length;
+        .all()
+    ).length;
 
-    const overdueSolicitudes = db
-      .select({ id: projectTasks.id })
-      .from(projectTasks)
-      .where(
-        and(
-          isNotNull(projectTasks.dueDate),
-          lt(projectTasks.dueDate, now),
-          ne(projectTasks.status, "done"),
-          eq(projectTasks.type, "solicitud")
+    const overdueSolicitudes = (
+      await db
+        .select({ id: projectTasks.id })
+        .from(projectTasks)
+        .where(
+          and(
+            isNotNull(projectTasks.dueDate),
+            lt(projectTasks.dueDate, now),
+            ne(projectTasks.status, "done"),
+            eq(projectTasks.type, "solicitud")
+          )
         )
-      )
-      .all().length;
+        .all()
+    ).length;
 
-    const overdueMilestones = db
-      .select({ id: projectMilestones.id })
-      .from(projectMilestones)
-      .where(
-        and(
-          isNotNull(projectMilestones.dueDate),
-          lt(projectMilestones.dueDate, now),
-          isNull(projectMilestones.completedAt)
+    const overdueMilestones = (
+      await db
+        .select({ id: projectMilestones.id })
+        .from(projectMilestones)
+        .where(
+          and(
+            isNotNull(projectMilestones.dueDate),
+            lt(projectMilestones.dueDate, now),
+            isNull(projectMilestones.completedAt)
+          )
         )
-      )
-      .all().length;
+        .all()
+    ).length;
 
     return NextResponse.json({
       overdueTasks,

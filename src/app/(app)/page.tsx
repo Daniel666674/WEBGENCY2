@@ -14,10 +14,10 @@ import { Flame } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-export default function DashboardPage() {
-  const allContacts = db.select().from(contacts).all();
-  const allDeals = db.select().from(deals).all();
-  const stages = db.select().from(pipelineStages).orderBy(asc(pipelineStages.order)).all();
+export default async function DashboardPage() {
+  const allContacts = await db.select().from(contacts).all();
+  const allDeals = await db.select().from(deals).all();
+  const stages = await db.select().from(pipelineStages).orderBy(asc(pipelineStages.order)).all();
 
   // Deal segments
   const activeDeals = allDeals.filter((d) => {
@@ -96,7 +96,7 @@ export default function DashboardPage() {
     }));
 
   // Active projects (not launched, not paused)
-  const allProjects = db
+  const allProjects = await db
     .select({
       id: projects.id,
       name: projects.name,
@@ -109,7 +109,7 @@ export default function DashboardPage() {
     .leftJoin(contacts, eq(projects.clientId, contacts.id))
     .all();
 
-  const allMilestones = db.select({ id: projectMilestones.id, projectId: projectMilestones.projectId, completedAt: projectMilestones.completedAt }).from(projectMilestones).all();
+  const allMilestones = await db.select({ id: projectMilestones.id, projectId: projectMilestones.projectId, completedAt: projectMilestones.completedAt }).from(projectMilestones).all();
 
   const activeProjects = allProjects
     .filter((p) => p.status !== "launched" && p.status !== "paused")
@@ -125,7 +125,7 @@ export default function DashboardPage() {
     .slice(0, 6);
 
   // Recent activity
-  const recentActivities = db
+  const recentActivities = await db
     .select({
       id: activities.id,
       type: activities.type,

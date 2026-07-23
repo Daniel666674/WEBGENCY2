@@ -21,22 +21,22 @@ export default async function DealDetailPage({
 }) {
   const { id } = await params;
 
-  const deal = db.select().from(deals).where(eq(deals.id, id)).get();
+  const deal = await db.select().from(deals).where(eq(deals.id, id)).get();
   if (!deal) notFound();
 
-  const contact = db
+  const contact = await db
     .select()
     .from(contacts)
     .where(eq(contacts.id, deal.contactId))
     .get();
 
-  const stage = db
+  const stage = await db
     .select()
     .from(pipelineStages)
     .where(eq(pipelineStages.id, deal.stageId))
     .get();
 
-  const dealActivities = db
+  const dealActivities = await db
     .select()
     .from(activities)
     .where(eq(activities.dealId, id))

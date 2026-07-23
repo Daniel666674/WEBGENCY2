@@ -6,7 +6,7 @@
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178C6?logo=typescript)](https://www.typescriptlang.org/)
-[![SQLite](https://img.shields.io/badge/SQLite-Local-003B57?logo=sqlite)](https://www.sqlite.org/)
+[![Turso](https://img.shields.io/badge/Turso-libSQL-4FF8D2)](https://turso.tech/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38BDF8?logo=tailwindcss)](https://tailwindcss.com/)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Ready-DA7756)](https://claude.ai/code)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -25,11 +25,11 @@
 
 ## Que es Auto-CRM?
 
-Auto-CRM es un CRM open-source que se personaliza automaticamente a tu negocio. Abrelo con Claude Code, ejecuta `/setup`, y el CRM se adapta a tu industria, tu pipeline, y tu forma de trabajar. Todo corre en tu computadora — tus datos nunca salen de tu maquina.
+Auto-CRM es un CRM open-source que se personaliza automaticamente a tu negocio. Abrelo con Claude Code, ejecuta `/setup`, y el CRM se adapta a tu industria, tu pipeline, y tu forma de trabajar. La app corre donde tu la despliegues; tus datos viven en una base de datos Turso (libSQL) hospedada, siempre disponible.
 
 ## Por que Auto-CRM?
 
-- **100% local** — Base de datos SQLite en tu computadora. Cero servicios externos. Tus datos son tuyos.
+- **Base de datos hospedada** — Turso (libSQL), siempre disponible, sin depender del filesystem de tu servidor.
 - **Se personaliza solo** — Ejecuta `/setup` y Claude adapta el pipeline, fuentes de leads, idioma y tema a tu negocio.
 - **IA incluida** — Clasifica leads, analiza tu pipeline, sugiere proximos pasos. Sin necesidad de API key.
 - **Gratis para siempre** — Open source. Sin suscripciones. Sin limites de contactos o deals.
@@ -40,14 +40,15 @@ Auto-CRM es un CRM open-source que se personaliza automaticamente a tu negocio. 
 ```bash
 git clone https://github.com/Hainrixz/auto-crm.git
 cd auto-crm && npm install
+cp .env.example .env.local   # completa TURSO_DATABASE_URL / TURSO_AUTH_TOKEN (turso.tech)
 npm run dev
 ```
 
-Abre **http://localhost:3000** — tu CRM esta listo.
+Abre **http://localhost:3000** — tu CRM esta listo (el schema se crea solo en el primer arranque).
 
 ```bash
 # Opcional: cargar datos demo para explorar
-npm run init:seed
+npm run seed
 ```
 
 ## Personalizar con Claude Code
@@ -156,7 +157,7 @@ Ahora puedes decirle a Claude: *"Muestrame mis leads calientes"* o *"Agrega un c
 |-----------|-----------|
 | Frontend | Next.js 16 + React 19 + TypeScript |
 | Estilos | Tailwind CSS v4 + shadcn/ui |
-| Base de datos | SQLite + Drizzle ORM |
+| Base de datos | Turso (libSQL) + Drizzle ORM |
 | Drag & Drop | @dnd-kit |
 | Graficos | Recharts |
 | IA | Claude API (opcional) |
@@ -190,24 +191,25 @@ auto-crm/
 ├── CLAUDE.md                # Instrucciones para Claude Code
 ├── .claude/commands/        # 8 comandos interactivos
 ├── mcp/crm-server.ts        # Servidor MCP (10 herramientas)
-├── scripts/init.ts          # Inicializacion de base de datos
+├── scripts/migrate-to-turso.ts  # Migracion unica desde data/crm.db local a Turso
 ├── src/
 │   ├── app/                 # Paginas y 13 API routes
 │   ├── components/          # 28 componentes React + 21 shadcn/ui
-│   ├── db/                  # Schema SQLite + Drizzle ORM
+│   ├── db/                  # Schema Drizzle + cliente Turso (libSQL)
 │   ├── lib/                 # Utilidades (scoring, AI, constants)
 │   └── types/               # TypeScript types
-├── data/crm.db              # Base de datos (auto-generada)
 ├── Dockerfile               # Contenedor Docker
 └── docker-compose.yml       # Docker Compose
 ```
 
 ## Variables de Entorno
 
-Todas son **opcionales**. El CRM funciona completamente sin ninguna.
+`TURSO_DATABASE_URL` y `TURSO_AUTH_TOKEN` son **requeridas**. El resto son opcionales.
 
 | Variable | Descripcion |
 |----------|-------------|
+| `TURSO_DATABASE_URL` | URL de tu base de datos Turso (`libsql://...`) |
+| `TURSO_AUTH_TOKEN` | Auth token de esa base de datos |
 | `ANTHROPIC_API_KEY` | Clasificacion de leads con IA en la web |
 | `RESEND_API_KEY` | Email digest diario (resend.com, gratis) |
 | `DIGEST_EMAIL` | Email donde recibir el digest |
@@ -226,9 +228,8 @@ Todas son **opcionales**. El CRM funciona completamente sin ninguna.
 ```bash
 npm run dev        # Servidor de desarrollo
 npm run local      # Build + produccion en un comando
-npm run init       # Inicializar base de datos
-npm run init:seed  # Inicializar + datos demo
-npm run seed       # Solo datos demo
+npm run seed       # Datos demo (contra la base Turso configurada)
+npm run migrate:turso  # Migrar data/crm.db local a Turso (una sola vez)
 npm run mcp        # Servidor MCP para Claude Desktop
 npm run build      # Build de produccion
 npm start          # Servidor de produccion
@@ -249,11 +250,11 @@ npm run lint       # Verificar codigo
 
 ## What is Auto-CRM?
 
-Auto-CRM is an open-source CRM that automatically customizes itself to your business. Open it with Claude Code, run `/setup`, and the CRM adapts to your industry, pipeline, and workflow. Everything runs on your computer — your data never leaves your machine.
+Auto-CRM is an open-source CRM that automatically customizes itself to your business. Open it with Claude Code, run `/setup`, and the CRM adapts to your industry, pipeline, and workflow. The app runs wherever you deploy it; your data lives in a hosted Turso (libSQL) database, always available.
 
 ## Why Auto-CRM?
 
-- **100% local** — SQLite database on your computer. Zero external services. Your data stays yours.
+- **Hosted database** — Turso (libSQL), always available, no dependency on your server's filesystem.
 - **Self-customizing** — Run `/setup` and Claude adapts the pipeline, lead sources, language, and theme to your business.
 - **AI included** — Classifies leads, analyzes your pipeline, suggests next steps. No API key required.
 - **Free forever** — Open source. No subscriptions. No limits on contacts or deals.
@@ -264,14 +265,15 @@ Auto-CRM is an open-source CRM that automatically customizes itself to your busi
 ```bash
 git clone https://github.com/Hainrixz/auto-crm.git
 cd auto-crm && npm install
+cp .env.example .env.local   # fill in TURSO_DATABASE_URL / TURSO_AUTH_TOKEN (turso.tech)
 npm run dev
 ```
 
-Open **http://localhost:3000** — your CRM is ready.
+Open **http://localhost:3000** — your CRM is ready (the schema is created automatically on first boot).
 
 ```bash
 # Optional: load demo data to explore
-npm run init:seed
+npm run seed
 ```
 
 ## Customize with Claude Code
@@ -380,7 +382,7 @@ Now you can tell Claude: *"Show me my hot leads"* or *"Add a new contact"* from 
 |-----------|-----------|
 | Frontend | Next.js 16 + React 19 + TypeScript |
 | Styling | Tailwind CSS v4 + shadcn/ui |
-| Database | SQLite + Drizzle ORM |
+| Database | Turso (libSQL) + Drizzle ORM |
 | Drag & Drop | @dnd-kit |
 | Charts | Recharts |
 | AI | Claude API (optional) |
@@ -414,24 +416,25 @@ auto-crm/
 ├── CLAUDE.md                # Instructions for Claude Code
 ├── .claude/commands/        # 8 interactive commands
 ├── mcp/crm-server.ts        # MCP server (10 tools)
-├── scripts/init.ts          # Database initialization
+├── scripts/migrate-to-turso.ts  # One-time migration from local data/crm.db to Turso
 ├── src/
 │   ├── app/                 # Pages and 13 API routes
 │   ├── components/          # 28 React components + 21 shadcn/ui
-│   ├── db/                  # SQLite schema + Drizzle ORM
+│   ├── db/                  # Drizzle schema + Turso (libSQL) client
 │   ├── lib/                 # Utilities (scoring, AI, constants)
 │   └── types/               # TypeScript types
-├── data/crm.db              # Database (auto-generated)
 ├── Dockerfile               # Docker container
 └── docker-compose.yml       # Docker Compose
 ```
 
 ## Environment Variables
 
-All are **optional**. The CRM works completely without any of them.
+`TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` are **required**. The rest are optional.
 
 | Variable | Description |
 |----------|-------------|
+| `TURSO_DATABASE_URL` | Your Turso database URL (`libsql://...`) |
+| `TURSO_AUTH_TOKEN` | Auth token for that database |
 | `ANTHROPIC_API_KEY` | AI lead classification in the web UI |
 | `RESEND_API_KEY` | Daily email digest (resend.com, free) |
 | `DIGEST_EMAIL` | Email address to receive digest |
@@ -450,9 +453,8 @@ All are **optional**. The CRM works completely without any of them.
 ```bash
 npm run dev        # Development server
 npm run local      # Build + production in one command
-npm run init       # Initialize database
-npm run init:seed  # Initialize + demo data
-npm run seed       # Demo data only
+npm run seed       # Demo data (against the configured Turso database)
+npm run migrate:turso  # Migrate local data/crm.db to Turso (one-time)
 npm run mcp        # MCP server for Claude Desktop
 npm run build      # Production build
 npm start          # Production server
@@ -473,8 +475,8 @@ npm run lint       # Check code
 
 **Auto-CRM** — Built with Claude Code for the community.
 
-Your data. Your machine. Your CRM.
+Your data, always available.
 
-Tus datos. Tu maquina. Tu CRM.
+Tus datos, siempre disponibles.
 
 </div>

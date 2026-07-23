@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const contact = db
+  const contact = await db
     .select()
     .from(contacts)
     .where(eq(contacts.id, contactId))
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const contactActivities = db
+  const contactActivities = await db
     .select()
     .from(activities)
     .where(eq(activities.contactId, contactId))
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       );
 
       // Update contact with AI classification
-      db.update(contacts)
+      await db.update(contacts)
         .set({
           temperature: result.temperature,
           score: result.score,
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
 
   const temperature = suggestTemperature(score);
 
-  db.update(contacts)
+  await db.update(contacts)
     .set({ temperature, score, updatedAt: new Date() })
     .where(eq(contacts.id, contactId))
     .run();

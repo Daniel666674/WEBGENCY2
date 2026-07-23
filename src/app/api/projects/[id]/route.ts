@@ -9,7 +9,7 @@ export async function GET(
 ) {
   const { id } = await params;
   try {
-    const row = db
+    const row = await db
       .select({
         id: projects.id,
         clientId: projects.clientId,
@@ -32,7 +32,7 @@ export async function GET(
 
     if (!row) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
-    const milestones = db
+    const milestones = await db
       .select()
       .from(projectMilestones)
       .where(eq(projectMilestones.projectId, id))
@@ -41,7 +41,7 @@ export async function GET(
 
     const milestoneIds = milestones.map((m) => m.id);
     const deliverables = milestoneIds.length
-      ? db
+      ? await db
           .select()
           .from(projectDeliverables)
           .where(
@@ -60,10 +60,10 @@ export async function GET(
 
     if (milestoneIds.length > 1) {
       // Re-fetch all deliverables using raw SQL for multiple milestone IDs
-      const allDeliverables = db
+      const allDeliverables = (await db
         .select()
         .from(projectDeliverables)
-        .all()
+        .all())
         .filter((d) => milestoneIds.includes(d.milestoneId));
 
       milestonesWithDeliverables.forEach((m) => {
@@ -86,7 +86,7 @@ export async function PUT(
     const body = await req.json();
     const { name, status, budgetCents, startDate, deadline, mockupUrl, notes, clientId } = body;
 
-    db.update(projects)
+    await db.update(projects)
       .set({
         ...(name !== undefined && { name }),
         ...(status !== undefined && { status }),
@@ -114,7 +114,7 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
-    db.delete(projects).where(eq(projects.id, id)).run();
+    await db.delete(projects).where(eq(projects.id, id)).run();
     await persistNow();
     return NextResponse.json({ ok: true });
   } catch (e) {

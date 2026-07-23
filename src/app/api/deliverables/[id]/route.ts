@@ -12,7 +12,7 @@ export async function PUT(
     const body = await req.json();
     const { description, fileUrl, approved, approvedByUserId } = body;
 
-    db.update(projectDeliverables)
+    await db.update(projectDeliverables)
       .set({
         ...(description !== undefined && { description }),
         ...(fileUrl !== undefined && { fileUrl }),
@@ -26,7 +26,7 @@ export async function PUT(
       .run();
 
     if (approved === true && approvedByUserId) {
-      db.insert(auditLogs)
+      await db.insert(auditLogs)
         .values({
           userId: approvedByUserId,
           action: "deliverable_approved",
@@ -50,7 +50,7 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
-    db.delete(projectDeliverables).where(eq(projectDeliverables.id, id)).run();
+    await db.delete(projectDeliverables).where(eq(projectDeliverables.id, id)).run();
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });

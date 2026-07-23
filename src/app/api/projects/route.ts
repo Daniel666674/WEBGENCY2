@@ -35,21 +35,23 @@ export async function GET(request: NextRequest) {
       query = query.where(eq(projects.status, status)) as typeof query;
     }
 
-    const rows = query.orderBy(desc(projects.updatedAt)).all();
+    const rows = await query.orderBy(desc(projects.updatedAt)).all();
 
     // Attach milestone counts
-    const enriched = rows.map((r) => {
-      const milestones = db
-        .select({ id: projectMilestones.id, completedAt: projectMilestones.completedAt })
-        .from(projectMilestones)
-        .where(eq(projectMilestones.projectId, r.id))
-        .all();
-      return {
-        ...r,
-        milestonesTotal: milestones.length,
-        milestonesCompleted: milestones.filter((m) => m.completedAt !== null).length,
-      };
-    });
+    const enriched = await Promise.all(
+      rows.map(async (r) => {
+        const milestones = await db
+          .select({ id: projectMilestones.id, completedAt: projectMilestones.completedAt })
+          .from(projectMilestones)
+          .where(eq(projectMilestones.projectId, r.id))
+          .all();
+        return {
+          ...r,
+          milestonesTotal: milestones.length,
+          milestonesCompleted: milestones.filter((m) => m.completedAt !== null).length,
+        };
+      })
+    );
 
     return NextResponse.json(enriched);
   } catch (e) {
@@ -65,7 +67,7 @@ export async function POST(request: NextRequest) {
     if (!name) return NextResponse.json({ error: "Nombre requerido" }, { status: 400 });
 
     const now = new Date();
-    const result = db
+    const result = await db
       .insert(projects)
       .values({
         clientId: clientId || null,

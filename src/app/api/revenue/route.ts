@@ -5,7 +5,7 @@ import { eq, and, not } from "drizzle-orm";
 
 export async function GET() {
   // Active clients — contacts with client_status = 'active_client'
-  const activeClients = db
+  const activeClients = await db
     .select()
     .from(contacts)
     .where(eq(contacts.clientStatus, "active_client"))
@@ -15,10 +15,10 @@ export async function GET() {
   const arr = mrr * 12;
 
   // Pipeline value — deals not in won/lost stages
-  const stages = db.select().from(pipelineStages).all();
+  const stages = await db.select().from(pipelineStages).all();
   const wonLostIds = stages.filter((s) => s.isWon || s.isLost).map((s) => s.id);
 
-  const allDeals = db.select().from(deals).all();
+  const allDeals = await db.select().from(deals).all();
   const activeDeals = allDeals.filter((d) => !wonLostIds.includes(d.stageId));
   const pipelineValue = activeDeals.reduce((sum, d) => sum + d.value, 0);
   const weightedPipeline = activeDeals.reduce(
@@ -50,7 +50,7 @@ export async function GET() {
     });
 
   // Client breakdown by status
-  const allContacts = db.select().from(contacts).all();
+  const allContacts = await db.select().from(contacts).all();
   const statusCounts = {
     prospect: 0,
     proposal_sent: 0,

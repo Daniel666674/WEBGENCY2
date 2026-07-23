@@ -22,10 +22,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "CRON_SECRET no configurado o no coincide" }, { status: 401 });
   }
 
-  const config = getPaymentAutomationConfig();
+  const config = await getPaymentAutomationConfig();
   const now = Date.now();
 
-  const candidates = db
+  const candidates = await db
     .select()
     .from(contacts)
     .where(and(isNotNull(contacts.monthlyPayment), isNotNull(contacts.nextPaymentDate)))
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     const cutoff = contact.nextPaymentDate.getTime() - FORTY_EIGHT_HOURS_MS;
     if (now < cutoff) continue;
 
-    db.update(contacts)
+    await db.update(contacts)
       .set({ automationsSuspended: 1, updatedAt: new Date() })
       .where(eq(contacts.id, contact.id))
       .run();

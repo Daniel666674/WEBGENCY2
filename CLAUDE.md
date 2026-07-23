@@ -1,17 +1,21 @@
 # CLAUDE.md — Auto-CRM
 
-> Este es un CRM completo y local que se personaliza a cada negocio.
+> Este es un CRM completo que se personaliza a cada negocio.
 > Cuando un usuario abre este proyecto con Claude Code, tu trabajo es ayudarle a configurarlo,
-> usarlo, y expandirlo segun sus necesidades. Todo corre en su maquina — sin servicios externos.
+> usarlo, y expandirlo segun sus necesidades. La app (Next.js) corre donde el usuario la despliegue;
+> los datos viven en una base de datos Turso (libSQL) hospedada, siempre disponible — no en un
+> archivo local.
 
 ## Inicio rapido para el usuario
 
 Si es la primera vez que el usuario abre el proyecto, guialo con estos pasos:
 
 1. `npm install` — Instalar dependencias
-2. `npm run init:seed` — Inicializar base de datos con datos demo
-3. `npm run dev` — Iniciar servidor en http://localhost:3000
-4. Ejecutar `/setup` para personalizar el CRM a su negocio
+2. Crear una base de datos en https://turso.tech y poner `TURSO_DATABASE_URL` /
+   `TURSO_AUTH_TOKEN` en `.env.local` (ver `.env.example`)
+3. `npm run dev` — Iniciar servidor en http://localhost:3000 (crea el schema solo en el primer arranque)
+4. `npm run seed` — (Opcional) datos demo
+5. Ejecutar `/setup` para personalizar el CRM a su negocio
 
 ## Comandos
 
@@ -19,10 +23,7 @@ Si es la primera vez que el usuario abre el proyecto, guialo con estos pasos:
 npm run dev          # Servidor de desarrollo (http://localhost:3000)
 npm run build        # Build de produccion
 npm start            # Servidor de produccion
-npm run local        # Build + init + start (despliegue local en un comando)
-npm run init         # Inicializar base de datos
-npm run init:seed    # Inicializar + datos demo
-npm run seed         # Solo datos demo
+npm run seed         # Datos demo (contra la base Turso configurada)
 npm run lint         # ESLint
 npm run mcp          # Iniciar servidor MCP (para Claude Desktop/Web)
 ```
@@ -42,9 +43,12 @@ npm run mcp          # Iniciar servidor MCP (para Claude Desktop/Web)
 
 ## Arquitectura
 
-**Stack**: Next.js 16 (App Router) · React 19 · TypeScript (strict) · Tailwind CSS v4 · shadcn/ui · SQLite + Drizzle ORM · @dnd-kit (kanban)
+**Stack**: Next.js 16 (App Router) · React 19 · TypeScript (strict) · Tailwind CSS v4 · shadcn/ui · Turso (libSQL) + Drizzle ORM · @dnd-kit (kanban)
 
-**100% local**: SQLite como base de datos (archivo en `data/crm.db`). No requiere ningun servicio externo.
+**Base de datos hospedada**: Turso (libSQL, compatible con SQLite) via `@libsql/client` +
+`drizzle-orm/libsql`. El cliente Drizzle es asincrono (a diferencia del driver local anterior) —
+toda llamada `db.select()/insert()/update()/delete()...get()/.all()/.run()` requiere `await`.
+El schema se crea solo (`ensureSchema()` en `src/instrumentation.ts`) al arrancar el servidor.
 
 **Alias**: `@/*` → `./src/*`
 
@@ -52,7 +56,7 @@ npm run mcp          # Iniciar servidor MCP (para Claude Desktop/Web)
 
 - `src/app/` — Paginas y API routes (App Router)
 - `src/components/` — Componentes React organizados por feature
-- `src/db/` — Schema Drizzle, cliente DB, seeder
+- `src/db/` — Schema Drizzle, cliente DB (Turso/libSQL), seeder
 - `src/lib/` — Utilidades: claude.ts (AI), scoring.ts, constants.ts
 - `src/types/` — TypeScript types para entidades CRM
 - `.claude/commands/` — Comandos interactivos (los de la tabla arriba)
@@ -98,7 +102,7 @@ El archivo en `public/crm-config.json` es la copia por defecto (template).
 - **Max ~300 lineas por componente**. Dividir si crece mas
 - **No emojis como iconos** — usar Lucide React (SVG)
 - **Valores monetarios**: Centavos (integer). Usar `formatCurrency()` para mostrar
-- **Fechas**: `date-fns` para formateo. SQLite almacena como integer timestamps
+- **Fechas**: `date-fns` para formateo. Turso/SQLite almacena como integer timestamps
 - **Forms**: react-hook-form + zod
 - **Drag & drop**: @dnd-kit (NO react-beautiful-dnd)
 - **Estilos**: Tailwind CSS v4 (config via CSS, no tailwind.config.ts)
@@ -125,15 +129,16 @@ npm run dev
 
 ### Local (produccion)
 ```bash
-npm run local  # build + init + start en puerto 3000
+npm run build && npm start  # puerto 3000
 ```
 
 ### Docker (VPS)
 ```bash
-cp .env.example .env      # completar CRM_USERNAME / CRM_PASSWORD / SESSION_SECRET — REQUERIDOS
+cp .env.example .env      # completar CRM_USERNAME / CRM_PASSWORD / SESSION_SECRET / TURSO_* — REQUERIDOS
 docker compose up -d --build
 ```
-Sin esas 3 variables el login queda cerrado para todos (falla cerrado, no abierto).
+Sin esas variables el login queda cerrado para todos (falla cerrado, no abierto) o el server no
+puede conectarse a la base de datos.
 
 **HTTPS es obligatorio para poder iniciar sesion**: la cookie de sesion tiene el flag
 `Secure`, que el navegador ignora por completo sobre `http://` plano — sin TLS el login
@@ -145,8 +150,9 @@ docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d --build
 Esto agrega Caddy como reverse proxy con TLS automatico (Let's Encrypt) y deja de exponer
 el puerto 3000 directamente al host.
 
-Los datos viven en `./data/` (bind mount, sobrevive a reinicios y redeploys — a diferencia
-de Vercel, aqui el filesystem es persistente de verdad, sin necesidad de mirroring a Blob).
+Los datos viven en Turso (hospedado), no en el filesystem del contenedor — sobreviven a
+reinicios, redeploys, y funcionan igual en Docker/VPS que en Vercel/serverless, sin necesidad
+de bind mounts ni mirroring a Blob.
 
 ### MCP (Claude Desktop/Web)
 Agregar a `~/.claude/claude_desktop_config.json`:
@@ -163,6 +169,8 @@ Agregar a `~/.claude/claude_desktop_config.json`:
 
 ## Variables de entorno
 
+- `TURSO_DATABASE_URL` — **Requerido**. URL de la base de datos Turso (`libsql://...`)
+- `TURSO_AUTH_TOKEN` — **Requerido**. Auth token de esa base de datos
 - `ANTHROPIC_API_KEY` — Opcional. Para IA en la interfaz web (clasificacion de leads)
 - `RESEND_API_KEY` — Opcional. Para enviar digest diario por email (resend.com, gratis)
 - `DIGEST_EMAIL` — Opcional. Email donde recibir el digest

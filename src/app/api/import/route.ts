@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      db.insert(contacts)
+      await db.insert(contacts)
         .values({
           name: contact.name,
           email: contact.email || null,

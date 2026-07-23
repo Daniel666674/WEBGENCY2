@@ -12,7 +12,7 @@ export async function PUT(
     const body = await req.json();
     const { description, status, assignedUserId, dueDate, done } = body;
 
-    db.update(projectTasks)
+    await db.update(projectTasks)
       .set({
         ...(description !== undefined && { description }),
         ...(status !== undefined && { status }),
@@ -37,7 +37,7 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
-    db.delete(projectTasks).where(eq(projectTasks.id, id)).run();
+    await db.delete(projectTasks).where(eq(projectTasks.id, id)).run();
     await persistNow();
     return NextResponse.json({ ok: true });
   } catch (e) {

@@ -6,14 +6,14 @@ import type { PipelineColumn } from "@/types";
 
 export const dynamic = "force-dynamic";
 
-export default function PipelinePage() {
-  const stages = db
+export default async function PipelinePage() {
+  const stages = await db
     .select()
     .from(pipelineStages)
     .orderBy(asc(pipelineStages.order))
     .all();
 
-  const allDeals = db
+  const allDeals = await db
     .select({
       id: deals.id,
       title: deals.title,

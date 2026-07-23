@@ -14,11 +14,11 @@ export default async function ContactDetailPage({
 }) {
   const { id } = await params;
 
-  const rawContact = db.select().from(contacts).where(eq(contacts.id, id)).get();
+  const rawContact = await db.select().from(contacts).where(eq(contacts.id, id)).get();
   if (!rawContact) notFound();
   const contact = parseContactJsonFields(rawContact);
 
-  const contactDeals = db
+  const contactDeals = await db
     .select({
       id: deals.id,
       title: deals.title,
@@ -34,7 +34,7 @@ export default async function ContactDetailPage({
     .where(eq(deals.contactId, id))
     .all();
 
-  const contactActivities = db
+  const contactActivities = await db
     .select()
     .from(activities)
     .where(eq(activities.contactId, id))

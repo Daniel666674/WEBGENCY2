@@ -32,8 +32,8 @@ export const DEFAULT_PAYMENT_AUTOMATION_CONFIG: PaymentAutomationConfig = {
   whatsappTemplateName: "payment_confirmation",
 };
 
-export function getPaymentAutomationConfig(): PaymentAutomationConfig {
-  const row = db.select().from(crmSettings).where(eq(crmSettings.key, SETTINGS_KEY)).get();
+export async function getPaymentAutomationConfig(): Promise<PaymentAutomationConfig> {
+  const row = await db.select().from(crmSettings).where(eq(crmSettings.key, SETTINGS_KEY)).get();
   if (!row) return DEFAULT_PAYMENT_AUTOMATION_CONFIG;
   try {
     return { ...DEFAULT_PAYMENT_AUTOMATION_CONFIG, ...JSON.parse(row.value) };
@@ -42,9 +42,9 @@ export function getPaymentAutomationConfig(): PaymentAutomationConfig {
   }
 }
 
-export function savePaymentAutomationConfig(config: PaymentAutomationConfig) {
+export async function savePaymentAutomationConfig(config: PaymentAutomationConfig) {
   const value = JSON.stringify(config);
-  db.insert(crmSettings)
+  await db.insert(crmSettings)
     .values({ key: SETTINGS_KEY, value })
     .onConflictDoUpdate({ target: crmSettings.key, set: { value } })
     .run();

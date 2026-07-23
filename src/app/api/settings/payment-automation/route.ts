@@ -18,7 +18,7 @@ function isMasked(value: string): boolean {
 }
 
 export async function GET() {
-  const config = getPaymentAutomationConfig();
+  const config = await getPaymentAutomationConfig();
   const masked = { ...config };
   for (const field of SECRET_FIELDS) {
     masked[field] = mask(config[field] as string) as never;
@@ -34,7 +34,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: "JSON invalido" }, { status: 400 });
   }
 
-  const current = getPaymentAutomationConfig();
+  const current = await getPaymentAutomationConfig();
   const next: PaymentAutomationConfig = { ...current, ...body };
 
   // A masked placeholder coming back unchanged means "keep the stored secret"
@@ -45,6 +45,6 @@ export async function PUT(request: NextRequest) {
     }
   }
 
-  savePaymentAutomationConfig(next);
+  await savePaymentAutomationConfig(next);
   return NextResponse.json({ ok: true });
 }

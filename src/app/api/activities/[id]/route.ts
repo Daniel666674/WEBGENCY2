@@ -17,7 +17,7 @@ export async function PUT(
   }
 
   try {
-    const existing = db
+    const existing = await db
       .select()
       .from(activities)
       .where(eq(activities.id, id))
@@ -79,7 +79,7 @@ export async function PUT(
       );
     }
 
-    const result = db
+    const result = await db
       .update(activities)
       .set(updateData)
       .where(eq(activities.id, id))
@@ -103,7 +103,7 @@ export async function DELETE(
   const { id } = await params;
 
   try {
-    const existing = db
+    const existing = await db
       .select()
       .from(activities)
       .where(eq(activities.id, id))
@@ -116,7 +116,7 @@ export async function DELETE(
       );
     }
 
-    db.delete(activities).where(eq(activities.id, id)).run();
+    await db.delete(activities).where(eq(activities.id, id)).run();
     await persistNow();
     return NextResponse.json({ success: true });
   } catch (error) {

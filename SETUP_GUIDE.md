@@ -95,7 +95,8 @@ Si configuras `ANTHROPIC_API_KEY`:
 No. El CRM funciona completamente sin API key. Los comandos de Claude Code usan tu sesion activa.
 
 **Donde se guardan los datos?**
-En `data/crm.db`, un archivo SQLite local. Puedes respaldarlo simplemente copiando el archivo.
+En una base de datos Turso (libSQL) hospedada — configurala con `TURSO_DATABASE_URL` /
+`TURSO_AUTH_TOKEN` en `.env.local`. Turso ofrece backups/snapshots desde su propio dashboard.
 
 **Puedo usar esto para mi negocio?**
 Si. Es open-source y gratuito. Usalo como quieras.
@@ -127,4 +128,5 @@ Tienes tres opciones:
 3. **Manual** — `npm run build && npm start` con un process manager como pm2
 
 **Como hago backup de mis datos?**
-Copia el archivo `data/crm.db`. Es un archivo SQLite que contiene todo. Para restaurar, simplemente reemplazalo.
+Usa `turso db shell <db> .dump` (o los snapshots automaticos del dashboard de Turso). Para
+restaurar, crea una base nueva y vuelve a cargar el dump.

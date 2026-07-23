@@ -4,7 +4,7 @@ import { deals, contacts, pipelineStages } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 
 export async function GET() {
-  const results = db
+  const results = await db
     .select({
       id: deals.id,
       title: deals.title,
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
   // Get first stage if none provided
   let finalStageId = stageId;
   if (!finalStageId) {
-    const firstStage = db
+    const firstStage = await db
       .select()
       .from(pipelineStages)
       .orderBy(pipelineStages.order)
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const now = new Date();
-    const result = db
+    const result = await db
       .insert(deals)
       .values({
         title,
