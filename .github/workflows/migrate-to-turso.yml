@@ -1,0 +1,28 @@
+name: Migrate to Turso
+
+# One-time, manually-triggered job: copies every row from the committed
+# data/crm.db into the Turso database configured via the TURSO_DATABASE_URL
+# / TURSO_AUTH_TOKEN repo secrets. Safe to re-run (INSERT OR IGNORE).
+#
+# Set the secrets first: repo Settings > Secrets and variables > Actions >
+# New repository secret. Then run this from the Actions tab (Run workflow).
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - run: npm ci
+
+      - run: npm run migrate:turso
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
