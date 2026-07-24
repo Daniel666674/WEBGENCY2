@@ -6,22 +6,24 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { AccountHealthCard } from "./AccountHealthCard";
 import {
   Building2,
-  Globe,
   FileText,
   Calendar,
   ChevronRight,
-  ExternalLink,
   DollarSign,
   Phone,
   Mail,
   Users,
   Clock,
+  MessageCircle,
+  Copy,
+  Check,
 } from "lucide-react";
 import {
   formatCurrency,
   formatDate,
   formatDateTime,
   formatRelativeDate,
+  cleanPhoneForWhatsApp,
   CLIENT_STATUS_CONFIG,
   SOURCE_LABELS,
   ACTIVITY_TYPE_CONFIG,
@@ -38,20 +40,17 @@ const ACTIVITY_STYLE: Record<string, { icon: typeof Phone; classes: string }> = 
 
 const DEAL_ICON_COLORS = ["bg-primary/10 text-primary", "bg-orange-500/10 text-orange-600"];
 
-function stripProtocol(url: string): string {
-  return url.replace(/^https?:\/\//, "").replace(/\/$/, "");
-}
-
 interface ContactInfoTabProps {
   contact: {
     id: string;
+    email: string | null;
+    phone: string | null;
     company: string | null;
     source: string;
     temperature: string;
     score: number;
     notes: string | null;
     clientStatus: string;
-    siteUrl: string | null;
     signedDate: number | Date | null;
     monthlyPayment: number | null;
     nextPaymentDate: number | Date | null;
@@ -73,11 +72,13 @@ interface ContactInfoTabProps {
     createdAt: number | Date;
     assignedUserName: string | null;
   }>;
+  copiedField: string | null;
+  onCopy: (value: string, field: string) => void;
   onViewDeals: () => void;
   onViewActivity: () => void;
 }
 
-export function ContactInfoTab({ contact, deals, activities, onViewDeals, onViewActivity }: ContactInfoTabProps) {
+export function ContactInfoTab({ contact, deals, activities, copiedField, onCopy, onViewDeals, onViewActivity }: ContactInfoTabProps) {
   const statusConfig = CLIENT_STATUS_CONFIG[(contact.clientStatus || "prospect") as ClientStatus];
   const recentActivities = activities.slice(0, 4);
   const isActiveClient = contact.clientStatus === "active_client";
@@ -184,33 +185,125 @@ export function ContactInfoTab({ contact, deals, activities, onViewDeals, onView
         </CardContent>
       </Card>
 
-      {/* Mobile: Resumen row-list */}
-      <div className="lg:hidden space-y-4">
-        <div>
-          <h2 className="text-base font-semibold">Resumen</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Información general del contacto y su empresa.</p>
+      {/* Mobile: original stacked layout */}
+      <div className="lg:hidden grid grid-cols-1 gap-6">
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Información de contacto</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {contact.email && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <a href={`mailto:${contact.email}`} className="text-primary hover:underline flex-1 truncate">
+                    {contact.email}
+                  </a>
+                  <button onClick={() => onCopy(contact.email!, "email")} className="p-1 rounded hover:bg-muted cursor-pointer">
+                    {copiedField === "email" ? (
+                      <Check className="h-3.5 w-3.5 text-green-600" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                  </button>
+                </div>
+              )}
+              {contact.phone && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="flex-1">{contact.phone}</span>
+                  <div className="flex items-center gap-1">
+                    <a
+                      href={`https://wa.me/${cleanPhoneForWhatsApp(contact.phone)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1 rounded hover:bg-muted cursor-pointer"
+                    >
+                      <MessageCircle className="h-3.5 w-3.5 text-green-600" />
+                    </a>
+                    <a href={`tel:${contact.phone}`} className="p-1 rounded hover:bg-muted cursor-pointer">
+                      <Phone className="h-3.5 w-3.5 text-blue-600" />
+                    </a>
+                    <button onClick={() => onCopy(contact.phone!, "phone")} className="p-1 rounded hover:bg-muted cursor-pointer">
+                      {copiedField === "phone" ? (
+                        <Check className="h-3.5 w-3.5 text-green-600" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+              {contact.company && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                  <span>{contact.company}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2 text-sm">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span>Creado {formatDate(contact.createdAt)}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {contact.notes && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Notas internas</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground whitespace-pre-line">{contact.notes}</p>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
-        <div className="rounded-xl border bg-card divide-y">
-          {contact.company && (
-            <SummaryRow icon={Building2} iconClasses="bg-red-500/10 text-red-600" label="Empresa" value={contact.company} />
-          )}
-          {contact.siteUrl && (
-            <a href={contact.siteUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3.5">
-              <div className="h-8 w-8 rounded-lg bg-green-500/10 text-green-600 flex items-center justify-center shrink-0">
-                <Globe className="h-4 w-4" />
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Estado Comercial</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Status</span>
+                <Badge style={{ backgroundColor: statusConfig.bgColor, color: statusConfig.color }}>
+                  {statusConfig.label}
+                </Badge>
               </div>
-              <span className="flex-1 text-sm text-muted-foreground">Sitio web</span>
-              <span className="text-sm font-medium text-primary truncate max-w-[45%]">{stripProtocol(contact.siteUrl)}</span>
-              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            </a>
-          )}
-          {contact.notes && (
-            <SummaryRow icon={FileText} iconClasses="bg-primary/10 text-primary" label="Notas" value={contact.notes} wrap />
-          )}
-          {!contact.company && !contact.siteUrl && !contact.notes && (
-            <p className="p-3.5 text-sm text-muted-foreground">Sin informacion adicional registrada.</p>
-          )}
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Temperatura</span>
+                <StatusBadge temperature={contact.temperature as Temperature} />
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Fuente</span>
+                <span>{SOURCE_LABELS[contact.source as LeadSource] || contact.source}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Score</span>
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-20 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full rounded-full bg-primary" style={{ width: `${contact.score}%` }} />
+                  </div>
+                  <span className="text-xs font-medium">{contact.score}/100</span>
+                </div>
+              </div>
+              {contact.signedDate && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Fecha de firma</span>
+                  <span>{formatDate(contact.signedDate)}</span>
+                </div>
+              )}
+              {contact.monthlyPayment ? (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Pago mensual</span>
+                  <span className="font-semibold text-primary">{formatCurrency(contact.monthlyPayment)}</span>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+
+          {isActiveClient && <AccountHealthCard contactId={contact.id} accountHealth={contact.accountHealth} />}
         </div>
 
         {deals.length > 0 && (
@@ -282,17 +375,6 @@ export function ContactInfoTab({ contact, deals, activities, onViewDeals, onView
             </div>
           </div>
         )}
-
-        {isActiveClient && <AccountHealthCard contactId={contact.id} accountHealth={contact.accountHealth} />}
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Notas Internas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground whitespace-pre-line">{contact.notes || "Sin notas registradas."}</p>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
@@ -303,31 +385,6 @@ function Row({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between text-sm">
       <span className="text-muted-foreground">{label}</span>
       <span className="font-medium">{value}</span>
-    </div>
-  );
-}
-
-function SummaryRow({
-  icon: Icon,
-  iconClasses,
-  label,
-  value,
-  wrap,
-}: {
-  icon: typeof Building2;
-  iconClasses: string;
-  label: string;
-  value: string;
-  wrap?: boolean;
-}) {
-  return (
-    <div className="flex items-start gap-3 p-3.5">
-      <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${iconClasses}`}>
-        <Icon className="h-4 w-4" />
-      </div>
-      <span className="text-sm text-muted-foreground shrink-0 pt-1.5 w-20">{label}</span>
-      <span className={`flex-1 text-sm font-medium text-right pt-1.5 ${wrap ? "" : "truncate"}`}>{value}</span>
-      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1.5" />
     </div>
   );
 }
