@@ -61,9 +61,20 @@ export default function ArsenalPage() {
           <h1 className="text-2xl font-bold tracking-tight">Arsenal</h1>
           <p className="text-muted-foreground text-sm">Stacks, backends, herramientas y flujos de automatización</p>
         </div>
-        <Button onClick={() => setShowForm(true)} className="cursor-pointer shrink-0">
-          <Plus className="h-4 w-4 mr-2" /> Nuevo item
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            onClick={seedArsenal}
+            disabled={seeding}
+            className="cursor-pointer"
+          >
+            <Sparkles className="h-4 w-4 mr-2" />
+            {seeding ? "Poblando..." : "Poblar stack"}
+          </Button>
+          <Button onClick={() => setShowForm(true)} className="cursor-pointer">
+            <Plus className="h-4 w-4 mr-2" /> Nuevo item
+          </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -121,22 +132,7 @@ export default function ArsenalPage() {
           {/* Grid */}
           {filtered.length === 0 ? (
             <div className="py-16 text-center text-muted-foreground text-sm space-y-4">
-              {items.length === 0 ? (
-                <>
-                  <p>El Arsenal está vacío.</p>
-                  <Button
-                    variant="outline"
-                    onClick={seedArsenal}
-                    disabled={seeding}
-                    className="cursor-pointer"
-                  >
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    {seeding ? "Poblando arsenal..." : "Poblar con stack de la agencia (22 items)"}
-                  </Button>
-                </>
-              ) : (
-                "Sin resultados para ese filtro"
-              )}
+              {items.length === 0 ? "El Arsenal está vacío. Usá \"Poblar stack\" para cargar los items base." : "Sin resultados para ese filtro"}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
