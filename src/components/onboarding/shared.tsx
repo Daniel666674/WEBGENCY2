@@ -28,6 +28,17 @@ export function SubTitle({ children }: { children: React.ReactNode }) {
   return <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mt-6 mb-2">{children}</h3>;
 }
 
+export function NumberedSubTitle({ n, children }: { n: number; children: React.ReactNode }) {
+  return (
+    <h3 className="flex items-center gap-2 mt-6 mb-2">
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+        {n}
+      </span>
+      <span className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{children}</span>
+    </h3>
+  );
+}
+
 export function Callout({
   tone = "primary",
   title,

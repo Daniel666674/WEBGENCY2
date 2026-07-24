@@ -12,7 +12,8 @@ import {
 } from "@/lib/catalog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Lead, SectionTitle, SubTitle, Callout, CheckList } from "./shared";
+import { Gem } from "lucide-react";
+import { Lead, SectionTitle, NumberedSubTitle, Callout, CheckList } from "./shared";
 
 const CATEGORY_ORDER: ModuleCategory[] = [
   "catalogo", "automatizacion", "marketing", "seo", "acceso", "diseno", "pagos",
@@ -33,7 +34,7 @@ export function Training() {
 
       {/* Planes base */}
       <div>
-        <SubTitle>1. Planes base (pago único)</SubTitle>
+        <NumberedSubTitle n={1}>Planes base (pago único)</NumberedSubTitle>
         <p className="text-sm text-muted-foreground mb-3">
           El punto de partida. Se elige uno según el tamaño del negocio y luego se le suman módulos.
         </p>
@@ -56,7 +57,7 @@ export function Training() {
 
       {/* Módulos / add-ons */}
       <div>
-        <SubTitle>2. Módulos adicionales</SubTitle>
+        <NumberedSubTitle n={2}>Módulos adicionales</NumberedSubTitle>
         <p className="text-sm text-muted-foreground mb-3">
           Se agregan al plan base según lo que el negocio necesite. Aquí es donde sube el ticket y
           donde nacen las mensualidades. Algunos tienen pago único, otros pago único + mensualidad.
@@ -96,7 +97,7 @@ export function Training() {
 
       {/* Mantenimiento */}
       <div>
-        <SubTitle>3. Mantenimiento (mensualidad recurrente)</SubTitle>
+        <NumberedSubTitle n={3}>Mantenimiento (mensualidad recurrente)</NumberedSubTitle>
         <p className="text-sm text-muted-foreground mb-3">
           Casi todo cliente se lleva un plan de mantenimiento. <strong>Esto es el MRR</strong>: el
           ingreso que se repite cada mes y hace crecer el negocio de forma sólida.
@@ -119,7 +120,7 @@ export function Training() {
 
       {/* Community manager */}
       <div>
-        <SubTitle>4. Community Manager (contenido y redes)</SubTitle>
+        <NumberedSubTitle n={4}>Community Manager (contenido y redes)</NumberedSubTitle>
         <p className="text-sm text-muted-foreground mb-3">
           Servicio mensual aparte: producción y publicación de contenido para las redes del cliente.
           Es otra mensualidad, distinta del mantenimiento técnico.
@@ -143,7 +144,7 @@ export function Training() {
       {/* Términos y pago */}
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <SubTitle>5. Permanencia (descuento por compromiso)</SubTitle>
+          <NumberedSubTitle n={5}>Permanencia (descuento por compromiso)</NumberedSubTitle>
           <div className="space-y-2">
             {CONTRACT_TERMS.map((t) => (
               <div key={t.id} className="rounded-lg border p-3">
@@ -157,7 +158,7 @@ export function Training() {
           </div>
         </div>
         <div>
-          <SubTitle>6. Forma de pago del proyecto</SubTitle>
+          <NumberedSubTitle n={6}>Forma de pago del proyecto</NumberedSubTitle>
           <div className="space-y-2">
             {PAYMENT_SCHEDULES.map((p) => (
               <div key={p.id} className="rounded-lg border p-3">
@@ -172,7 +173,7 @@ export function Training() {
         </div>
       </div>
 
-      <Callout tone="amber" title="Reglas de oro al cotizar">
+      <Callout tone="amber" icon={Gem} title="Reglas de oro al cotizar">
         <CheckList
           items={[
             "Siempre empujar hacia una mensualidad (mantenimiento y/o community manager): eso es lo que construye el negocio.",
