@@ -21,6 +21,7 @@ import {
   MessageSquare,
   CalendarDays,
   GraduationCap,
+  Layers,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +59,12 @@ const navSections = [
     items: [
       { href: "/proposals", label: "Propuestas", icon: FileText },
       { href: "/calculator", label: "Calculadora", icon: Calculator },
+    ],
+  },
+  {
+    header: "ARSENAL",
+    items: [
+      { href: "/arsenal", label: "Arsenal", icon: Layers },
     ],
   },
   {
