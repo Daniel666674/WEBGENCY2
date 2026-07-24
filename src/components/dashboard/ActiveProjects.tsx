@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { FolderKanban, Calendar, AlertCircle } from "lucide-react";
-import { PROJECT_STATUS_CONFIG } from "@/components/projects/ProjectCard";
+import { PROJECT_STATUS_CONFIG } from "@/lib/projectStatus";
 import { Card, CardContent } from "@/components/ui/card";
 
 interface ProjectSummary {
