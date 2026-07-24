@@ -25,7 +25,11 @@ export function UserSwitcher() {
             )}
             style={{ backgroundColor: user.color }}
           >
-            {user.avatar || user.name[0]}
+            {user.image ? (
+              <img src={user.image} alt={user.name} className="w-full h-full rounded-full object-cover" />
+            ) : (
+              user.avatar || user.name[0]
+            )}
             {/* Active ring */}
             {isActive && (
               <span className="absolute inset-0 rounded-full ring-2 ring-white/40 ring-offset-1" />

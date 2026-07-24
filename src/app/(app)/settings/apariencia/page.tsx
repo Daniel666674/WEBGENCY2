@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Palette, Moon, Sun } from "lucide-react";
+import { Palette, Moon, Sun, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { SettingsHeader } from "@/components/settings/SettingsHeader";
 import {
   DEFAULT_CONFIG,
   HER_PURPLE_PRESETS,
+  THEME_PRESETS,
   type ThemeConfig,
   type ThemeColors,
   type DarkOverride,
@@ -26,14 +27,16 @@ export default function AparienciaPage() {
       .catch(() => {});
   }, []);
 
-  async function saveTheme() {
+  async function saveTheme(config?: ThemeConfig) {
+    const toSave = config ?? theme;
     setSaving(true);
     try {
       await fetch("/api/theme", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(theme),
+        body: JSON.stringify(toSave),
       });
+      if (config) setTheme(config);
       reloadThemeConfig();
       window.dispatchEvent(new Event("theme-updated"));
       toast.success("Tema guardado");
@@ -42,6 +45,14 @@ export default function AparienciaPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function applyPreset(config: ThemeConfig) {
+    saveTheme(config);
+  }
+
+  function resetToDefault() {
+    saveTheme(DEFAULT_CONFIG);
   }
 
   function setDay(patch: Partial<ThemeColors>) {
@@ -58,15 +69,58 @@ export default function AparienciaPage() {
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
-      <SettingsHeader icon={Palette} title="Apariencia" description="Personaliza el tema, colores dia/noche de la interfaz." />
+      <SettingsHeader icon={Palette} title="Apariencia" description="Elige un tema predefinido o personaliza cada color." />
 
+      {/* Presets */}
+      <Card>
+        <CardContent className="space-y-4 pt-6">
+          <div>
+            <p className="text-sm font-semibold mb-1">Temas predefinidos</p>
+            <p className="text-xs text-muted-foreground">Un clic aplica y guarda el tema completo — puedes ajustarlo después.</p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {THEME_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                onClick={() => applyPreset(preset.config)}
+                disabled={saving}
+                className="flex flex-col items-start gap-2 p-3 rounded-xl border hover:border-primary hover:bg-accent transition-all text-left cursor-pointer disabled:opacity-50 group"
+              >
+                <div className="flex items-center gap-2 w-full">
+                  <div
+                    className="w-5 h-5 rounded-full shrink-0 ring-1 ring-black/10"
+                    style={{ backgroundColor: preset.swatch }}
+                  />
+                  <span className="text-sm font-medium truncate">{preset.name}</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-tight">{preset.description}</p>
+              </button>
+            ))}
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              onClick={resetToDefault}
+              disabled={saving}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium hover:bg-muted transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Restaurar tema original
+            </button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Custom fine-tuning */}
       <Card>
         <CardContent className="space-y-6 pt-6">
+          <p className="text-sm font-semibold">Personalización avanzada</p>
+
           {/* Switch hour */}
           <div className="flex items-center gap-4">
             <Moon className="h-4 w-4 text-muted-foreground shrink-0" />
             <div className="flex-1">
-              <p className="text-sm font-medium">Hora de cambio automatico</p>
+              <p className="text-sm font-medium">Hora de cambio automático</p>
               <p className="text-xs text-muted-foreground">Cambia al tema nocturno a esta hora</p>
             </div>
             <select
@@ -88,7 +142,7 @@ export default function AparienciaPage() {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <Sun className="h-4 w-4 text-amber-500" />
-              <span className="text-sm font-semibold">Tema de Dia</span>
+              <span className="text-sm font-semibold">Tema de Día</span>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <ColorPicker label="Fondo" value={theme.day.background} onChange={(v) => setDay({ background: v })} />
@@ -120,10 +174,10 @@ export default function AparienciaPage() {
 
           <Separator />
 
-          {/* Her purple presets */}
+          {/* Her purple */}
           <div>
-            <p className="text-sm font-semibold mb-1">Morado de Daniela G. (noche)</p>
-            <p className="text-xs text-muted-foreground mb-3">Color primario para el perfil de Daniela G. en modo nocturno</p>
+            <p className="text-sm font-semibold mb-1">Morado de Daniela (noche)</p>
+            <p className="text-xs text-muted-foreground mb-3">Color primario para el perfil de Daniela en modo nocturno</p>
             <div className="flex flex-wrap gap-2 mb-3">
               {HER_PURPLE_PRESETS.map((p) => (
                 <button
@@ -150,11 +204,11 @@ export default function AparienciaPage() {
 
           <Separator />
 
-          {/* Daniel's dark mode */}
+          {/* Daniel dark mode */}
           <div>
             <p className="text-sm font-semibold mb-1">Modo oscuro de Daniel</p>
             <p className="text-xs text-muted-foreground mb-3">
-              Reemplaza los fondos claros por oscuros en el perfil de Daniel — el color primario y el sidebar no cambian
+              Reemplaza los fondos claros por oscuros — el color primario y el sidebar no cambian
             </p>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <ColorPicker label="Fondo" value={theme.danielDark.background} onChange={(v) => setDanielDark({ background: v })} />
@@ -167,11 +221,11 @@ export default function AparienciaPage() {
 
           <div className="flex justify-end pt-2">
             <button
-              onClick={saveTheme}
+              onClick={() => saveTheme()}
               disabled={saving}
-              className="px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50 cursor-pointer"
+              className="px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50 cursor-pointer hover:opacity-90 transition-opacity"
             >
-              {saving ? "Guardando..." : "Guardar tema"}
+              {saving ? "Guardando..." : "Guardar personalización"}
             </button>
           </div>
         </CardContent>

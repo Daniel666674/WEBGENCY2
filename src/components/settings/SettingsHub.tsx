@@ -61,10 +61,14 @@ export function SettingsHub({ authEnabled }: { authEnabled: boolean }) {
       {!loading && activeUser && (
         <div className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-xl border bg-card p-5">
           <div
-            className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold shrink-0"
+            className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold shrink-0 overflow-hidden"
             style={{ backgroundColor: activeUser.color }}
           >
-            {activeUser.avatar ?? activeUser.name[0]}
+            {activeUser.image ? (
+              <img src={activeUser.image} alt={activeUser.name} className="w-full h-full object-cover" />
+            ) : (
+              activeUser.avatar ?? activeUser.name[0]
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-lg font-bold">{activeUser.name}</p>
