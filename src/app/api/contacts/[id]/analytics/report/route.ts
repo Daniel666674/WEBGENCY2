@@ -6,20 +6,13 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { getServiceAccountAuth } from "@/lib/googleAnalytics";
 
-// Live GA4 + GSC pull. Two ways to authenticate, tried in this order:
-//   1. A Google SERVICE ACCOUNT (GOOGLE_SERVICE_ACCOUNT_KEY) — preferred for
-//      an agency showing a client's numbers: no per-user Google sign-in, no
-//      AUTH_ENABLED, just grant the service account read access to the
-//      client's GA4 property + Search Console site once.
-//   2. Interactive Google OAuth — the logged-in CRM user's own Google token
-//      (needs AUTH_ENABLED=true and a Google session).
-// Returns { connected: false, reason } with a specific reason otherwise, so
-// the UI can tell the user exactly what's missing rather than show fake data.
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const rawDays = Number(request.nextUrl.searchParams.get("days") ?? "30");
+  const days = [7, 28, 30, 90].includes(rawDays) ? rawDays : 30;
 
   const config = await db
     .select()
@@ -31,13 +24,11 @@ export async function GET(
     return NextResponse.json({ connected: false, reason: "not_configured" });
   }
 
-  // Resolve a Google auth client — service account first, OAuth as fallback.
-  // Typed off the `google` namespace's own auth classes (not the top-level
-  // google-auth-library copy) so it stays assignable to the API constructors
-  // and avoids the dual-package type mismatch.
-  let authClient:
+  type AuthClient =
     | NonNullable<ReturnType<typeof getServiceAccountAuth>>
     | InstanceType<typeof google.auth.OAuth2>;
+
+  let authClient: AuthClient;
   const serviceAccountAuth = getServiceAccountAuth();
   if (serviceAccountAuth) {
     authClient = serviceAccountAuth;
@@ -66,27 +57,51 @@ export async function GET(
     authClient = oauth2Client;
   }
 
+  const endDate = new Date().toISOString().split("T")[0];
+  const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
+
+  type GscMetricRow = { query?: string; page?: string; country?: string; clicks: number; impressions: number; ctr: number; position: number };
   const result: {
     connected: true;
-    ga4: { sessions: number; users: number; conversions: number } | null;
-    gsc: { clicks: number; impressions: number; avgPosition: number } | null;
-  } = { connected: true, ga4: null, gsc: null };
-
-  const endDate = new Date().toISOString().split("T")[0];
-  const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    days: number;
+    summary: {
+      gsc: { clicks: number; impressions: number; ctr: number; avgPosition: number } | null;
+      ga4: { sessions: number; users: number; conversions: number } | null;
+    };
+    timeseries: { dates: string[]; gscClicks: number[]; gscImpressions: number[]; gscCtr: number[]; gscPosition: number[] } | null;
+    topQueries: GscMetricRow[] | null;
+    topPages: GscMetricRow[] | null;
+    countries: { country: string; clicks: number }[] | null;
+  } = {
+    connected: true,
+    days,
+    summary: { gsc: null, ga4: null },
+    timeseries: null,
+    topQueries: null,
+    topPages: null,
+    countries: null,
+  };
 
   if (config.ga4PropertyId) {
     try {
       const analyticsData = google.analyticsdata({ version: "v1beta", auth: authClient });
-      const report = await analyticsData.properties.runReport({
-        property: `properties/${config.ga4PropertyId}`,
-        requestBody: {
-          dateRanges: [{ startDate, endDate }],
-          metrics: [{ name: "sessions" }, { name: "activeUsers" }, { name: "conversions" }],
-        },
-      });
-      const row = report.data.rows?.[0]?.metricValues;
-      result.ga4 = {
+      const [summaryReport] = await Promise.all([
+        analyticsData.properties.runReport({
+          property: `properties/${config.ga4PropertyId}`,
+          requestBody: {
+            dateRanges: [{ startDate, endDate }],
+            metrics: [
+              { name: "sessions" },
+              { name: "activeUsers" },
+              { name: "conversions" },
+            ],
+          },
+        }),
+      ]);
+      const row = summaryReport.data.rows?.[0]?.metricValues;
+      result.summary.ga4 = {
         sessions: Number(row?.[0]?.value ?? 0),
         users: Number(row?.[1]?.value ?? 0),
         conversions: Number(row?.[2]?.value ?? 0),
@@ -103,16 +118,66 @@ export async function GET(
   if (config.gscSiteUrl) {
     try {
       const searchConsole = google.searchconsole({ version: "v1", auth: authClient });
-      const report = await searchConsole.searchanalytics.query({
-        siteUrl: config.gscSiteUrl,
-        requestBody: { startDate, endDate, dimensions: [] },
-      });
-      const row = report.data.rows?.[0];
-      result.gsc = {
-        clicks: row?.clicks ?? 0,
-        impressions: row?.impressions ?? 0,
-        avgPosition: row?.position ?? 0,
+      const siteUrl = config.gscSiteUrl;
+      const base = { startDate, endDate };
+
+      const [totalsRes, timeseriesRes, queriesRes, pagesRes, countriesRes] = await Promise.all([
+        searchConsole.searchanalytics.query({ siteUrl, requestBody: base }),
+        searchConsole.searchanalytics.query({
+          siteUrl,
+          requestBody: { ...base, dimensions: ["date"], rowLimit: 90 },
+        }),
+        searchConsole.searchanalytics.query({
+          siteUrl,
+          requestBody: { ...base, dimensions: ["query"], rowLimit: 10 },
+        }),
+        searchConsole.searchanalytics.query({
+          siteUrl,
+          requestBody: { ...base, dimensions: ["page"], rowLimit: 10 },
+        }),
+        searchConsole.searchanalytics.query({
+          siteUrl,
+          requestBody: { ...base, dimensions: ["country"], rowLimit: 10 },
+        }),
+      ]);
+
+      const totalsRow = totalsRes.data.rows?.[0];
+      result.summary.gsc = {
+        clicks: totalsRow?.clicks ?? 0,
+        impressions: totalsRow?.impressions ?? 0,
+        ctr: (totalsRow?.ctr ?? 0) * 100,
+        avgPosition: totalsRow?.position ?? 0,
       };
+
+      const tsRows = timeseriesRes.data.rows ?? [];
+      result.timeseries = {
+        dates: tsRows.map((r) => r.keys?.[0] ?? ""),
+        gscClicks: tsRows.map((r) => r.clicks ?? 0),
+        gscImpressions: tsRows.map((r) => r.impressions ?? 0),
+        gscCtr: tsRows.map((r) => (r.ctr ?? 0) * 100),
+        gscPosition: tsRows.map((r) => r.position ?? 0),
+      };
+
+      result.topQueries = (queriesRes.data.rows ?? []).map((r) => ({
+        query: r.keys?.[0] ?? "",
+        clicks: r.clicks ?? 0,
+        impressions: r.impressions ?? 0,
+        ctr: (r.ctr ?? 0) * 100,
+        position: r.position ?? 0,
+      }));
+
+      result.topPages = (pagesRes.data.rows ?? []).map((r) => ({
+        page: r.keys?.[0] ?? "",
+        clicks: r.clicks ?? 0,
+        impressions: r.impressions ?? 0,
+        ctr: (r.ctr ?? 0) * 100,
+        position: r.position ?? 0,
+      }));
+
+      result.countries = (countriesRes.data.rows ?? []).map((r) => ({
+        country: r.keys?.[0] ?? "",
+        clicks: r.clicks ?? 0,
+      }));
     } catch (e) {
       return NextResponse.json({
         connected: false,

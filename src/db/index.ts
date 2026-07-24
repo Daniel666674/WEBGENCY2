@@ -9,8 +9,12 @@ import * as schema from "./schema";
 // apply here: there's no /tmp copy, no per-instance staleness, and no
 // separate "mirror this file to Blob" step — a write is durable the moment
 // the query resolves.
+// Fall back to an in-memory URL during `next build` so the module loads
+// without throwing when TURSO_DATABASE_URL isn't available in the build
+// environment. Actual DB calls only happen at runtime (routes are
+// force-dynamic; instrumentation only runs on server start).
 const client = createClient({
-  url: process.env.TURSO_DATABASE_URL!,
+  url: process.env.TURSO_DATABASE_URL || "file::memory:",
   authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
