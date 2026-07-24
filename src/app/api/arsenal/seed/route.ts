@@ -890,6 +890,843 @@ Solución: aislar sólo el icono/símbolo para el strip, usar el logo completo e
 PASÓ EN ESCENA: logos Troy Lee Designs (muy wide) vs Oakley (cuadrado) vs Fox Racing (paisaje).`,
     notes: null,
   },
+  // ─── NEXUS CRM expansion items ───────────────────────────────────────────
+  {
+    id: "seed-nextauth-v5",
+    name: "NextAuth.js / Auth.js v5",
+    category: "Stack",
+    status: "active",
+    icon: "🔑",
+    description: "Auth completo para Next.js: Google OAuth + credenciales propias + sesiones JWT. Multi-provider, RBAC-ready, WebAuthn-compatible. El estándar de facto para apps Next.js con login.",
+    url: "https://authjs.dev",
+    tags: JSON.stringify(["nextauth", "auth", "oauth", "google", "jwt", "session", "nextjs", "credentials"]),
+    useCases: JSON.stringify([
+      "Cualquier CRM o admin panel Next.js con múltiples usuarios",
+      "App donde el cliente quiere 'Login con Google' para su equipo",
+      "Portal con roles: admin puede editar, viewer solo lee",
+      "Reemplazar un sistema de login casero con algo production-ready en horas",
+    ]),
+    costCents: 0,
+    details: `SETUP BÁSICO (Next.js App Router)
+// src/auth.ts
+import NextAuth from "next-auth"
+import Google from "next-auth/providers/google"
+import Credentials from "next-auth/providers/credentials"
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  providers: [
+    Google({ clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET }),
+    Credentials({
+      authorize: async ({ email, password }) => { /* verify */ }
+    }),
+  ],
+  callbacks: {
+    session({ session, token }) { session.user.id = token.sub; return session },
+  },
+})
+
+// src/app/api/auth/[...nextauth]/route.ts
+export { GET, POST } from "@/auth"
+
+PROTEGER RUTAS (middleware.ts)
+export { auth as middleware } from "@/auth"
+export const config = { matcher: ["/app/:path*"] }
+
+ENV VARS REQUERIDAS
+AUTH_SECRET=<openssl rand -base64 32>
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+DB ADAPTER
+Con @auth/drizzle-adapter: los users/sessions/accounts se guardan en Turso automáticamente.
+Sin adapter: sesiones JWT stateless (más simple, sin tabla sessions).
+
+RBAC PATTERN
+Agregar campo role en DB → exponer en token → verificar en cada ruta:
+const session = await auth(); if (session.user.role !== "admin") return 401`,
+    notes: "Preferir JWT stateless (sin adapter) para proyectos pequeños. Agregar adapter solo si el cliente necesita invalidar sesiones activas.",
+  },
+  {
+    id: "seed-webauthn-passkeys",
+    name: "WebAuthn / Passkeys (Biometric Login)",
+    category: "Integration",
+    status: "testing",
+    icon: "👆",
+    description: "Login con Face ID / huella digital en el browser. FIDO2/WebAuthn: el usuario registra su dispositivo una vez, luego inicia sesión sin contraseña. Funciona en Chrome, Safari, Edge.",
+    url: "https://webauthn.io",
+    tags: JSON.stringify(["webauthn", "passkeys", "fido2", "biometric", "passwordless", "security", "faceid"]),
+    useCases: JSON.stringify([
+      "App interna del cliente donde el equipo inicia sesión diariamente — elimina contraseñas débiles",
+      "CRM enterprise donde la seguridad biométrica es un diferenciador de venta",
+      "Portal de clientes donde quieren 'magia': un toque y adentro",
+    ]),
+    costCents: 0,
+    details: `FLUJO COMPLETO
+REGISTRO:
+1. POST /api/auth/webauthn/register-options → retorna challenge + opciones del servidor
+2. Cliente: navigator.credentials.create({ publicKey: options }) → crea credential en dispositivo
+3. POST /api/auth/webauthn/register-verify → verifica y guarda credential en DB
+
+LOGIN:
+1. POST /api/auth/webauthn/authenticate-options → challenge nuevo
+2. Cliente: navigator.credentials.get({ publicKey: options }) → firma con biometría
+3. POST /api/auth/webauthn/authenticate-verify → verifica firma → crea sesión
+
+LIBRERÍA RECOMENDADA
+@simplewebauthn/server (Node) + @simplewebauthn/browser (cliente)
+npm install @simplewebauthn/server @simplewebauthn/browser
+
+DB: tabla webauthn_credentials
+{ id, userId, credentialId (base64url), publicKey, counter, deviceType, backedUp, transports[] }
+
+CONSIDERACIONES
+- Solo funciona en HTTPS (localhost también está permitido para dev)
+- El usuario DEBE tener un login regular también como fallback (dispositivo perdido)
+- Chrome/Safari/Edge soportan passkeys; Firefox tiene soporte parcial
+- "Synced passkeys" (iCloud Keychain / Google Password Manager) funcionan cross-device
+
+UPSELL
+"Tu equipo inicia sesión con la huella del celular — sin recordar contraseñas, sin phishing posible."`,
+    notes: null,
+  },
+  {
+    id: "seed-api-tokens-rbac",
+    name: "API Tokens + RBAC",
+    category: "Backend",
+    status: "active",
+    icon: "🪪",
+    description: "Sistema de tokens Bearer para que apps externas accedan al CRM via API. RBAC con roles admin/member/viewer — cada rol controla qué puede leer o escribir.",
+    url: null,
+    tags: JSON.stringify(["api-tokens", "bearer", "rbac", "roles", "auth", "access-control", "security"]),
+    useCases: JSON.stringify([
+      "Integrar el CRM con herramientas externas (n8n, Make, Zapier, scripts propios)",
+      "Dar acceso de lectura a un dashboard externo sin exponer credenciales",
+      "Equipo de ventas con miembros que solo ven sus propios leads (viewer role)",
+    ]),
+    costCents: 0,
+    details: `API TOKEN PATTERN
+Generación: crypto.randomBytes(32).toString('hex') → hash con bcrypt/SHA-256 antes de guardar
+DB: tabla api_tokens { id, userId, name, tokenHash, lastUsedAt, expiresAt, scopes[] }
+Validación middleware:
+const token = req.headers.authorization?.replace('Bearer ', '')
+const hash = hashToken(token)
+const record = await db.select().from(apiTokens).where(eq(apiTokens.tokenHash, hash)).get()
+if (!record || record.expiresAt < Date.now()) return 401
+
+SCOPES SUGERIDOS
+contacts:read, contacts:write, deals:read, deals:write, analytics:read
+
+RBAC ROLES
+admin   → todo: leer/escribir, configurar, invitar usuarios
+member  → leer/escribir contactos, deals, actividades (solo los propios si multi-tenant)
+viewer  → solo lectura, sin acceso a config ni datos de otros usuarios
+
+IMPLEMENTACIÓN EN RUTAS
+function requireRole(role: "admin" | "member" | "viewer") {
+  return async (req: NextRequest) => {
+    const session = await auth()
+    if (!session) return 401
+    if (roleLevel[session.user.role] < roleLevel[role]) return 403
+  }
+}
+
+UPSELL
+"Conecta tu CRM con cualquier herramienta: genera un token de API y listo.
+Sin contraseñas compartidas, con scopes específicos por integración."`,
+    notes: null,
+  },
+  {
+    id: "seed-email-engine-brevo",
+    name: "Email Engine (Brevo / SMTP)",
+    category: "Integration",
+    status: "active",
+    icon: "📨",
+    description: "Stack completo de email: envío transaccional + marketing via Brevo (ex-Sendinblue) o SMTP propio. Templates con variables, firmas por usuario, pixel de tracking, unsubscribe compliant.",
+    url: "https://brevo.com",
+    tags: JSON.stringify(["brevo", "sendinblue", "smtp", "email", "transactional", "marketing", "templates", "tracking"]),
+    useCases: JSON.stringify([
+      "CRM que envía emails de seguimiento directamente desde la ficha del contacto",
+      "Notificaciones automáticas: nuevo lead, deal cerrado, follow-up vencido",
+      "Newsletter o campaña de email a una lista de clientes",
+      "Confirmación de pedido para tiendas e-com (transaccional)",
+    ]),
+    costCents: 0,
+    details: `BREVO FREE TIER: 300 emails/día, sin límite de contactos. Suficiente para start.
+
+SETUP (SMTP)
+SMTP Host: smtp-relay.brevo.com, Port: 587, TLS
+Usuario: tu_email@brevo.com
+Contraseña: API key de Brevo (Settings → SMTP & API)
+Env: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
+
+TEMPLATE SYSTEM
+const render = (template: string, vars: Record<string, string>) =>
+  template.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? '')
+// render("Hola {{name}}, tu deal está en {{stage}}", { name: "Daniel", stage: "Propuesta" })
+
+EMAIL LAYOUT
+Un wrapper HTML con logo + colores de la agencia que envuelve cada mensaje.
+Todos los emails se ven consistentes sin repetir HTML.
+
+OPEN TRACKING (pixel)
+<img src="https://tu-crm.vercel.app/api/email/track/open?id={{emailId}}" width="1" height="1" style="display:none">
+GET /api/email/track/open?id=xxx → marca email como abierto + registra timestamp + IP
+
+CLICK TRACKING
+Reemplazar cada URL en el cuerpo del email:
+href="https://tu-crm.vercel.app/api/email/track/click?id={{emailId}}&url=ENCODED_URL"
+GET → registra click → redirect 302 a la URL original
+
+UNSUBSCRIBE (CAN-SPAM obligatorio)
+Link en footer: /api/email/unsubscribe?token=HMAC(contactId)
+Marca al contacto con unsubscribed: true → excluir de futuros envíos automáticamente
+
+FIRMAS POR USUARIO
+DB: tabla signatures { userId, html } — se append al body antes de enviar`,
+    notes: "Brevo para transaccional/marketing. Resend para digest simple del CRM. No mezclar los dos en el mismo proyecto sin una capa de abstracción.",
+  },
+  {
+    id: "seed-email-sequences-drip",
+    name: "Email Sequences / Drip Campaigns",
+    category: "Automation",
+    status: "active",
+    icon: "🌊",
+    description: "Secuencias multi-paso: enroll un contacto → recibe email Day 1, task Day 3, email Day 7 automáticamente. Motor de secuencias con pasos email + tarea + espera.",
+    url: null,
+    tags: JSON.stringify(["sequences", "drip", "email", "automation", "outreach", "nurturing", "crm"]),
+    useCases: JSON.stringify([
+      "Prospect nuevo → secuencia de 5 emails de nurturing automáticos",
+      "Deal cerrado → secuencia de onboarding al cliente (email bienvenida, links, checklist)",
+      "Lead frío → reactivación automática a los 30/60/90 días",
+      "Post-propuesta: recordatorio automático a los 3 días si no hay respuesta",
+    ]),
+    costCents: 0,
+    details: `MODELO DE DATOS
+sequences { id, name, description, status }
+sequence_steps { id, sequenceId, order, type (email|task|wait), delayDays, subject, body, taskDescription }
+sequence_enrollments { id, sequenceId, contactId, enrolledAt, currentStep, status (active|paused|completed) }
+
+MOTOR DE EJECUCIÓN
+Cron diario: consulta enrollments activos donde nextStepAt <= now()
+Por cada enrollment: ejecutar el paso actual (enviar email o crear tarea)
+Calcular nextStepAt = now + step.delayDays, avanzar currentStep
+Si no hay más pasos: enrollment.status = 'completed'
+
+TEMPLATE DEFAULTS (pre-built)
+1. Secuencia de bienvenida (5 pasos, 14 días)
+2. Seguimiento post-propuesta (3 emails, 7 días)
+3. Reactivación de lead frío (3 emails, 60 días)
+4. Onboarding nuevo cliente (4 pasos, 7 días)
+
+ENROLLMENT API
+POST /api/sequences/:id/enroll → { contactId, startDate? }
+DELETE /api/sequences/:id/enrollments/:enrollmentId → unenroll (cancelar secuencia)
+
+UPSELL
+"Cuando alguien llena el formulario, empieza a recibir emails automáticos el día 1, 3, 7 y 14.
+Tu equipo solo habla con los que respondieron. Los demás siguen en la secuencia."`,
+    notes: null,
+  },
+  {
+    id: "seed-google-calendar-api",
+    name: "Google Calendar API",
+    category: "Integration",
+    status: "active",
+    icon: "📅",
+    description: "Sync bidireccional con Google Calendar: crear reuniones desde el CRM, ver el calendario del vendedor en la vista de deals. OAuth del usuario + service account para lectura.",
+    url: "https://developers.google.com/calendar",
+    tags: JSON.stringify(["google-calendar", "calendar", "meetings", "sync", "oauth", "google-workspace"]),
+    useCases: JSON.stringify([
+      "Agendar una reunión con un prospect directamente desde su ficha en el CRM",
+      "Ver en el pipeline cuáles deals tienen reunión agendada esta semana",
+      "CRM de consultoría donde las reuniones son el principal touchpoint con el cliente",
+    ]),
+    costCents: 0,
+    details: `AUTH (dos opciones)
+OAuth del usuario: el vendedor conecta su Google account → CRM puede crear/leer sus eventos
+Service account: solo lectura, sin que el usuario tenga que autorizar cada vez
+
+SCOPES NECESARIOS
+https://www.googleapis.com/auth/calendar.events
+https://www.googleapis.com/auth/calendar.readonly
+
+CREAR EVENTO DESDE CRM
+POST https://www.googleapis.com/calendar/v3/calendars/primary/events
+body: {
+  summary: "Reunión con [Nombre del prospecto]",
+  start: { dateTime: "2025-07-30T10:00:00-05:00" },
+  end:   { dateTime: "2025-07-30T11:00:00-05:00" },
+  attendees: [{ email: "prospecto@empresa.com" }],
+  conferenceData: { createRequest: { requestId: uuid } } // Google Meet automático
+}
+
+LISTAR EVENTOS DEL VENDEDOR
+GET /calendars/primary/events?timeMin=...&timeMax=...&singleEvents=true&orderBy=startTime
+
+GOTCHA: TOKEN REFRESH
+Los access_token duran 1h. Guardar refresh_token (encriptado) en DB.
+Antes de cada llamada verificar expiración y refrescar si es necesario.
+
+UPSELL
+"Agenda reuniones directamente desde el CRM, con Google Meet incluido.
+El evento aparece en el calendario del cliente y del vendedor automáticamente."`,
+    notes: null,
+  },
+  {
+    id: "seed-web-push-notifications",
+    name: "Web Push Notifications",
+    category: "Integration",
+    status: "active",
+    icon: "🔔",
+    description: "Notificaciones push en el browser (o dispositivo) sin instalar app. El usuario acepta una vez → recibe alertas aunque el CRM esté cerrado. Powered by web-push + VAPID keys.",
+    url: "https://web.dev/push-notifications/",
+    tags: JSON.stringify(["push-notifications", "web-push", "vapid", "pwa", "alerts", "real-time"]),
+    useCases: JSON.stringify([
+      "Alerta inmediata cuando llega un nuevo lead por webhook",
+      "Recordatorio de follow-up en el momento exacto que vence",
+      "Notificación cuando un deal cambia de etapa (p.ej. cliente aceptó propuesta)",
+      "Alertas de deals en riesgo: 'X lleva 14 días sin actividad'",
+    ]),
+    costCents: 0,
+    details: `SETUP (3 pasos)
+1. Generar VAPID keys (una sola vez):
+   npx web-push generate-vapid-keys
+   Env: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_MAILTO
+
+2. Suscribir al usuario (cliente):
+   const reg = await navigator.serviceWorker.register('/sw.js')
+   const sub = await reg.pushManager.subscribe({
+     userVisibleOnly: true,
+     applicationServerKey: VAPID_PUBLIC_KEY
+   })
+   await fetch('/api/push/subscribe', { method: 'POST', body: JSON.stringify(sub) })
+   DB: tabla push_subscriptions { userId, endpoint, auth, p256dh }
+
+3. Enviar notificación (servidor):
+   import webpush from 'web-push'
+   webpush.setVapidDetails('mailto:tu@email.com', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
+   await webpush.sendNotification(subscription, JSON.stringify({ title, body, url }))
+
+SERVICE WORKER (public/sw.js)
+self.addEventListener('push', e => {
+  const data = e.data.json()
+  self.registration.showNotification(data.title, { body: data.body, icon: '/icon-192.png', data: { url: data.url } })
+})
+self.addEventListener('notificationclick', e => { e.notification.close(); clients.openWindow(e.notification.data.url) })
+
+INTEGRACIÓN CON EL CRM
+Llamar notify(userId, { title, body, url }) desde triggers (nuevo lead, vencimiento, etc.)
+notify() busca la suscripción del usuario en DB y hace webpush.sendNotification()`,
+    notes: null,
+  },
+  {
+    id: "seed-automation-triggers",
+    name: "Automation Triggers + Workflow Engine",
+    category: "Automation",
+    status: "active",
+    icon: "⚡",
+    description: "Motor de reglas event-driven: 'cuando X pasa, hacer Y'. Disparadores: lead_created, deal_moved, activity_logged, score_changed. Acciones: enviar email, crear tarea, mover etapa, notificar.",
+    url: null,
+    tags: JSON.stringify(["automation", "triggers", "workflows", "rules-engine", "event-driven", "crm", "no-code"]),
+    useCases: JSON.stringify([
+      "Lead llega via webhook → clasificar automáticamente → asignar a vendedor → crear follow-up → notificar",
+      "Deal llega a 'Propuesta' → crear tarea de seguimiento a 3 días automáticamente",
+      "Score de lead sube a 80 → mover a pipeline principal + notificar al equipo",
+      "Deal lleva 7 días sin actividad → tarea de re-engagement automática",
+    ]),
+    costCents: 0,
+    details: `MODELO
+automations { id, name, trigger (event name), conditions (JSON), actions (JSON), enabled }
+TRIGGERS: lead_created | deal_moved | deal_created | activity_logged | score_changed | time_based
+
+ESTRUCTURA DE REGLA
+{
+  trigger: "deal_moved",
+  conditions: [{ field: "stage.name", op: "eq", value: "Propuesta" }],
+  actions: [
+    { type: "create_task", params: { description: "Seguimiento propuesta", daysFromNow: 3 } },
+    { type: "send_email", params: { templateId: "proposal_sent", to: "{{contact.email}}" } },
+    { type: "notify", params: { userId: "{{deal.ownerId}}", message: "Propuesta enviada a {{contact.name}}" } }
+  ]
+}
+
+ORQUESTADOR
+async function dispatch(event: string, payload: unknown) {
+  const rules = await db.select().from(automations).where(and(eq(automations.trigger, event), eq(automations.enabled, true))).all()
+  for (const rule of rules) {
+    if (evaluateConditions(rule.conditions, payload)) {
+      await executeActions(rule.actions, payload)
+    }
+  }
+}
+// Llamar desde: api/contacts (al crear), api/deals (al mover etapa), etc.
+
+QUIET HOURS
+No disparar automaciones de email/WhatsApp entre 9pm y 8am (configurable por cliente).
+Check: const h = new Date().getHours(); if (h < 8 || h > 21) queue for later
+
+PLANTILLAS DEFAULT
+1. Nuevo lead → asignar + crear follow-up (3 días)
+2. Deal en Propuesta → task seguimiento (3 días)
+3. Deal cerrado ganado → email de bienvenida al cliente
+4. Inactividad 7 días → task de re-engagement`,
+    notes: null,
+  },
+  {
+    id: "seed-docker-vps",
+    name: "Docker + VPS Self-Hosted",
+    category: "Backend",
+    status: "active",
+    icon: "🐳",
+    description: "Deploy de apps Next.js en VPS (DigitalOcean, Hetzner, Contabo) con Docker + docker-compose. Caddy como reverse proxy con TLS automático. Control total, sin dependencia de Vercel.",
+    url: "https://docs.docker.com",
+    tags: JSON.stringify(["docker", "vps", "self-hosted", "docker-compose", "caddy", "nginx", "digitalocean", "hetzner"]),
+    useCases: JSON.stringify([
+      "Cliente que requiere que sus datos estén en su propio servidor (compliance, regulación)",
+      "App con carga constante donde Vercel serverless es más caro que un VPS fijo",
+      "CRM con muchos usuarios simultáneos: VPS predecible vs Vercel por request",
+      "App que requiere WebSockets, workers o procesos persistentes (no serverless-compatible)",
+    ]),
+    costCents: 600,
+    details: `INFRAESTRUCTURA MÍNIMA
+VPS: Hetzner CX22 (2 vCPU, 4GB RAM, 40GB SSD) — €4.35/mes en Europa
+Dominio: Namecheap o el registrador del cliente
+DNS: apuntar A record del dominio a la IP del VPS
+
+DOCKER COMPOSE (producción)
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      - TURSO_DATABASE_URL
+      - TURSO_AUTH_TOKEN
+      - SESSION_SECRET
+    ports:
+      - "3000:3000"
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+
+CADDYFILE (TLS automático Let's Encrypt)
+tudominio.com {
+  reverse_proxy app:3000
+}
+
+DOCKERFILE (Next.js standalone)
+FROM node:22-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM node:22-alpine AS runner
+WORKDIR /app
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+ENV NODE_ENV=production PORT=3000
+EXPOSE 3000
+CMD ["node", "server.js"]
+
+SETUP EN EL VPS (una vez)
+curl -fsSL https://get.docker.com | sh
+git clone repo → cp .env.example .env → editar .env
+docker compose up -d --build
+
+ACTUALIZACIONES
+git pull && docker compose up -d --build
+(zero-downtime si se agrega health check en compose)`,
+    notes: "Precio referencia cliente: $30-50/mes en el retainer cubre VPS + gestión del servidor. Alternativamente el cliente puede tener el VPS a su nombre.",
+  },
+  {
+    id: "seed-dndkit-kanban",
+    name: "@dnd-kit — Drag & Drop Kanban",
+    category: "Tool",
+    status: "active",
+    icon: "🧩",
+    description: "Librería de drag-and-drop accesible para React. Usada en el pipeline kanban del CRM. Soporta multi-touch, keyboard navigation, sortable lists y grids. Más liviana que react-beautiful-dnd.",
+    url: "https://dndkit.com",
+    tags: JSON.stringify(["dnd-kit", "drag-drop", "kanban", "sortable", "react", "accessibility", "pipeline"]),
+    useCases: JSON.stringify([
+      "Pipeline de ventas con columnas drag-and-drop (mover deal entre etapas)",
+      "Board de tareas tipo Trello para gestión de proyectos",
+      "Reordenar elementos de una lista: pasos de una secuencia, orden de productos",
+    ]),
+    costCents: 0,
+    details: `INSTALACIÓN
+npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities
+
+ESTRUCTURA BÁSICA (pipeline kanban)
+<DndContext onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
+  {stages.map(stage => (
+    <KanbanColumn key={stage.id} stage={stage} deals={dealsByStage[stage.id]} />
+  ))}
+</DndContext>
+
+COLUMNA CON DROPPABLE
+import { useDroppable } from '@dnd-kit/core'
+const { setNodeRef } = useDroppable({ id: stage.id })
+return <div ref={setNodeRef}>{deals.map(d => <DealCard key={d.id} deal={d} />)}</div>
+
+CARD DRAGGABLE
+import { useDraggable } from '@dnd-kit/core'
+const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: deal.id })
+const style = { transform: CSS.Translate.toString(transform) }
+return <div ref={setNodeRef} style={style} {...listeners} {...attributes}>{deal.title}</div>
+
+HANDLE DRAG END
+function handleDragEnd({ active, over }: DragEndEvent) {
+  if (!over || active.id === over.id) return
+  const dealId = active.id as string
+  const newStageId = over.id as string
+  // PATCH /api/deals/:dealId → { stageId: newStageId }
+}
+
+POR QUÉ NO react-beautiful-dnd
+RBD está en modo mantenimiento (no soporta React 18+ nativamente).
+@dnd-kit es más moderno, más pequeño, y accesible por defecto.`,
+    notes: null,
+  },
+  {
+    id: "seed-cmdk-palette",
+    name: "cmdk — Command Palette (Cmd+K)",
+    category: "Tool",
+    status: "active",
+    icon: "⌨️",
+    description: "Command palette estilo Linear/Notion para cualquier app React. Cmd+K abre búsqueda global: contactos, deals, acciones rápidas. Instala en minutos, se adapta al design system.",
+    url: "https://cmdk.paco.me",
+    tags: JSON.stringify(["cmdk", "command-palette", "keyboard", "search", "ux", "productivity", "react"]),
+    useCases: JSON.stringify([
+      "CRM o admin panel con mucho contenido: acceso rápido a cualquier contacto/deal sin navegar",
+      "Power users que viven en teclado: acelerador de flujo de trabajo",
+      "App donde la búsqueda cruzada (contactos + deals + actividades) tiene valor real",
+    ]),
+    costCents: 0,
+    details: `INSTALACIÓN
+npm install cmdk
+
+IMPLEMENTACIÓN BÁSICA
+import { Command } from 'cmdk'
+
+function CommandPalette({ open, onClose }) {
+  return (
+    <Command.Dialog open={open} onOpenChange={onClose} label="Búsqueda global">
+      <Command.Input placeholder="Buscar contactos, deals, acciones..." />
+      <Command.List>
+        <Command.Empty>Sin resultados.</Command.Empty>
+        <Command.Group heading="Contactos">
+          {contacts.map(c => (
+            <Command.Item key={c.id} onSelect={() => { router.push('/contacts/' + c.id); onClose() }}>
+              {c.name} — {c.company}
+            </Command.Item>
+          ))}
+        </Command.Group>
+        <Command.Group heading="Acciones">
+          <Command.Item onSelect={() => setShowNewDeal(true)}>Nuevo deal</Command.Item>
+          <Command.Item onSelect={() => setShowNewContact(true)}>Nuevo contacto</Command.Item>
+        </Command.Group>
+      </Command.List>
+    </Command.Dialog>
+  )
+}
+
+ACTIVAR CON CMD+K
+useEffect(() => {
+  const down = (e: KeyboardEvent) => { if (e.key === 'k' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); setOpen(v => !v) } }
+  window.addEventListener('keydown', down)
+  return () => window.removeEventListener('keydown', down)
+}, [])
+
+SEARCH IMPLEMENTATION
+Filtrar en cliente para listas pequeñas (<1000 items).
+Para datasets grandes: debounce + fetch /api/search?q=query`,
+    notes: null,
+  },
+  {
+    id: "seed-client-portal",
+    name: "Client Portal (White-Label)",
+    category: "Stack",
+    status: "planned",
+    icon: "🪟",
+    description: "Portal web privado para que el cliente vea sus métricas, entregables y estado del proyecto — sin acceso al CRM interno. Token-autenticado, configurable por cliente, brandeable.",
+    url: null,
+    tags: JSON.stringify(["portal", "client", "white-label", "dashboard", "deliverables", "b2b", "upsell"]),
+    useCases: JSON.stringify([
+      "Agencia que quiere dar transparencia a clientes sin que accedan al CRM completo",
+      "Cliente de retainer mensual que quiere ver el progreso de sus proyectos activos",
+      "Servicio de SEO/analítica: cliente ve sus propios números en su portal branded",
+    ]),
+    costCents: null,
+    details: `ARQUITECTURA
+Cada portal tiene un token único (UUID) → URL: https://crm.agencia.com/portal/[token]
+El token autentica sin contraseña (link magic) o se combina con un PIN simple.
+
+CONFIGURACIÓN (por cliente)
+portal_configs { id, contactId, token, brandName, primaryColor, logoUrl, modules[], shareUrl }
+modules: ["metrics", "deliverables", "invoices", "project_status", "documents"]
+
+DATA SOURCES
+Cada módulo activo consulta la data del contacto en el CRM:
+GET /api/portal-live/[token]/metrics → GA4 + GSC del cliente (si está configurado)
+GET /api/portal-live/[token]/deliverables → lista de entregables aprobados/pendientes
+GET /api/portal-live/[token]/invoices → pagos registrados
+
+CUSTOMIZACIÓN
+primaryColor desde la config → CSS variables en el portal → branding del cliente
+Logo de la agencia o del cliente según la configuración
+
+SEGURIDAD
+El token es un UUID v4 — no adivinable por fuerza bruta en escala práctica
+Rate limiting en el endpoint: max 60 req/hora por token
+Para datos sensibles: agregar PIN adicional o expiración del token
+
+UPSELL
+"Tu cliente puede ver su dashboard en tiempo real — GA4, proyectos activos, documentos.
+Sin que tenga que pedirte reportes cada semana."
+Precio sugerido: $3,000-5,000 setup por implementación + incluir en retainer Pro`,
+    notes: "No construir este portal en el mismo repo del CRM interno — riesgo de cross-tenant data leak. App separada o middleware de aislamiento claro.",
+  },
+  {
+    id: "seed-nba-engine",
+    name: "NBA Engine (Next Best Action)",
+    category: "Automation",
+    status: "active",
+    icon: "🎯",
+    description: "Motor de IA que recomienda la siguiente acción óptima para cada deal/contacto: 'Llama hoy', 'Envía propuesta', 'Tiempo de cerrar'. Basado en señales del pipeline, tiempo y score.",
+    url: null,
+    tags: JSON.stringify(["nba", "next-best-action", "ai", "recommendations", "crm", "sales-intelligence"]),
+    useCases: JSON.stringify([
+      "Vendedor con 30 deals activos — saber en cuál concentrarse primero cada mañana",
+      "Deal estancado en la misma etapa por 2 semanas — alerta proactiva de intervención",
+      "Lead recién llegado con score alto — acción inmediata antes de que enfríe",
+    ]),
+    costCents: null,
+    details: `SEÑALES DE INPUT
+- Días sin actividad (cuánto tiempo sin contacto con este deal)
+- Stage velocity (cuánto tiempo lleva en la etapa actual vs promedio histórico)
+- Lead score / temperatura (hot/warm/cold)
+- Expected close date (¿ya pasó?)
+- Probability (deals alta prob. que llevan mucho sin actividad = urgente)
+- Último tipo de actividad (email vs llamada vs reunión)
+
+LÓGICA DE RECOMENDACIONES (rule-based o AI)
+
+RULE-BASED (sin API key, gratuito):
+if (daysSinceActivity > 7 && stage.name === "Propuesta") return { action: "call", priority: "high", reason: "7 días sin respuesta a la propuesta" }
+if (expectedClose < today && !isLost) return { action: "close_or_push", priority: "urgent" }
+if (score > 80 && daysSinceActivity < 1) return { action: "send_proposal", priority: "high" }
+
+AI-BASED (con ANTHROPIC_API_KEY):
+Prompt: "Deal context: [stage, value, days_stale, last_activity, contact_history].
+Recommend the single best next action with a 1-sentence reason. Output JSON: { action, priority, reason }"
+
+VISUALIZACIÓN
+- Card en la ficha del contacto: "🎯 Acción recomendada: Llama hoy. Lleva 5 días sin respuesta a tu email."
+- Dashboard widget: top 5 acciones del día ordenadas por prioridad
+- Badge en el kanban card del deal cuando hay una acción urgente
+
+UPSELL
+"Cada mañana, el CRM te dice exactamente en qué trabajar primero. Como tener un gerente de ventas 24/7."`,
+    notes: null,
+  },
+  {
+    id: "seed-gdpr-audit-trail",
+    name: "GDPR + Audit Trail",
+    category: "Process",
+    status: "active",
+    icon: "📋",
+    description: "Pack de compliance: right to erasure, data portability export, audit log de cada acción, registro de aceptación de políticas. Ley 1581/2012 Colombia + GDPR compatible.",
+    url: null,
+    tags: JSON.stringify(["gdpr", "compliance", "audit", "privacy", "ley-1581", "erasure", "data-portability", "security"]),
+    useCases: JSON.stringify([
+      "App que maneja datos personales de terceros — obligatorio por Ley 1581 en Colombia",
+      "Cliente de sector salud, financiero o legal donde el audit trail es requerido",
+      "Agencia que vende a empresas medianas/grandes con dept. legal que revisa contratos",
+    ]),
+    costCents: 0,
+    details: `1. AUDIT LOG (quién hizo qué y cuándo)
+DB: tabla audit_logs { id, userId, action, resourceType, resourceId, meta(JSON), createdAt }
+Registrar en: creación, edición y eliminación de contactos/deals + cambios de rol + exports.
+async function audit(userId, action, resourceType, resourceId, meta?) {
+  await db.insert(auditLogs).values({ id: uuid(), userId, action, resourceType, resourceId, meta: JSON.stringify(meta ?? {}), createdAt: new Date() })
+}
+
+2. RIGHT TO ERASURE (Art. 17 GDPR / Ley 1581)
+DELETE /api/contacts/:id/delete-gdpr
+- Anonimiza datos personales (name→"[Eliminado]", email→null, phone→null)
+- NO borra el registro (mantiene el id y actividades para integridad referencial)
+- Registra en audit log: action="gdpr_erasure", by=userId
+
+3. DATA PORTABILITY (Art. 20 GDPR)
+GET /api/contacts/:id/export-data → JSON con todos los datos del contacto:
+{ contact, deals, activities, emails, notes, attachments_list }
+Entregar en máximo 30 días cuando el titular lo solicite.
+
+4. POLICY ACCEPTANCE
+DB: tabla policy_acceptances { userId, policyVersion, acceptedAt, ipAddress }
+Al actualizar T&C: incrementar versión → forzar re-aceptación en próximo login.
+
+5. DATA RETENTION
+Configurable: "eliminar contactos sin actividad por más de X meses"
+Cron mensual que identifica y anonimiza registros que cumplieron la retención.
+
+UPSELL
+"Cumplimiento de Ley 1581 incluido: si un cliente pide que borres sus datos, lo hacemos en un clic con registro completo del proceso."`,
+    notes: null,
+  },
+  {
+    id: "seed-revenue-intelligence",
+    name: "Revenue Intelligence Stack",
+    category: "Tool",
+    status: "active",
+    icon: "💰",
+    description: "Módulo analítico encima del CRM: forecasting por etapa y probabilidad, win/loss analysis, deal health scoring, pipeline velocity, radar de deals en riesgo. No requiere herramienta externa.",
+    url: null,
+    tags: JSON.stringify(["revenue", "forecasting", "win-loss", "pipeline-health", "deal-health", "analytics", "crm", "revops"]),
+    useCases: JSON.stringify([
+      "Director de ventas que quiere forecast mensual preciso sin hojas de cálculo manuales",
+      "Equipo con alto volumen de deals: identificar cuáles van a cerrar vs cuáles están perdidos",
+      "Review mensual con el cliente sobre salud del pipeline y revenue proyectado",
+    ]),
+    costCents: 0,
+    details: `COMPONENTES DEL STACK
+
+1. FORECASTING (weighted pipeline)
+Forecast = SUM(deal.value * deal.probability / 100) por período de cierre
+Separar en: committed (prob > 70%), upside (40-70%), pipeline (< 40%)
+
+2. DEAL HEALTH SCORE (0-100)
+Señales negativas (restan puntos):
+- Días sin actividad > 7 (-10/semana extra)
+- Expected close ya pasó (-20)
+- Mismo stage > 14 días (-15)
+- Solo un tipo de actividad (solo emails, nunca llamadas) (-10)
+Señales positivas:
+- Email response received (+15)
+- Meeting scheduled (+20)
+- Propuesta vista por el cliente (+25)
+
+3. WIN/LOSS ANALYSIS
+Al cerrar un deal (ganado o perdido): registrar close_reason
+Calcular por período: win_rate = ganados/(ganados+perdidos)
+Agrupar por fuente, industria, tamaño de deal, vendedor, etapa donde se perdió
+"El 60% de los deals perdidos se perdieron en etapa Propuesta — revisemos el pitch"
+
+4. PIPELINE VELOCITY
+velocity = (deals × win_rate × avg_deal_value) / avg_sales_cycle_days
+Métrica única que mide qué tan rápido convierte la máquina de ventas.
+
+5. RADAR (DEALS EN RIESGO)
+Query: deals WHERE (daysSinceActivity > 10 OR expectedClose < today+7) AND status='active'
+Dashboard: lista priorizada de deals que necesitan atención inmediata
+
+UPSELL
+"Forecast del mes siguiente, salud de cada deal, y alertas proactivas antes de perder oportunidades.
+Reemplaza el Excel de seguimiento del director de ventas."`,
+    notes: null,
+  },
+  {
+    id: "seed-gmail-api",
+    name: "Gmail API (Send + Reply Tracking)",
+    category: "Integration",
+    status: "testing",
+    icon: "📥",
+    description: "Enviar emails desde la cuenta Gmail del usuario + detectar replies automáticamente. Cuando el prospect responde, el CRM lo registra como actividad. OAuth del usuario requerido.",
+    url: "https://developers.google.com/gmail",
+    tags: JSON.stringify(["gmail", "google", "email", "reply-tracking", "oauth", "outreach", "inbox"]),
+    useCases: JSON.stringify([
+      "Vendedor que quiere que sus emails de outreach salgan de su propia cuenta Gmail",
+      "Detectar automáticamente cuando un prospect responde → log de actividad sin intervención manual",
+      "Sincronizar historial de emails pasados con la ficha del contacto en el CRM",
+    ]),
+    costCents: 0,
+    details: `SCOPES NECESARIOS
+https://www.googleapis.com/auth/gmail.send
+https://www.googleapis.com/auth/gmail.readonly
+
+ENVIAR EMAIL VÍA GMAIL API
+const raw = Buffer.from(
+  'To: prospect@empresa.com\r\nSubject: Seguimiento\r\nContent-Type: text/html\r\n\r\n' + body
+).toString('base64url')
+await gmail.users.messages.send({ userId: 'me', requestBody: { raw } })
+
+REPLY DETECTION (polling)
+Cada X minutos: buscar emails con label:INBOX newer_than:1d
+GET /gmail/v1/users/me/messages?q=in:inbox newer_than:1d
+Para cada mensaje nuevo: verificar si el threadId ya existe en el CRM
+Si es un reply a un email enviado desde el CRM → log actividad tipo "email_reply"
+
+ALTERNATIVA A POLLING: Gmail Push Notifications (Pub/Sub)
+Más eficiente: Google notifica vía webhook cuando llega email nuevo al inbox.
+Setup: Cloud Pub/Sub → Cloud Push → /api/webhooks/gmail-push
+(más complejo de configurar, mejor para volúmenes altos)
+
+CONSIDERACIONES
+- El OAuth token del usuario expira en 1h — guardar y refrescar el refresh_token
+- No guardar el contenido del email en el CRM si es sensible — solo subject + metadata
+- Verificar que el usuario haya conectado su Google account antes de llamar a Gmail API
+
+UPSELL
+"Todos tus emails de ventas y las respuestas de los prospectos aparecen automáticamente en el CRM.
+Sin copiar y pegar, sin perder historial."`,
+    notes: null,
+  },
+  {
+    id: "seed-marketing-attribution",
+    name: "Marketing Attribution + Funnel",
+    category: "Automation",
+    status: "planned",
+    icon: "📣",
+    description: "Seguimiento de la fuente que genera cada lead y revenue: first-touch, last-touch y multi-touch. Funnel desde awareness → conversión con datos reales de ads + CRM.",
+    url: null,
+    tags: JSON.stringify(["attribution", "marketing", "funnel", "roi", "campaigns", "ads", "first-touch", "revenue"]),
+    useCases: JSON.stringify([
+      "Agencia de marketing que necesita demostrar ROI: '$1 invertido en Google Ads generó $X en deals'",
+      "Cliente que corre ads en Meta + Google y no sabe cuál canal genera más clientes",
+      "Equipo que quiere saber en qué etapa del funnel se pierden más leads",
+    ]),
+    costCents: null,
+    details: `MODELO DE ATRIBUCIÓN
+
+FIRST-TOUCH: 100% del crédito al primer canal que trajo al lead
+LAST-TOUCH: 100% al último canal antes de cerrar
+MULTI-TOUCH LINEAR: distribuye equitativamente entre todos los touchpoints
+
+IMPLEMENTACIÓN BASIC
+Al crear un contacto: guardar utm_source, utm_medium, utm_campaign en la DB
+(Si viene de webhook de Typeform: el formulario puede incluir los UTMs de la URL)
+Al cerrar un deal: asociar deal.value a los UTMs del contacto → revenue por fuente
+
+FUNNEL VISUALIZATION
+Etapas del funnel (configurable por cliente):
+Awareness (impresiones) → Consideration (clics) → Lead (contacto creado) → SQL (calificado) → Closed Won
+
+Métricas por etapa:
+- Conversion rate: leads → SQL, SQL → Closed Won
+- Avg time in stage
+- Revenue por fuente (si ad spend se registra)
+
+INTEGRACIÓN CON AD PLATFORMS (opcional)
+Google Ads API: traer spend + impresiones + clics por campaña
+Meta Ads API: idem
+Calcular CPL (costo por lead), ROAS (return on ad spend) si se conectan las fuentes
+
+CAMPAÑAS
+campaigns { id, name, channel (google|meta|linkedin|email|organic), spend_cents, startDate, endDate }
+campaign_contacts { campaignId, contactId, touchType (first|last|assisted) }
+
+UPSELL
+"Sabes exactamente qué canal de marketing genera más clientes — no más presupuesto a ciegas.
+La agencia se convierte en un partner de revenue, no solo de contenido."`,
+    notes: null,
+  },
+
+  // ─── Original items continue ───────────────────────────────────────────────
   {
     id: "seed-cookie-consent",
     name: "Cookie Consent + GDPR/Ley 1581",
