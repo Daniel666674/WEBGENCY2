@@ -6,7 +6,7 @@ import { ContactForm } from "@/components/contacts/ContactForm";
 import { Button } from "@/components/ui/button";
 import { DogSpinnerPage } from "@/components/shared/DogSpinner";
 import { StatTile } from "@/components/shared/StatTile";
-import { Plus, Users, Flame, Building2 } from "lucide-react";
+import { Plus, Users, Flame, Building2, Activity } from "lucide-react";
 import type { Contact } from "@/types";
 
 export default function ContactsPage() {
@@ -50,8 +50,14 @@ export default function ContactsPage() {
         <DogSpinnerPage label="Cargando contactos..." />
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <StatTile icon={Users} label="Total Contactos" value={contacts.length} color="primary" highlight />
+            <StatTile
+              icon={Activity}
+              label="Contactos Activos"
+              value={contacts.filter((c) => c.clientStatus === "active_client").length}
+              color="green"
+            />
             <StatTile
               icon={Flame}
               label="Leads Calientes"
@@ -65,7 +71,7 @@ export default function ContactsPage() {
               color="muted"
             />
           </div>
-          <ContactsTable contacts={contacts} />
+          <ContactsTable contacts={contacts} onRefresh={loadContacts} />
         </>
       )}
 
