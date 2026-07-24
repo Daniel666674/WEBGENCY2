@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import { ArrowRight, Eye, EyeOff, Lock, Moon, ShieldCheck, Sun, User, BadgeCheck } from "lucide-react";
+
+const display = Space_Grotesk({ subsets: ["latin"], weight: ["500", "700"] });
+const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"] });
 
 const TRUST_ITEMS = [
   { icon: Lock, label: "Seguro y encriptado" },
@@ -79,8 +83,8 @@ export function LoginScreen({
       {/* Ambient watermark */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden">
         <span
-          className="select-none whitespace-nowrap font-black tracking-tight opacity-[0.05] text-white"
-          style={{ fontSize: "min(22vw, 220px)" }}
+          className={`${display.className} select-none whitespace-nowrap tracking-tight opacity-[0.05] text-white`}
+          style={{ fontSize: "min(22vw, 220px)", fontWeight: 700 }}
         >
           OLIWAN
         </span>
@@ -101,9 +105,9 @@ export function LoginScreen({
         <div className="flex items-center gap-3">
           <LogoMark />
           <div>
-            <p className="text-lg font-bold tracking-tight text-white leading-tight">OLIWAN</p>
-            <p className="text-[11px] font-semibold tracking-wider" style={{ color: "#5fd4c2" }}>
-              REVENUE ENGINE
+            <p className={`${display.className} text-lg font-bold tracking-tight text-white leading-tight`}>OLIWAN</p>
+            <p className={`${mono.className} text-[10px] tracking-[0.15em] uppercase`} style={{ color: "#5fd4c2" }}>
+              Revenue Engine
             </p>
           </div>
         </div>
@@ -115,12 +119,12 @@ export function LoginScreen({
         {/* Left copy — desktop only */}
         <div className="hidden md:flex md:max-w-md flex-col gap-6">
           <div className="space-y-3">
-            <h2 className="text-4xl font-black leading-tight tracking-tight text-white">
+            <h2 className={`${display.className} text-4xl leading-tight tracking-tight text-white`} style={{ fontWeight: 700 }}>
               IMPULSAMOS
               <br />
               <span style={{ color: "#5fd4c2" }}>TU CRECIMIENTO.</span>
             </h2>
-            <p className="text-sm text-white/50 max-w-sm">
+            <p className={`${mono.className} text-xs leading-relaxed text-white/50 max-w-sm`}>
               OLIWAN es el motor que transforma tus oportunidades en ingresos reales.
             </p>
           </div>
@@ -131,9 +135,9 @@ export function LoginScreen({
             <span className="h-2 w-2 rounded-full bg-white/20" />
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          <div className={`${mono.className} flex flex-wrap items-center gap-x-6 gap-y-3`}>
             {TRUST_ITEMS.map(({ icon: Icon, label }) => (
-              <div key={label} className="flex items-center gap-1.5 text-xs text-white/40">
+              <div key={label} className="flex items-center gap-1.5 text-[11px] text-white/40">
                 <Icon className="h-3.5 w-3.5" style={{ color: "#5fd4c2" }} />
                 {label}
               </div>
@@ -153,8 +157,10 @@ export function LoginScreen({
             </div>
 
             <div className="text-center space-y-1.5">
-              <h1 className="text-2xl font-bold tracking-tight text-white">Bienvenido de vuelta</h1>
-              <p className="text-sm text-white/50">Inicia sesión para continuar en OLIWAN</p>
+              <h1 className={`${display.className} text-2xl tracking-tight text-white`} style={{ fontWeight: 700 }}>
+                Bienvenido de vuelta
+              </h1>
+              <p className={`${mono.className} text-xs text-white/50`}>Inicia sesión para continuar en OLIWAN</p>
             </div>
 
             <div className="w-full flex flex-col items-center gap-3">
@@ -162,7 +168,8 @@ export function LoginScreen({
                 <form action={onGoogle} className="w-full">
                   <button
                     type="submit"
-                    className="w-full flex items-center justify-center gap-2.5 px-5 py-3 bg-white text-black rounded-xl text-sm font-semibold hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer"
+                    className={`${display.className} w-full flex items-center justify-center gap-2.5 px-5 py-3 bg-white text-black rounded-xl text-sm hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer`}
+                    style={{ fontWeight: 700 }}
                   >
                     <svg className="h-4 w-4" viewBox="0 0 24 24">
                       <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -178,7 +185,7 @@ export function LoginScreen({
                   <input type="hidden" name="callbackUrl" value={callbackUrl} />
 
                   <div className="w-full flex flex-col gap-1.5">
-                    <label className="text-[11px] uppercase tracking-wider text-white/40 font-semibold">
+                    <label className={`${mono.className} text-[10px] uppercase tracking-[0.15em] text-white/40`}>
                       Usuario o correo electrónico
                     </label>
                     <div className="relative">
@@ -189,13 +196,13 @@ export function LoginScreen({
                         required
                         autoFocus
                         autoComplete="username"
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-[#0d9a8a] focus:border-[#0d9a8a] transition-colors"
+                        className={`${mono.className} w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-[#0d9a8a] focus:border-[#0d9a8a] transition-colors`}
                       />
                     </div>
                   </div>
 
                   <div className="w-full flex flex-col gap-1.5">
-                    <label className="text-[11px] uppercase tracking-wider text-white/40 font-semibold">Contraseña</label>
+                    <label className={`${mono.className} text-[10px] uppercase tracking-[0.15em] text-white/40`}>Contraseña</label>
                     <div className="relative">
                       <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30 pointer-events-none" />
                       <input
@@ -203,7 +210,7 @@ export function LoginScreen({
                         name="password"
                         required
                         autoComplete="current-password"
-                        className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white/[0.06] border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-[#0d9a8a] focus:border-[#0d9a8a] transition-colors"
+                        className={`${mono.className} w-full pl-10 pr-10 py-2.5 rounded-xl bg-white/[0.06] border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-[#0d9a8a] focus:border-[#0d9a8a] transition-colors`}
                       />
                       <button
                         type="button"
@@ -216,7 +223,7 @@ export function LoginScreen({
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between text-xs">
+                  <div className={`${mono.className} flex items-center justify-between text-[11px]`}>
                     <label className="flex items-center gap-2 text-white/50 cursor-pointer select-none">
                       <input
                         type="checkbox"
@@ -225,24 +232,22 @@ export function LoginScreen({
                       />
                       Recordarme
                     </label>
-                    <span className="font-medium" style={{ color: "#5fd4c2" }}>
-                      ¿Olvidaste tu contraseña?
-                    </span>
+                    <span style={{ color: "#5fd4c2" }}>¿Olvidaste tu contraseña?</span>
                   </div>
 
                   {error === "1" && (
-                    <p className="text-xs text-red-400 text-center -mb-1">Usuario o contraseña incorrectos</p>
+                    <p className={`${mono.className} text-xs text-red-400 text-center -mb-1`}>Usuario o contraseña incorrectos</p>
                   )}
                   {error === "config" && (
-                    <p className="text-xs text-amber-400 text-center -mb-1">
+                    <p className={`${mono.className} text-xs text-amber-400 text-center -mb-1`}>
                       Falta CRM_USERNAME / CRM_PASSWORD / SESSION_SECRET en el servidor
                     </p>
                   )}
 
                   <button
                     type="submit"
-                    className="group w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold text-white hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer mt-1"
-                    style={{ backgroundColor: "#0d9a8a" }}
+                    className={`${display.className} group w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm text-white hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer mt-1`}
+                    style={{ backgroundColor: "#0d9a8a", fontWeight: 700 }}
                   >
                     Iniciar sesión
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -250,20 +255,11 @@ export function LoginScreen({
                 </form>
               )}
             </div>
-
-            <div className="hidden md:flex w-full flex-col items-center gap-3 pt-2">
-              <div className="w-full h-px bg-white/10" />
-              <p className="flex items-center gap-1.5 text-xs text-white/40">
-                <Lock className="h-3 w-3" />
-                Tu información está{" "}
-                <span className="font-semibold" style={{ color: "#5fd4c2" }}>
-                  100% protegida
-                </span>
-              </p>
-            </div>
           </div>
 
-          <p className="text-center text-[11px] text-white/30 mt-6">© {new Date().getFullYear()} OLIWAN Agency</p>
+          <p className={`${mono.className} text-center text-[10px] text-white/30 mt-6`}>
+            © {new Date().getFullYear()} OLIWAN Agency
+          </p>
         </div>
       </main>
     </div>
