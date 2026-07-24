@@ -61,9 +61,20 @@ export default function ArsenalPage() {
           <h1 className="text-2xl font-bold tracking-tight">Arsenal</h1>
           <p className="text-muted-foreground text-sm">Stacks, backends, herramientas y flujos de automatización</p>
         </div>
-        <Button onClick={() => setShowForm(true)} className="cursor-pointer shrink-0">
-          <Plus className="h-4 w-4 mr-2" /> Nuevo item
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={seedArsenal}
+            disabled={seeding}
+            className="cursor-pointer shrink-0"
+          >
+            <Sparkles className="h-4 w-4 mr-2" />
+            {seeding ? "Poblando..." : "Poblar stack"}
+          </Button>
+          <Button onClick={() => setShowForm(true)} className="cursor-pointer shrink-0">
+            <Plus className="h-4 w-4 mr-2" /> Nuevo item
+          </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -131,7 +142,7 @@ export default function ArsenalPage() {
                     className="cursor-pointer"
                   >
                     <Sparkles className="h-4 w-4 mr-2" />
-                    {seeding ? "Poblando arsenal..." : "Poblar con stack de la agencia (22 items)"}
+                    {seeding ? "Poblando arsenal..." : "Poblar con stack de la agencia (40 items)"}
                   </Button>
                 </>
               ) : (
