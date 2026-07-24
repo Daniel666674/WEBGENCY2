@@ -319,6 +319,29 @@ export const auditLogs = sqliteTable("audit_logs", {
     .$defaultFn(() => new Date()),
 });
 
+export const arsenalItems = sqliteTable("arsenal_items", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull(),
+  category: text("category").notNull().default("Tool"),
+  status: text("status").notNull().default("active"),
+  icon: text("icon").default("🔧"),
+  description: text("description"),
+  url: text("url"),
+  tags: text("tags").notNull().default("[]"),
+  useCases: text("use_cases").notNull().default("[]"),
+  costCents: integer("cost_cents"),
+  details: text("details"),
+  notes: text("notes"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 export const analyticsProperties = sqliteTable("analytics_properties", {
   id: text("id")
     .primaryKey()
