@@ -6,6 +6,15 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     const { ensureSchema } = await import("@/db");
-    await ensureSchema();
+    try {
+      await ensureSchema();
+    } catch (err) {
+      // Never let a schema-bootstrap failure crash the whole server boot —
+      // that would take down every route on every request hitting this
+      // instance. Log it clearly (Vercel Runtime Logs) and let the app
+      // start; any request that actually touches the DB will then fail on
+      // its own with a normal per-request error instead of a global outage.
+      console.error("ensureSchema() failed during boot:", err);
+    }
   }
 }
