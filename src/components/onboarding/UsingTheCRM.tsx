@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, Columns3, Users, Handshake, Activity, CalendarDays,
+  LayoutDashboard, Columns3, Users, Handshake, Activity, ClipboardList,
   Calculator, FileText, UserCheck, FolderKanban, ListChecks, PackageCheck,
   DollarSign, TrendingUp, UserCog, Repeat,
 } from "lucide-react";
@@ -42,9 +42,9 @@ export function UsingTheCRM() {
             El registro de cada interacción: llamadas, correos, reuniones, notas y follow-ups. Los
             follow-ups pendientes avisan en el dashboard para que no se caiga ningún cliente.
           </InfoCard>
-          <InfoCard title="Planner" icon={CalendarDays} color="red">
-            La agenda del equipo: qué hay que hacer y cuándo, con vista de calendario. Une tareas,
-            entregas y seguimientos en un solo lugar.
+          <InfoCard title="Tareas" icon={ClipboardList} color="red">
+            Tablero Kanban del equipo (Pendientes/En progreso/En revisión/Completadas/Vencidas), con
+            calendario, prioridades y actividad por tarea. Se puede arrastrar entre columnas.
           </InfoCard>
         </div>
       </div>

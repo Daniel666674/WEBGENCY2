@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       query = query.where(eq(payments.clientId, clientId)) as typeof query;
     }
 
-    const rows = query.orderBy(desc(payments.createdAt)).all();
+    const rows = await query.orderBy(desc(payments.createdAt)).all();
     return NextResponse.json(rows);
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "clientId y amountCents requeridos" }, { status: 400 });
     }
 
-    const result = db
+    const result = await db
       .insert(payments)
       .values({
         clientId,

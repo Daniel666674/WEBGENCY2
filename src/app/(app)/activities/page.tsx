@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { DogSpinnerPage } from "@/components/shared/DogSpinner";
 import { ActivityForm } from "@/components/activities/ActivityForm";
+import { toast } from "sonner";
 import {
   Phone,
   Mail,
@@ -54,16 +55,20 @@ export default function ActivitiesPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
 
-  const loadData = () => {
-    Promise.all([
-      fetch("/api/activities").then((r) => r.json()),
-      fetch("/api/followups").then((r) => r.json()),
-      new Promise((r) => setTimeout(r, 1800)),
-    ]).then(([acts, fups]) => {
-      setActivities(acts);
-      setFollowUps(fups);
+  const loadData = async () => {
+    try {
+      const [actsRes, fupsRes] = await Promise.all([
+        fetch("/api/activities"),
+        fetch("/api/followups"),
+      ]);
+      if (!actsRes.ok || !fupsRes.ok) throw new Error("Error al cargar");
+      setActivities(await actsRes.json());
+      setFollowUps(await fupsRes.json());
+    } catch {
+      toast.error("Error al cargar las actividades");
+    } finally {
       setLoading(false);
-    });
+    }
   };
 
   useEffect(() => {

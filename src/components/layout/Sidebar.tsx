@@ -20,7 +20,6 @@ import {
   FolderKanban,
   ClipboardList,
   MessageSquare,
-  CalendarDays,
   GraduationCap,
   Layers,
 } from "lucide-react";
@@ -42,7 +41,6 @@ const navSections: NavSection[] = [
     items: [
       { href: "/onboarding", label: "Onboarding", icon: GraduationCap },
       { href: "/", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/planner", label: "Planner", icon: CalendarDays },
       { href: "/pipeline", label: "Pipeline", icon: Kanban },
       { href: "/contacts", label: "Contactos", icon: Users },
       { href: "/deals", label: "Deals", icon: Briefcase },

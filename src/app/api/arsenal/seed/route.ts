@@ -98,7 +98,7 @@ MÓDULOS ACTUALES
 Pipeline kanban · Contactos/Leads · Deals · Actividades · Revenue · Forecast
 Clientes activos · Proyectos · Tareas · Solicitudes · Entregables
 Propuestas (PDF-ready) · Calculadora de precios · Analytics (GA4+GSC live)
-Arsenal (este módulo) · Planner · Onboarding
+Arsenal (este módulo) · Onboarding
 
 REPLICACIÓN PARA CLIENTES
 1. Fork del repo

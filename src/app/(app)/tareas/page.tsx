@@ -37,19 +37,21 @@ export default function TareasPage() {
   // Background refetch — no loading gate, so it never unmounts the board or
   // resets scroll/selection. Used after every mutation (create/patch/delete).
   async function refresh() {
-    const [tasksRes, projectsRes] = await Promise.all([
-      fetch("/api/project-tasks?type=task"),
-      fetch("/api/projects"),
-    ]);
-    setTasks(await tasksRes.json());
-    setProjects(await projectsRes.json());
+    try {
+      const [tasksRes, projectsRes] = await Promise.all([
+        fetch("/api/project-tasks?type=task"),
+        fetch("/api/projects"),
+      ]);
+      if (!tasksRes.ok || !projectsRes.ok) throw new Error("Error al cargar");
+      setTasks(await tasksRes.json());
+      setProjects(await projectsRes.json());
+    } catch {
+      toast.error("Error al cargar las tareas");
+    }
   }
 
   useEffect(() => {
-    (async () => {
-      await Promise.all([refresh(), new Promise((r) => setTimeout(r, 800))]);
-      setLoading(false);
-    })();
+    refresh().finally(() => setLoading(false));
   }, []);
 
   const filtered = useMemo(() => tasks.filter((t) => {
