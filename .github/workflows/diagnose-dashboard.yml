@@ -30,7 +30,7 @@ jobs:
 
       - name: Start app and request dashboard
         run: |
-          npm start > /tmp/server.log 2>&1 &
+          NODE_OPTIONS='--enable-source-maps' npm start > /tmp/server.log 2>&1 &
           SERVER_PID=$!
           # wait for readiness
           for i in $(seq 1 30); do
@@ -50,3 +50,17 @@ jobs:
           echo ""
           echo "=================== SERVER LOG ==================="
           cat /tmp/server.log
+          echo ""
+          echo "=================== CHUNK SNIPPETS ==================="
+          CHUNK=$(grep -o "chunks/ssr/[A-Za-z0-9_.]*\.js" /tmp/server.log | head -1)
+          echo "chunk: $CHUNK"
+          if [ -n "$CHUNK" ] && [ -f ".next/server/$CHUNK" ]; then
+            for col in 10725 11341; do
+              start=$((col - 220)); [ $start -lt 0 ] && start=0
+              echo "--- around col $col ---"
+              head -c $((col + 220)) ".next/server/$CHUNK" | tail -c 440
+              echo ""
+            done
+          else
+            echo "chunk file not found at .next/server/$CHUNK"
+          fi
