@@ -35,19 +35,23 @@ export async function POST(request: NextRequest) {
     if (ok) matched = acct;
   }
 
-  // Fallback: check DB-stored credentials for Daniela (set via /join registration).
+  // Fallback: check DB-stored credentials for both users (set via /join or Settings > Perfil).
   if (!matched) {
-    const [dbUser, dbHash] = await Promise.all([
+    const [danielaUser, danielaHash, ownerUser, ownerHash] = await Promise.all([
       db.select().from(crmSettings).where(eq(crmSettings.key, "daniela_db_username")).get(),
       db.select().from(crmSettings).where(eq(crmSettings.key, "daniela_db_password_hash")).get(),
+      db.select().from(crmSettings).where(eq(crmSettings.key, "owner_db_username")).get(),
+      db.select().from(crmSettings).where(eq(crmSettings.key, "owner_db_password_hash")).get(),
     ]);
-    if (dbUser?.value && dbHash?.value) {
-      const usernameMatch = timingSafeEqual(username, dbUser.value);
-      const passwordMatch = await verifyPassword(password, dbHash.value);
-      if (usernameMatch && passwordMatch) {
-        matched = { key: "daniela", username: dbUser.value, password: "", isHers: true };
-      }
-    }
+    // Check both in constant time (no early return)
+    const checkDaniela = danielaUser?.value && danielaHash?.value
+      ? timingSafeEqual(username, danielaUser.value) && await verifyPassword(password, danielaHash.value)
+      : false;
+    const checkOwner = ownerUser?.value && ownerHash?.value
+      ? timingSafeEqual(username, ownerUser.value) && await verifyPassword(password, ownerHash.value)
+      : false;
+    if (checkDaniela) matched = { key: "daniela", username: danielaUser!.value, password: "", isHers: true };
+    if (checkOwner) matched = { key: "owner", username: ownerUser!.value, password: "", isHers: false };
   }
 
   if (!matched) {
