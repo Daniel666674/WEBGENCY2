@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     query = query.where(eq(activities.dealId, dealId)) as typeof query;
   }
 
-  const results = query.orderBy(desc(activities.createdAt)).all();
+  const results = await query.orderBy(desc(activities.createdAt)).all();
   return NextResponse.json(results);
 }
 
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = db
+    const result = await db
       .insert(activities)
       .values({
         type,

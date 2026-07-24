@@ -9,7 +9,7 @@ export async function GET(
 ) {
   const { id } = await params;
   try {
-    const rows = db
+    const rows = await db
       .select()
       .from(projectDeliverables)
       .where(eq(projectDeliverables.milestoneId, id))
@@ -29,7 +29,7 @@ export async function POST(
     const { description, fileUrl } = await req.json();
     if (!description) return NextResponse.json({ error: "Descripcion requerida" }, { status: 400 });
 
-    const result = db
+    const result = await db
       .insert(projectDeliverables)
       .values({
         milestoneId,
