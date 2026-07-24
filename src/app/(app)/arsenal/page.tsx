@@ -66,12 +66,12 @@ export default function ArsenalPage() {
             variant="outline"
             onClick={seedArsenal}
             disabled={seeding}
-            className="cursor-pointer"
+            className="cursor-pointer shrink-0"
           >
             <Sparkles className="h-4 w-4 mr-2" />
             {seeding ? "Poblando..." : "Poblar stack"}
           </Button>
-          <Button onClick={() => setShowForm(true)} className="cursor-pointer">
+          <Button onClick={() => setShowForm(true)} className="cursor-pointer shrink-0">
             <Plus className="h-4 w-4 mr-2" /> Nuevo item
           </Button>
         </div>
