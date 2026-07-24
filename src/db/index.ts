@@ -33,7 +33,7 @@ const TABLES = [
   "CREATE TABLE IF NOT EXISTS \"pipeline_stages\" (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`name` text NOT NULL,\n\t`order` integer NOT NULL,\n\t`color` text DEFAULT '#64748b' NOT NULL,\n\t`is_won` integer DEFAULT false NOT NULL,\n\t`is_lost` integer DEFAULT false NOT NULL\n);",
   "CREATE TABLE IF NOT EXISTS project_deliverables (\n    id TEXT PRIMARY KEY,\n    milestone_id TEXT NOT NULL REFERENCES project_milestones(id),\n    description TEXT NOT NULL,\n    file_url TEXT,\n    approved_at INTEGER,\n    approved_by_user_id TEXT REFERENCES users(id),\n    created_at INTEGER NOT NULL\n  );",
   "CREATE TABLE IF NOT EXISTS project_milestones (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    title TEXT NOT NULL,\n    \"order\" INTEGER NOT NULL DEFAULT 0,\n    due_date INTEGER,\n    completed_at INTEGER,\n    created_at INTEGER NOT NULL\n  );",
-  "CREATE TABLE IF NOT EXISTS project_tasks (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    type TEXT NOT NULL DEFAULT 'task',\n    description TEXT NOT NULL,\n    assigned_user_id TEXT REFERENCES users(id),\n    status TEXT NOT NULL DEFAULT 'pending',\n    due_date INTEGER,\n    completed_at INTEGER,\n    created_at INTEGER NOT NULL\n  );",
+  "CREATE TABLE IF NOT EXISTS project_tasks (\n    id TEXT PRIMARY KEY,\n    project_id TEXT NOT NULL REFERENCES projects(id),\n    type TEXT NOT NULL DEFAULT 'task',\n    title TEXT,\n    description TEXT NOT NULL,\n    assigned_user_id TEXT REFERENCES users(id),\n    status TEXT NOT NULL DEFAULT 'pending',\n    priority TEXT NOT NULL DEFAULT 'media',\n    due_date INTEGER,\n    reminder_at INTEGER,\n    completed_at INTEGER,\n    activity_log TEXT NOT NULL DEFAULT '[]',\n    created_at INTEGER NOT NULL\n  );",
   "CREATE TABLE IF NOT EXISTS projects (\n    id TEXT PRIMARY KEY,\n    client_id TEXT REFERENCES contacts(id),\n    name TEXT NOT NULL,\n    status TEXT NOT NULL DEFAULT 'discovery',\n    budget_cents INTEGER NOT NULL DEFAULT 0,\n    start_date INTEGER,\n    deadline INTEGER,\n    mockup_url TEXT,\n    notes TEXT,\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL\n  );",
   "CREATE TABLE IF NOT EXISTS \"proposals\" (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`contact_id` text NOT NULL,\n\t`plan_name` text DEFAULT 'Custom' NOT NULL,\n\t`one_time_fee` integer DEFAULT 0 NOT NULL,\n\t`monthly_fee` integer DEFAULT 0 NOT NULL,\n\t`features` text DEFAULT '[]' NOT NULL,\n\t`add_ons` text DEFAULT '[]' NOT NULL,\n\t`automations` text DEFAULT '[]' NOT NULL,\n\t`deliverables` text DEFAULT '[]' NOT NULL,\n\t`notes` text,\n\t`share_token` text,\n\t`viewed_at` integer,\n\t`created_at` integer NOT NULL,\n\t`updated_at` integer NOT NULL, pricing_meta TEXT NOT NULL DEFAULT '{}', valid_until INTEGER,\n\tFOREIGN KEY (`contact_id`) REFERENCES `contacts`(`id`) ON UPDATE no action ON DELETE no action\n);",
   "CREATE TABLE IF NOT EXISTS `sessions` (\n\t`sessionToken` text PRIMARY KEY NOT NULL,\n\t`userId` text NOT NULL,\n\t`expires` integer NOT NULL,\n\tFOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade\n);",
@@ -47,6 +47,17 @@ const TABLES = [
  * every statement here is a no-op (IF NOT EXISTS). It only does real work
  * against a genuinely fresh, empty Turso database.
  */
+// Columns added after project_tasks already shipped — CREATE TABLE IF NOT
+// EXISTS above only helps a genuinely fresh database, so existing ones need
+// these ALTER statements. "duplicate column" failures (already applied) are
+// expected and swallowed the same way as the TABLES loop above.
+const COLUMN_MIGRATIONS = [
+  "ALTER TABLE project_tasks ADD COLUMN title TEXT",
+  "ALTER TABLE project_tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'media'",
+  "ALTER TABLE project_tasks ADD COLUMN reminder_at INTEGER",
+  "ALTER TABLE project_tasks ADD COLUMN activity_log TEXT NOT NULL DEFAULT '[]'",
+];
+
 export async function ensureSchema(): Promise<void> {
   for (const sql of TABLES) {
     try {
@@ -54,6 +65,14 @@ export async function ensureSchema(): Promise<void> {
     } catch {
       // Table already exists with a slightly different history, or a
       // concurrent boot created it first — safe to continue either way.
+    }
+  }
+
+  for (const sql of COLUMN_MIGRATIONS) {
+    try {
+      await client.execute(sql);
+    } catch {
+      // Column already exists — safe to continue.
     }
   }
 

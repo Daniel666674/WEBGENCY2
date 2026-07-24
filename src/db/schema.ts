@@ -295,11 +295,15 @@ export const projectTasks = sqliteTable("project_tasks", {
     .notNull()
     .references(() => projects.id),
   type: text("type").notNull().default("task"), // "task" | "solicitud"
+  title: text("title"),
   description: text("description").notNull(),
   assignedUserId: text("assigned_user_id").references(() => users.id),
-  status: text("status").notNull().default("pending"), // "pending" | "in_progress" | "done"
+  status: text("status").notNull().default("pending"), // "pending" | "in_progress" | "in_review" | "done"
+  priority: text("priority").notNull().default("media"), // "alta" | "media" | "baja"
   dueDate: integer("due_date", { mode: "timestamp" }),
+  reminderAt: integer("reminder_at", { mode: "timestamp" }),
   completedAt: integer("completed_at", { mode: "timestamp" }),
+  activityLog: text("activity_log").notNull().default("[]"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
