@@ -69,7 +69,7 @@ export async function GET(
     days: number;
     summary: {
       gsc: { clicks: number; impressions: number; ctr: number; avgPosition: number } | null;
-      ga4: { sessions: number; users: number; conversions: number; bounceRate: number; avgSessionDuration: number; newUsers: number } | null;
+      ga4: { sessions: number; users: number; conversions: number; bounceRate: number; avgSessionDuration: number; newUsers: number; pageViews: number } | null;
     };
     timeseries: { dates: string[]; gscClicks: number[]; gscImpressions: number[]; gscCtr: number[]; gscPosition: number[] } | null;
     topQueries: GscMetricRow[] | null;
@@ -111,6 +111,7 @@ export async function GET(
               { name: "bounceRate" },
               { name: "averageSessionDuration" },
               { name: "newUsers" },
+              { name: "screenPageViews" },
             ],
           },
         }),
@@ -163,6 +164,7 @@ export async function GET(
         bounceRate: Number(sv?.[3]?.value ?? 0) * 100,
         avgSessionDuration: Number(sv?.[4]?.value ?? 0),
         newUsers: Number(sv?.[5]?.value ?? 0),
+        pageViews: Number(sv?.[6]?.value ?? 0),
       };
 
       result.ga4Channels = (channelsReport.data.rows ?? []).map((r) => ({
