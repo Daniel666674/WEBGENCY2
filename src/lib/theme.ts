@@ -67,6 +67,169 @@ export const HER_PURPLE_PRESETS = [
   { label: "Malva", value: "#9333ea" },
 ];
 
+export interface ThemePreset {
+  id: string;
+  name: string;
+  description: string;
+  swatch: string; // primary color for preview chip
+  config: ThemeConfig;
+}
+
+export const THEME_PRESETS: ThemePreset[] = [
+  {
+    id: "oliwan",
+    name: "OLIWAN Original",
+    description: "Verde teal + sidebar oscuro. El look clásico.",
+    swatch: "#0d9a8a",
+    config: DEFAULT_CONFIG,
+  },
+  {
+    id: "midnight",
+    name: "Medianoche",
+    description: "Todo oscuro — estilo terminal.",
+    swatch: "#0d9a8a",
+    config: {
+      switchHour: 0,
+      day: {
+        background: "#0f0f0f",
+        foreground: "#e8e8e8",
+        primary: "#0d9a8a",
+        sidebar: "#050505",
+        card: "#1a1a1a",
+        muted: "#1f1f1f",
+        border: "#2a2a2a",
+      },
+      night: {
+        background: "#0f0f0f",
+        foreground: "#e8e8e8",
+        primary: "#0d9a8a",
+        sidebar: "#050505",
+        card: "#1a1a1a",
+        muted: "#1f1f1f",
+        border: "#2a2a2a",
+      },
+      herNightPrimary: "#a855f7",
+      danielDark: DEFAULT_DANIEL_DARK,
+    },
+  },
+  {
+    id: "purpura",
+    name: "Purpura",
+    description: "Sidebar violeta, perfecto para Daniela.",
+    swatch: "#7c3aed",
+    config: {
+      switchHour: 18,
+      day: {
+        background: "#faf8ff",
+        foreground: "#1a1a2e",
+        primary: "#7c3aed",
+        sidebar: "#2d1b69",
+        card: "#ffffff",
+        muted: "#ede9fe",
+        border: "#ddd6fe",
+      },
+      night: {
+        background: "#faf8ff",
+        foreground: "#1a1a2e",
+        primary: "#a855f7",
+        sidebar: "#1e0052",
+        card: "#fefcff",
+        muted: "#f0eaff",
+        border: "#e8dcff",
+      },
+      herNightPrimary: "#c026d3",
+      danielDark: DEFAULT_DANIEL_DARK,
+    },
+  },
+  {
+    id: "azul",
+    name: "Azul Corporativo",
+    description: "Azul confiable para reuniones de cliente.",
+    swatch: "#2563eb",
+    config: {
+      switchHour: 18,
+      day: {
+        background: "#f8faff",
+        foreground: "#1e293b",
+        primary: "#2563eb",
+        sidebar: "#1e3a5f",
+        card: "#ffffff",
+        muted: "#e8f0fe",
+        border: "#d1daf7",
+      },
+      night: {
+        background: "#f0f4ff",
+        foreground: "#1e293b",
+        primary: "#4f46e5",
+        sidebar: "#1e1b4b",
+        card: "#f8f9ff",
+        muted: "#e0e7ff",
+        border: "#c7d2fe",
+      },
+      herNightPrimary: "#a855f7",
+      danielDark: DEFAULT_DANIEL_DARK,
+    },
+  },
+  {
+    id: "arena",
+    name: "Arena",
+    description: "Tonos cálidos y naturales. Fácil en los ojos.",
+    swatch: "#b45309",
+    config: {
+      switchHour: 18,
+      day: {
+        background: "#fdf6ed",
+        foreground: "#3b2f1e",
+        primary: "#b45309",
+        sidebar: "#2c1a0e",
+        card: "#fffbf5",
+        muted: "#f5e6d0",
+        border: "#e8d5b5",
+      },
+      night: {
+        background: "#fdf6ed",
+        foreground: "#3b2f1e",
+        primary: "#d97706",
+        sidebar: "#1c0f05",
+        card: "#fffdf8",
+        muted: "#f7edda",
+        border: "#eed8b2",
+      },
+      herNightPrimary: "#a855f7",
+      danielDark: DEFAULT_DANIEL_DARK,
+    },
+  },
+  {
+    id: "slate",
+    name: "Slate Minimal",
+    description: "Gris neutro. Sin distracciones.",
+    swatch: "#475569",
+    config: {
+      switchHour: 18,
+      day: {
+        background: "#f8fafc",
+        foreground: "#0f172a",
+        primary: "#475569",
+        sidebar: "#0f172a",
+        card: "#ffffff",
+        muted: "#f1f5f9",
+        border: "#e2e8f0",
+      },
+      night: {
+        background: "#f8fafc",
+        foreground: "#0f172a",
+        primary: "#64748b",
+        sidebar: "#020617",
+        card: "#ffffff",
+        muted: "#f1f5f9",
+        border: "#e2e8f0",
+      },
+      herNightPrimary: "#a855f7",
+      danielDark: DEFAULT_DANIEL_DARK,
+    },
+  },
+];
+
 export function isNight(hour: number, switchHour: number): boolean {
   return hour >= switchHour || hour < 6;
 }

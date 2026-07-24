@@ -42,10 +42,14 @@ export default function PerfilPage() {
         <CardContent className="pt-6 space-y-6">
           <div className="flex items-center gap-4">
             <div
-              className="w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-bold shrink-0"
+              className="w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-bold shrink-0 overflow-hidden"
               style={{ backgroundColor: activeUser.color }}
             >
-              {activeUser.avatar ?? activeUser.name[0]}
+              {activeUser.image ? (
+                <img src={activeUser.image} alt={activeUser.name} className="w-full h-full object-cover" />
+              ) : (
+                activeUser.avatar ?? activeUser.name[0]
+              )}
             </div>
             <div className="min-w-0">
               <p className="text-lg font-bold">{activeUser.name}</p>

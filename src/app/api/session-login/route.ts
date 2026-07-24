@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { signSession, timingSafeEqual } from "@/lib/sessionToken";
 import { getAccounts, LOGIN_AS_COOKIE, type Account } from "@/lib/accounts";
+import { verifyPassword } from "@/lib/password";
+import { db } from "@/db";
+import { crmSettings } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 const DEMO_COOKIE = "oliwan-demo-session";
 const SESSION_MAX_AGE = 60 * 60 * 8; // 8h
@@ -24,13 +28,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(loginUrl, 303);
   }
 
-  // Check every account (no early return) so the response time doesn't reveal
-  // which usernames exist.
+  // Check env-var accounts first (no early return — constant time).
   let matched: Account | null = null;
   for (const acct of accounts) {
     const ok = timingSafeEqual(username, acct.username) && timingSafeEqual(password, acct.password);
     if (ok) matched = acct;
   }
+
+  // Fallback: check DB-stored credentials for Daniela (set via /join registration).
+  if (!matched) {
+    const [dbUser, dbHash] = await Promise.all([
+      db.select().from(crmSettings).where(eq(crmSettings.key, "daniela_db_username")).get(),
+      db.select().from(crmSettings).where(eq(crmSettings.key, "daniela_db_password_hash")).get(),
+    ]);
+    if (dbUser?.value && dbHash?.value) {
+      const usernameMatch = timingSafeEqual(username, dbUser.value);
+      const passwordMatch = await verifyPassword(password, dbHash.value);
+      if (usernameMatch && passwordMatch) {
+        matched = { key: "daniela", username: dbUser.value, password: "", isHers: true };
+      }
+    }
+  }
+
   if (!matched) {
     loginUrl.searchParams.set("error", "1");
     return NextResponse.redirect(loginUrl, 303);

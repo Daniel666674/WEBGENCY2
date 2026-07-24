@@ -15,15 +15,16 @@ export async function PUT(
     return NextResponse.json({ error: "JSON invalido" }, { status: 400 });
   }
 
-  const { name, color, avatar } = body;
+  const { name, color, avatar, image } = body;
 
   try {
-    const result = db
+    const result = await db
       .update(users)
       .set({
         ...(name !== undefined ? { name } : {}),
         ...(color !== undefined ? { color } : {}),
         ...(avatar !== undefined ? { avatar } : {}),
+        ...(image !== undefined ? { image } : {}),
       })
       .where(eq(users.id, id))
       .returning()

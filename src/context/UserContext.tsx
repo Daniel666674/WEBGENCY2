@@ -8,6 +8,7 @@ export interface AppUser {
   color: string;
   isHers: boolean;
   avatar: string | null;
+  image: string | null;
 }
 
 interface UserContextValue {
