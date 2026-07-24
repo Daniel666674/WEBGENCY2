@@ -24,7 +24,7 @@ export default function OnboardingPage() {
       </div>
 
       <Tabs defaultValue="que-es" className="space-y-6">
-        <TabsList variant="line" className="flex-wrap">
+        <TabsList variant="line">
           <TabsTrigger value="que-es" className="cursor-pointer">Qué es OLIWAN</TabsTrigger>
           <TabsTrigger value="vendemos" className="cursor-pointer">Qué vendemos</TabsTrigger>
           <TabsTrigger value="negocios" className="cursor-pointer">Encontrar negocios</TabsTrigger>
