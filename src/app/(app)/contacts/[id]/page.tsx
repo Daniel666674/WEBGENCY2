@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { contacts, deals, activities, pipelineStages } from "@/db/schema";
+import { contacts, deals, activities, pipelineStages, users } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { ContactDetailClient } from "@/components/contacts/ContactDetail";
@@ -35,8 +35,18 @@ export default async function ContactDetailPage({
     .all();
 
   const contactActivities = await db
-    .select()
+    .select({
+      id: activities.id,
+      type: activities.type,
+      description: activities.description,
+      scheduledAt: activities.scheduledAt,
+      completedAt: activities.completedAt,
+      createdAt: activities.createdAt,
+      assignedUserName: users.name,
+      assignedUserColor: users.color,
+    })
     .from(activities)
+    .leftJoin(users, eq(activities.assignedUserId, users.id))
     .where(eq(activities.contactId, id))
     .orderBy(desc(activities.createdAt))
     .all();
