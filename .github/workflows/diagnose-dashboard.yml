@@ -1,8 +1,9 @@
 name: Diagnose Dashboard
 
-# Temporary diagnostic. Auto-runs on push of the diagnostic script so the
-# maintainer's agent can read the real Turso data shape via the API without
-# manual triggering. Delete once the dashboard crash is diagnosed.
+# Temporary diagnostic. Builds and runs the ACTUAL app against the real Turso
+# data on GitHub's runners, logs in, and requests the dashboard — capturing the
+# full unminified server stack trace behind the production 500. Delete once
+# diagnosed.
 on:
   push:
     paths:
@@ -13,13 +14,39 @@ on:
 jobs:
   diagnose:
     runs-on: ubuntu-latest
+    env:
+      TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+      TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+      CRM_USERNAME: diag
+      CRM_PASSWORD: diag
+      SESSION_SECRET: diagnostic-secret-1234567890-abcdefghijklmnop
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
       - run: npm ci
-      - run: npx tsx scripts/diagnose-dashboard.ts
-        env:
-          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
-          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+      - run: npm run build
+
+      - name: Start app and request dashboard
+        run: |
+          npm start > /tmp/server.log 2>&1 &
+          SERVER_PID=$!
+          # wait for readiness
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null http://localhost:3000/login; then echo "up after ${i}s"; break; fi
+            sleep 1
+          done
+          echo "=== LOGIN ==="
+          curl -s -c /tmp/cookies.txt -o /dev/null -w "login status: %{http_code}\n" \
+            -X POST http://localhost:3000/api/session-login \
+            --data "username=diag&password=diag&callbackUrl=/"
+          echo "=== GET / (dashboard) ==="
+          curl -s -b /tmp/cookies.txt -o /tmp/dashboard.html -w "dashboard status: %{http_code}\n" http://localhost:3000/
+          echo "=== error digest in returned HTML (if any) ==="
+          grep -o "ERROR [0-9]*" /tmp/dashboard.html | head -1 || echo "(no digest marker in html)"
+          sleep 2
+          kill $SERVER_PID 2>/dev/null || true
+          echo ""
+          echo "=================== SERVER LOG ==================="
+          cat /tmp/server.log
