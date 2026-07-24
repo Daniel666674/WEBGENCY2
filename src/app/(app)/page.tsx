@@ -92,7 +92,7 @@ export default async function DashboardPage() {
       value: allDeals
         .filter((d) => d.stageId === stage.id)
         .reduce((sum, d) => sum + d.value, 0),
-      color: stage.color,
+      color: stage.color ?? "#64748b",
     }));
 
   // Active projects (not launched, not paused)

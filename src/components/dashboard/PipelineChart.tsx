@@ -16,7 +16,7 @@ interface StageData {
   name: string;
   count: number;
   value: number;
-  color: string;
+  color?: string | null;
 }
 
 interface PipelineChartProps {
@@ -60,7 +60,7 @@ export function PipelineChart({ data }: PipelineChartProps) {
               />
               <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                 {data.map((entry, index) => (
-                  <Cell key={index} fill={entry.color} />
+                  <Cell key={index} fill={entry.color ?? "#64748b"} />
                 ))}
               </Bar>
             </BarChart>
