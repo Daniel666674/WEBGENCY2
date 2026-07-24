@@ -29,11 +29,15 @@ export async function GET(request: NextRequest) {
         projectId: projectTasks.projectId,
         projectName: projects.name,
         type: projectTasks.type,
+        title: projectTasks.title,
         description: projectTasks.description,
         assignedUserId: projectTasks.assignedUserId,
         status: projectTasks.status,
+        priority: projectTasks.priority,
         dueDate: projectTasks.dueDate,
+        reminderAt: projectTasks.reminderAt,
         completedAt: projectTasks.completedAt,
+        activityLog: projectTasks.activityLog,
         createdAt: projectTasks.createdAt,
         assignedUserName: users.name,
         assignedUserColor: users.color,
@@ -51,7 +55,11 @@ export async function GET(request: NextRequest) {
     }
 
     const rows = await query.orderBy(desc(projectTasks.createdAt)).all();
-    return NextResponse.json(rows);
+    const parsed = rows.map((r) => ({
+      ...r,
+      activityLog: JSON.parse(r.activityLog || "[]"),
+    }));
+    return NextResponse.json(parsed);
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
@@ -59,7 +67,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { projectId, type, description, assignedUserId, dueDate, status } =
+    const { projectId, type, title, description, assignedUserId, dueDate, reminderAt, status, priority, actorName } =
       await request.json();
 
     if (!description) {
@@ -67,23 +75,30 @@ export async function POST(request: NextRequest) {
     }
 
     const resolvedProjectId = projectId || (await getOrCreateGeneralProject());
+    const activityLog = [
+      { action: "created", actorName: actorName ?? null, at: new Date().toISOString() },
+    ];
 
     const result = await db
       .insert(projectTasks)
       .values({
         projectId: resolvedProjectId,
         type: type ?? "task",
+        title: title || null,
         description,
         assignedUserId: assignedUserId || null,
         status: status ?? "pending",
+        priority: priority ?? "media",
         dueDate: dueDate ? new Date(dueDate) : null,
+        reminderAt: reminderAt ? new Date(reminderAt) : null,
+        activityLog: JSON.stringify(activityLog),
         createdAt: new Date(),
       })
       .returning()
       .get();
 
     await persistNow();
-    return NextResponse.json(result, { status: 201 });
+    return NextResponse.json({ ...result, activityLog }, { status: 201 });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }

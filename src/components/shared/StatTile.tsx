@@ -6,7 +6,7 @@ interface StatTileProps {
   icon: LucideIcon;
   label: string;
   value: string | number;
-  color?: "primary" | "purple" | "amber" | "green" | "red" | "muted";
+  color?: "primary" | "purple" | "amber" | "green" | "red" | "blue" | "muted";
   subtext?: string;
   progress?: number;
   highlight?: boolean;
@@ -22,6 +22,7 @@ const COLOR_MAP: Record<
   amber: { chip: "bg-amber-500/10", icon: "text-amber-600", value: "text-amber-600", bar: "bg-amber-500" },
   green: { chip: "bg-green-500/10", icon: "text-green-600", value: "text-green-600", bar: "bg-green-500" },
   red: { chip: "bg-red-500/10", icon: "text-red-600", value: "text-red-600", bar: "bg-red-500" },
+  blue: { chip: "bg-blue-500/10", icon: "text-blue-600", value: "text-blue-600", bar: "bg-blue-500" },
   muted: { chip: "bg-muted", icon: "text-muted-foreground", value: "text-foreground", bar: "bg-muted-foreground" },
 };
 
