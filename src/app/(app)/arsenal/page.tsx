@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Search, Layers } from "lucide-react";
+import { Plus, Search, Layers, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatTile } from "@/components/shared/StatTile";
@@ -19,6 +19,7 @@ export default function ArsenalPage() {
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<string>("Todo");
   const [showForm, setShowForm] = useState(false);
+  const [seeding, setSeeding] = useState(false);
 
   function load() {
     setLoading(true);
@@ -28,6 +29,14 @@ export default function ArsenalPage() {
   }
 
   useEffect(() => { load(); }, []);
+
+  function seedArsenal() {
+    setSeeding(true);
+    fetch("/api/arsenal/seed", { method: "POST" })
+      .then((r) => r.json())
+      .then(() => { setSeeding(false); load(); })
+      .catch(() => setSeeding(false));
+  }
 
   const filtered = items.filter((item) => {
     const matchesTab = tab === "Todo" || item.category === tab;
@@ -111,10 +120,23 @@ export default function ArsenalPage() {
 
           {/* Grid */}
           {filtered.length === 0 ? (
-            <div className="py-16 text-center text-muted-foreground text-sm">
-              {items.length === 0
-                ? "Agrega tu primer item al Arsenal"
-                : "Sin resultados para ese filtro"}
+            <div className="py-16 text-center text-muted-foreground text-sm space-y-4">
+              {items.length === 0 ? (
+                <>
+                  <p>El Arsenal está vacío.</p>
+                  <Button
+                    variant="outline"
+                    onClick={seedArsenal}
+                    disabled={seeding}
+                    className="cursor-pointer"
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    {seeding ? "Poblando arsenal..." : "Poblar con stack de la agencia (22 items)"}
+                  </Button>
+                </>
+              ) : (
+                "Sin resultados para ese filtro"
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
