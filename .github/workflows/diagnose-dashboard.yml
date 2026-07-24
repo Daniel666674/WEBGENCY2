@@ -1,0 +1,25 @@
+name: Diagnose Dashboard
+
+# Temporary diagnostic. Auto-runs on push of the diagnostic script so the
+# maintainer's agent can read the real Turso data shape via the API without
+# manual triggering. Delete once the dashboard crash is diagnosed.
+on:
+  push:
+    paths:
+      - "scripts/diagnose-dashboard.ts"
+      - ".github/workflows/diagnose-dashboard.yml"
+  workflow_dispatch: {}
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+      - run: npx tsx scripts/diagnose-dashboard.ts
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
