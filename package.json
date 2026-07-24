@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "npx tsx src/db/seed.ts",
+    "seed-arsenal": "npx tsx src/db/seed-arsenal.ts",
     "db:push": "npx drizzle-kit push",
     "migrate:turso": "npx tsx scripts/migrate-to-turso.ts",
     "local": "npm run build && npm start",
