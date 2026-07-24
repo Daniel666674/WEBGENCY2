@@ -74,6 +74,14 @@ export function formatDate(date: Date | number | null): string {
   }).format(d);
 }
 
+export function formatDateTime(date: Date | number | null): string {
+  if (!date) return "-";
+  const d = toDate(date);
+  const datePart = new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "short", year: "numeric" }).format(d);
+  const timePart = new Intl.DateTimeFormat("es-MX", { hour: "numeric", minute: "2-digit", hour12: true }).format(d);
+  return `${datePart}, ${timePart}`;
+}
+
 export function formatRelativeDate(date: Date | number): string {
   const d = toDate(date);
   const now = new Date();

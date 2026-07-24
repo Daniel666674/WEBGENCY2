@@ -82,6 +82,8 @@ interface ContactDetailClientProps {
     scheduledAt: number | Date | null;
     completedAt: number | Date | null;
     createdAt: number | Date;
+    assignedUserName: string | null;
+    assignedUserColor: string | null;
   }>;
 }
 
@@ -89,18 +91,7 @@ export function ContactDetailClient({ contact, deals, activities }: ContactDetai
   const router = useRouter();
   const [showEditForm, setShowEditForm] = useState(false);
   const [showActivityForm, setShowActivityForm] = useState(false);
-  const [copiedField, setCopiedField] = useState<string | null>(null);
-
-  const handleCopy = async (value: string, field: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopiedField(field);
-      toast.success("Copiado");
-      setTimeout(() => setCopiedField(null), 2000);
-    } catch {
-      toast.error("Error al copiar");
-    }
-  };
+  const [activeTab, setActiveTab] = useState("info");
 
   const handleDelete = async () => {
     if (!confirm("Estas seguro de eliminar este contacto? Esta accion no se puede deshacer.")) return;
@@ -133,14 +124,19 @@ export function ContactDetailClient({ contact, deals, activities }: ContactDetai
     <div className="space-y-6">
       <ContactDetailHeader
         contact={contact}
+        deals={deals}
+        activities={activities}
         onEdit={() => setShowEditForm(true)}
         onDelete={handleDelete}
         onRegister={() => setShowActivityForm(true)}
       />
 
-      <Tabs defaultValue="info" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="info" className="cursor-pointer">Info</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={(v) => typeof v === "string" && setActiveTab(v)} className="space-y-4">
+        <TabsList variant="line">
+          <TabsTrigger value="info" className="cursor-pointer">
+            <span className="sm:hidden">Resumen</span>
+            <span className="hidden sm:inline">Info</span>
+          </TabsTrigger>
           <TabsTrigger value="deals" className="cursor-pointer">Deals ({deals.length})</TabsTrigger>
           <TabsTrigger value="activities" className="cursor-pointer">Actividades ({activities.length})</TabsTrigger>
           <TabsTrigger value="payments" className="cursor-pointer">Pagos</TabsTrigger>
@@ -153,7 +149,13 @@ export function ContactDetailClient({ contact, deals, activities }: ContactDetai
         </TabsList>
 
         <TabsContent value="info">
-          <ContactInfoTab contact={contact} copiedField={copiedField} onCopy={handleCopy} />
+          <ContactInfoTab
+            contact={contact}
+            deals={deals}
+            activities={activities}
+            onViewDeals={() => setActiveTab("deals")}
+            onViewActivity={() => setActiveTab("activities")}
+          />
         </TabsContent>
 
         <TabsContent value="deals">
