@@ -1,7 +1,7 @@
 "use client";
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, Info } from "lucide-react";
 import { WhatIsOliwan } from "@/components/onboarding/WhatIsOliwan";
 import { Training } from "@/components/onboarding/Training";
 import { FindingBusinesses } from "@/components/onboarding/FindingBusinesses";
@@ -38,6 +38,14 @@ export default function OnboardingPage() {
         <TabsContent value="mockup"><MockupProcess /></TabsContent>
         <TabsContent value="crm"><UsingTheCRM /></TabsContent>
       </Tabs>
+
+      <div className="flex items-start gap-2 text-xs text-muted-foreground max-w-5xl">
+        <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+        <p>
+          Si algo no está en el CRM, no existe. Mantén todo actualizado y visibilizado para que el
+          equipo y la sociedad tomen mejores decisiones.
+        </p>
+      </div>
     </div>
   );
 }
