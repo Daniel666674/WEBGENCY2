@@ -21,6 +21,7 @@ import {
   ClipboardList,
   MessageSquare,
   CalendarDays,
+  GraduationCap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +39,7 @@ interface NavSection {
 const navSections: NavSection[] = [
   {
     items: [
+      { href: "/onboarding", label: "Onboarding", icon: GraduationCap },
       { href: "/", label: "Dashboard", icon: LayoutDashboard },
       { href: "/planner", label: "Planner", icon: CalendarDays },
       { href: "/pipeline", label: "Pipeline", icon: Kanban },
