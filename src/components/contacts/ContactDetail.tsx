@@ -92,6 +92,18 @@ export function ContactDetailClient({ contact, deals, activities }: ContactDetai
   const [showEditForm, setShowEditForm] = useState(false);
   const [showActivityForm, setShowActivityForm] = useState(false);
   const [activeTab, setActiveTab] = useState("info");
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const handleCopy = async (value: string, field: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedField(field);
+      toast.success("Copiado");
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch {
+      toast.error("Error al copiar");
+    }
+  };
 
   const handleDelete = async () => {
     if (!confirm("Estas seguro de eliminar este contacto? Esta accion no se puede deshacer.")) return;
@@ -124,35 +136,51 @@ export function ContactDetailClient({ contact, deals, activities }: ContactDetai
     <div className="space-y-6">
       <ContactDetailHeader
         contact={contact}
-        deals={deals}
-        activities={activities}
         onEdit={() => setShowEditForm(true)}
         onDelete={handleDelete}
         onRegister={() => setShowActivityForm(true)}
       />
 
       <Tabs value={activeTab} onValueChange={(v) => typeof v === "string" && setActiveTab(v)} className="space-y-4">
-        <TabsList variant="line">
-          <TabsTrigger value="info" className="cursor-pointer">
-            <span className="sm:hidden">Resumen</span>
-            <span className="hidden sm:inline">Info</span>
-          </TabsTrigger>
-          <TabsTrigger value="deals" className="cursor-pointer">Deals ({deals.length})</TabsTrigger>
-          <TabsTrigger value="activities" className="cursor-pointer">Actividades ({activities.length})</TabsTrigger>
-          <TabsTrigger value="payments" className="cursor-pointer">Pagos</TabsTrigger>
-          <TabsTrigger value="analytics" className="cursor-pointer">Analiticas</TabsTrigger>
-          <TabsTrigger value="attachments" className="cursor-pointer">Archivos</TabsTrigger>
-          <TabsTrigger value="infra" className="cursor-pointer">Infraestructura</TabsTrigger>
-          <TabsTrigger value="seo" className="cursor-pointer">SEO</TabsTrigger>
-          <TabsTrigger value="security" className="cursor-pointer">Seguridad</TabsTrigger>
-          <TabsTrigger value="bitacora" className="cursor-pointer">Bitacora</TabsTrigger>
-        </TabsList>
+        {/* Desktop: underline tab bar */}
+        <div className="hidden sm:block">
+          <TabsList variant="line">
+            <TabsTrigger value="info" className="cursor-pointer">Info</TabsTrigger>
+            <TabsTrigger value="deals" className="cursor-pointer">Deals ({deals.length})</TabsTrigger>
+            <TabsTrigger value="activities" className="cursor-pointer">Actividades ({activities.length})</TabsTrigger>
+            <TabsTrigger value="payments" className="cursor-pointer">Pagos</TabsTrigger>
+            <TabsTrigger value="analytics" className="cursor-pointer">Analiticas</TabsTrigger>
+            <TabsTrigger value="attachments" className="cursor-pointer">Archivos</TabsTrigger>
+            <TabsTrigger value="infra" className="cursor-pointer">Infraestructura</TabsTrigger>
+            <TabsTrigger value="seo" className="cursor-pointer">SEO</TabsTrigger>
+            <TabsTrigger value="security" className="cursor-pointer">Seguridad</TabsTrigger>
+            <TabsTrigger value="bitacora" className="cursor-pointer">Bitacora</TabsTrigger>
+          </TabsList>
+        </div>
+
+        {/* Mobile: boxed tab bar */}
+        <div className="sm:hidden">
+          <TabsList>
+            <TabsTrigger value="info" className="cursor-pointer">Info</TabsTrigger>
+            <TabsTrigger value="deals" className="cursor-pointer">Deals ({deals.length})</TabsTrigger>
+            <TabsTrigger value="activities" className="cursor-pointer">Actividades ({activities.length})</TabsTrigger>
+            <TabsTrigger value="payments" className="cursor-pointer">Pagos</TabsTrigger>
+            <TabsTrigger value="analytics" className="cursor-pointer">Analiticas</TabsTrigger>
+            <TabsTrigger value="attachments" className="cursor-pointer">Archivos</TabsTrigger>
+            <TabsTrigger value="infra" className="cursor-pointer">Infraestructura</TabsTrigger>
+            <TabsTrigger value="seo" className="cursor-pointer">SEO</TabsTrigger>
+            <TabsTrigger value="security" className="cursor-pointer">Seguridad</TabsTrigger>
+            <TabsTrigger value="bitacora" className="cursor-pointer">Bitacora</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="info">
           <ContactInfoTab
             contact={contact}
             deals={deals}
             activities={activities}
+            copiedField={copiedField}
+            onCopy={handleCopy}
             onViewDeals={() => setActiveTab("deals")}
             onViewActivity={() => setActiveTab("activities")}
           />
