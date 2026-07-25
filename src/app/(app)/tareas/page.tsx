@@ -27,6 +27,7 @@ export default function TareasPage() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [formDefaultStatus, setFormDefaultStatus] = useState<Exclude<BoardColumn, "overdue">>("pending");
+  const [formDefaultDueDate, setFormDefaultDueDate] = useState<string | undefined>(undefined);
 
   const [search, setSearch] = useState("");
   const [assigneeFilter, setAssigneeFilter] = useState("all");
@@ -144,7 +145,17 @@ export default function TareasPage() {
 
   const openForm = (status: Exclude<BoardColumn, "overdue">) => {
     setFormDefaultStatus(status);
+    setFormDefaultDueDate(undefined);
     setFormOpen(true);
+  };
+
+  const handleMobileDaySelect = (day: number | null) => {
+    setDayFilter(day);
+    if (day !== null) {
+      setFormDefaultStatus("pending");
+      setFormDefaultDueDate(new Date(day).toISOString().slice(0, 10));
+      setFormOpen(true);
+    }
   };
 
   const total = tasks.length;
@@ -234,6 +245,11 @@ export default function TareasPage() {
         )}
       </div>
 
+      {/* Mobile calendar — always visible, wired to task creation */}
+      <div className="xl:hidden">
+        <MiniCalendar markedDays={markedDays} selectedDay={dayFilter} onSelectDay={handleMobileDaySelect} />
+      </div>
+
       {/* Board + sidebar */}
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4 items-start">
         <div className="min-w-0">
@@ -252,7 +268,9 @@ export default function TareasPage() {
         </div>
 
         <div className="space-y-4">
-          <MiniCalendar markedDays={markedDays} selectedDay={dayFilter} onSelectDay={setDayFilter} />
+          <div className="hidden xl:block">
+            <MiniCalendar markedDays={markedDays} selectedDay={dayFilter} onSelectDay={setDayFilter} />
+          </div>
           {selectedTask && (
             <TaskDetailPanel
               task={selectedTask}
@@ -275,6 +293,7 @@ export default function TareasPage() {
         users={users}
         defaultStatus={formDefaultStatus}
         defaultAssigneeId={activeUser?.id}
+        defaultDueDate={formDefaultDueDate}
       />
     </div>
   );

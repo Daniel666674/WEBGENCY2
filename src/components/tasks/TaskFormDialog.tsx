@@ -24,9 +24,10 @@ interface TaskFormDialogProps {
   users: AppUser[];
   defaultStatus: Exclude<BoardColumn, "overdue">;
   defaultAssigneeId?: string;
+  defaultDueDate?: string;
 }
 
-export function TaskFormDialog({ open, onClose, onCreate, projects, users, defaultStatus, defaultAssigneeId }: TaskFormDialogProps) {
+export function TaskFormDialog({ open, onClose, onCreate, projects, users, defaultStatus, defaultAssigneeId, defaultDueDate }: TaskFormDialogProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [projectId, setProjectId] = useState("");
@@ -40,8 +41,9 @@ export function TaskFormDialog({ open, onClose, onCreate, projects, users, defau
     if (open) {
       setStatus(defaultStatus);
       setAssignedUserId(defaultAssigneeId ?? "");
+      setDueDate(defaultDueDate ?? "");
     }
-  }, [open, defaultStatus, defaultAssigneeId]);
+  }, [open, defaultStatus, defaultAssigneeId, defaultDueDate]);
 
   const reset = () => {
     setTitle(""); setDescription(""); setProjectId(""); setDueDate(""); setPriority("media");
