@@ -1,4 +1,4 @@
-const CACHE_NAME = "oliwan-shell-v2";
+const CACHE_NAME = "oliwan-shell-v3";
 const SHELL_ASSETS = [
   "/manifest.json",
   "/logo.png",
@@ -9,7 +9,14 @@ const SHELL_ASSETS = [
   "/spinner-2.png",
 ];
 
+// True when this worker is replacing an already-active worker (i.e. a new
+// deploy), as opposed to the very first install on a fresh visit. Used to
+// force-reload open tabs only when there was actually an old version to
+// replace — never on first install, so there's no reload loop.
+let isUpdate = false;
+
 self.addEventListener("install", (event) => {
+  isUpdate = Boolean(self.registration.active);
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_ASSETS))
   );
@@ -18,11 +25,25 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)));
+      await self.clients.claim();
+
+      // A new worker just took over from an older one. Any open tab is still
+      // running the previous deploy's HTML/JS in memory, so navigate each one
+      // to reload it onto fresh assets. This runs inside the NEW worker — which
+      // the browser fetches automatically on the next visit — so it works even
+      // if every cached page from the old deploy has no update logic of its own.
+      // Guarded by isUpdate so a first-ever install never triggers a reload.
+      if (isUpdate) {
+        const clients = await self.clients.matchAll({ type: "window" });
+        for (const client of clients) {
+          client.navigate(client.url);
+        }
+      }
+    })()
   );
-  self.clients.claim();
 });
 
 // Only ever serve the small precached static shell (icons/manifest) from cache.
