@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { contacts, deals, pipelineStages } from "@/db/schema";
-import { eq, and, not } from "drizzle-orm";
+import { contacts, deals, pipelineStages, proposals } from "@/db/schema";
+import { eq } from "drizzle-orm";
+
+const MONTH_LABELS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
 export async function GET() {
   // Active clients — contacts with client_status = 'active_client'
@@ -62,12 +64,48 @@ export async function GET() {
     if (s in statusCounts) statusCounts[s]++;
   }
 
+  // MRR history: reconstructed from real signedDate + monthlyPayment of each
+  // active client (no invented figures — a client counts toward a month's MRR
+  // once they've signed, same as real accrual accounting)
+  const mrrHistory: Array<{ month: string; mrr: number; arr: number }> = [];
+  for (let i = 6; i >= 0; i--) {
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
+    const monthMrr = activeClients.reduce((sum, c) => {
+      if (!c.signedDate) return sum;
+      const signed = c.signedDate instanceof Date ? c.signedDate : new Date((c.signedDate as unknown as number) * 1000);
+      return signed <= monthEnd ? sum + (c.monthlyPayment || 0) : sum;
+    }, 0);
+    mrrHistory.push({
+      month: MONTH_LABELS[monthEnd.getMonth()],
+      mrr: monthMrr,
+      arr: monthMrr * 12,
+    });
+  }
+
+  // Plan distribution — real plan names from each active client's latest proposal
+  const allProposals = await db.select().from(proposals).all();
+  const planCounts: Record<string, number> = {};
+  for (const client of activeClients) {
+    const clientProposals = allProposals
+      .filter((p) => p.contactId === client.id)
+      .sort((a, b) => {
+        const at = a.createdAt instanceof Date ? a.createdAt.getTime() : Number(a.createdAt);
+        const bt = b.createdAt instanceof Date ? b.createdAt.getTime() : Number(b.createdAt);
+        return bt - at;
+      });
+    const plan = clientProposals[0]?.planName || "Sin plan";
+    planCounts[plan] = (planCounts[plan] || 0) + 1;
+  }
+  const planDistribution = Object.entries(planCounts).map(([plan, count]) => ({ plan, count }));
+
   return NextResponse.json({
     mrr,
     arr,
     pipelineValue,
     weightedPipeline,
     activeClientsCount: activeClients.length,
+    mrrHistory,
+    planDistribution,
     activeClients: activeClients.map((c) => ({
       id: c.id,
       name: c.name,

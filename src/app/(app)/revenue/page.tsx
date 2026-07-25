@@ -3,6 +3,18 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
+import {
   Card,
   CardContent,
   CardHeader,
@@ -17,16 +29,20 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   DollarSign,
   TrendingUp,
   Users,
   Calendar,
   ArrowUpRight,
+  BarChart3,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/constants";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { StatTile } from "@/components/shared/StatTile";
+
+const STATUS_DOT_COLORS = ["var(--primary)", "#f59e0b", "#22c55e", "#ef4444"];
 
 interface ActiveClient {
   id: string;
@@ -62,6 +78,8 @@ interface RevenueData {
   activeClients: ActiveClient[];
   upcomingPayments: UpcomingPayment[];
   statusCounts: StatusCounts;
+  mrrHistory: Array<{ month: string; mrr: number; arr: number }>;
+  planDistribution: Array<{ plan: string; count: number }>;
 }
 
 const STATUS_CONFIG: Record<
@@ -180,6 +198,75 @@ export default function RevenuePage() {
         ))}
       </div>
 
+      {/* Recurring revenue + status distribution */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base">Ingresos recurrentes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {data.mrrHistory.every((m) => m.mrr === 0) ? (
+              <p className="text-sm text-muted-foreground text-center py-10">Sin historial de ingresos aún.</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart data={data.mrrHistory} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                  <defs>
+                    <linearGradient id="mrrFillRev" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="var(--primary)" stopOpacity={0.02} />
+                    </linearGradient>
+                    <linearGradient id="arrFillRev" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#22c55e" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#22c55e" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
+                  <YAxis tick={{ fontSize: 12 }} className="fill-muted-foreground" tickFormatter={(v) => formatCurrency(v)} />
+                  <Tooltip
+                    formatter={(v) => formatCurrency(Number(v))}
+                    contentStyle={{ borderRadius: "8px", border: "1px solid var(--border)", backgroundColor: "var(--card)" }}
+                  />
+                  <Area type="monotone" dataKey="arr" name="ARR" stroke="#22c55e" fill="url(#arrFillRev)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="mrr" name="MRR" stroke="var(--primary)" fill="url(#mrrFillRev)" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Distribución de estado de leads</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={160}>
+              <PieChart>
+                <Pie
+                  data={(Object.keys(STATUS_CONFIG) as Array<keyof StatusCounts>).map((s) => ({
+                    name: STATUS_CONFIG[s].label,
+                    value: data.statusCounts[s],
+                  }))}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={50}
+                  outerRadius={72}
+                  paddingAngle={2}
+                >
+                  {(Object.keys(STATUS_CONFIG) as Array<keyof StatusCounts>).map((s, i) => (
+                    <Cell key={s} fill={STATUS_DOT_COLORS[i % STATUS_DOT_COLORS.length]} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="space-y-2 mt-2 text-center">
+              <p className="text-2xl font-bold">{totalContacts}</p>
+              <p className="text-xs text-muted-foreground">Total contactos</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Active Clients Table + Status Breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Active Clients — 2/3 */}
@@ -240,53 +327,70 @@ export default function RevenuePage() {
           </CardContent>
         </Card>
 
-        {/* Status Breakdown — 1/3 */}
+        {/* Resumen financiero — 1/3 */}
         <Card>
           <CardHeader>
-            <CardTitle>Status de Leads</CardTitle>
+            <CardTitle className="text-base">Resumen financiero</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {(
-                Object.keys(STATUS_CONFIG) as Array<keyof StatusCounts>
-              ).map((status) => {
-                const config = STATUS_CONFIG[status];
-                const count = data.statusCounts[status];
-                const pct =
-                  totalContacts > 0
-                    ? Math.round((count / totalContacts) * 100)
-                    : 0;
-
-                return (
-                  <div key={status} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`h-2.5 w-2.5 rounded-full ${config.dotColor}`}
-                      />
-                      <span className="text-sm">{config.label}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-xs">
-                        {count}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground w-8 text-right">
-                        {pct}%
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-
-              <div className="pt-3 border-t">
-                <div className="flex items-center justify-between text-sm font-medium">
-                  <span>Total contactos</span>
-                  <span>{totalContacts}</span>
+            <div className="space-y-3">
+              {[
+                { label: "MRR actual", value: formatCurrency(data.mrr), color: "text-primary" },
+                { label: "ARR actual", value: formatCurrency(data.arr), color: "text-green-600" },
+                { label: "Pipeline total", value: formatCurrency(data.pipelineValue), color: "" },
+                { label: "Pipeline ponderado", value: formatCurrency(data.weightedPipeline), color: "" },
+                {
+                  label: "Conversión pipeline",
+                  value: `${data.pipelineValue > 0 ? Math.round((data.weightedPipeline / data.pipelineValue) * 100) : 0}%`,
+                  color: "text-amber-600",
+                },
+              ].map((row) => (
+                <div key={row.label} className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">{row.label}</span>
+                  <span className={`font-semibold ${row.color}`}>{row.value}</span>
                 </div>
-              </div>
+              ))}
             </div>
+            <Button variant="outline" className="w-full mt-4" disabled>
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Ver reporte financiero
+            </Button>
           </CardContent>
         </Card>
       </div>
+
+      {/* Status Breakdown */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Status de Leads</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {(
+              Object.keys(STATUS_CONFIG) as Array<keyof StatusCounts>
+            ).map((status) => {
+              const config = STATUS_CONFIG[status];
+              const count = data.statusCounts[status];
+              const pct = totalContacts > 0 ? Math.round((count / totalContacts) * 100) : 0;
+
+              return (
+                <div key={status} className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="flex items-center gap-2">
+                    <span className={`h-2.5 w-2.5 rounded-full ${config.dotColor}`} />
+                    <span className="text-sm">{config.label}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-xs">
+                      {count}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground w-8 text-right">{pct}%</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Upcoming Payments */}
       <Card>
