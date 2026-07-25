@@ -33,7 +33,16 @@ export default function TareasPage() {
   const [assigneeFilter, setAssigneeFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
+  const [dueFilter, setDueFilter] = useState("all");
   const [dayFilter, setDayFilter] = useState<number | null>(null);
+
+  const DUE_LABELS: Record<string, string> = {
+    all: "Vence: Cualquier fecha",
+    overdue: "Vence: Vencidas",
+    today: "Vence: Hoy",
+    week: "Vence: Esta semana",
+    month: "Vence: Este mes",
+  };
 
   // Background refetch — no loading gate, so it never unmounts the board or
   // resets scroll/selection. Used after every mutation (create/patch/delete).
@@ -55,19 +64,34 @@ export default function TareasPage() {
     refresh().finally(() => setLoading(false));
   }, []);
 
-  const filtered = useMemo(() => tasks.filter((t) => {
-    if (search && !((t.title || t.description).toLowerCase().includes(search.toLowerCase()))) return false;
-    if (assigneeFilter !== "all" && t.assignedUserId !== assigneeFilter) return false;
-    if (projectFilter !== "all" && t.projectId !== projectFilter) return false;
-    if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
-    if (dayFilter !== null) {
-      if (!t.dueDate) return false;
-      const d = new Date(t.dueDate);
-      const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-      if (dayStart !== dayFilter) return false;
-    }
-    return true;
-  }), [tasks, search, assigneeFilter, projectFilter, priorityFilter, dayFilter]);
+  const filtered = useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const weekEnd = todayStart + 7 * 86400000;
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).getTime();
+
+    return tasks.filter((t) => {
+      if (search && !((t.title || t.description).toLowerCase().includes(search.toLowerCase()))) return false;
+      if (assigneeFilter !== "all" && t.assignedUserId !== assigneeFilter) return false;
+      if (projectFilter !== "all" && t.projectId !== projectFilter) return false;
+      if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
+      if (dueFilter !== "all") {
+        if (!t.dueDate) return false;
+        const due = new Date(t.dueDate).getTime();
+        if (dueFilter === "overdue" && !(due < todayStart && t.status !== "done")) return false;
+        if (dueFilter === "today" && !(due >= todayStart && due < todayStart + 86400000)) return false;
+        if (dueFilter === "week" && !(due >= todayStart && due <= weekEnd)) return false;
+        if (dueFilter === "month" && !(due >= todayStart && due <= monthEnd)) return false;
+      }
+      if (dayFilter !== null) {
+        if (!t.dueDate) return false;
+        const d = new Date(t.dueDate);
+        const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        if (dayStart !== dayFilter) return false;
+      }
+      return true;
+    });
+  }, [tasks, search, assigneeFilter, projectFilter, priorityFilter, dueFilter, dayFilter]);
 
   const markedDays = useMemo(() => {
     const set = new Set<number>();
@@ -80,9 +104,9 @@ export default function TareasPage() {
   }, [tasks]);
 
   const selectedTask = tasks.find((t) => t.id === selectedTaskId) ?? null;
-  const hasFilters = !!search || assigneeFilter !== "all" || projectFilter !== "all" || priorityFilter !== "all" || dayFilter !== null;
+  const hasFilters = !!search || assigneeFilter !== "all" || projectFilter !== "all" || priorityFilter !== "all" || dueFilter !== "all" || dayFilter !== null;
 
-  const clearFilters = () => { setSearch(""); setAssigneeFilter("all"); setProjectFilter("all"); setPriorityFilter("all"); setDayFilter(null); };
+  const clearFilters = () => { setSearch(""); setAssigneeFilter("all"); setProjectFilter("all"); setPriorityFilter("all"); setDueFilter("all"); setDayFilter(null); };
 
   async function patchTask(id: string, patch: Record<string, unknown>) {
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } as Task : t)));
@@ -216,21 +240,43 @@ export default function TareasPage() {
           />
         </div>
         <Select value={assigneeFilter} onValueChange={(v) => v && setAssigneeFilter(v)}>
-          <SelectTrigger size="sm" className="cursor-pointer"><SelectValue /></SelectTrigger>
+          <SelectTrigger size="sm" className="cursor-pointer">
+            <SelectValue>
+              {() => assigneeFilter === "all" ? "Asignado a: Todos" : users.find((u) => u.id === assigneeFilter)?.name ?? "Asignado a: Todos"}
+            </SelectValue>
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Asignado a: Todos</SelectItem>
             {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={projectFilter} onValueChange={(v) => v && setProjectFilter(v)}>
-          <SelectTrigger size="sm" className="cursor-pointer"><SelectValue /></SelectTrigger>
+          <SelectTrigger size="sm" className="cursor-pointer">
+            <SelectValue>
+              {() => projectFilter === "all" ? "Proyecto: Todos" : projects.find((p) => p.id === projectFilter)?.name ?? "Proyecto: Todos"}
+            </SelectValue>
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Proyecto: Todos</SelectItem>
             {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={dueFilter} onValueChange={(v) => v && setDueFilter(v)}>
+          <SelectTrigger size="sm" className="cursor-pointer">
+            <SelectValue>{() => DUE_LABELS[dueFilter] ?? DUE_LABELS.all}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(DUE_LABELS).map(([key, label]) => (
+              <SelectItem key={key} value={key}>{label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={priorityFilter} onValueChange={(v) => v && setPriorityFilter(v)}>
-          <SelectTrigger size="sm" className="cursor-pointer"><SelectValue /></SelectTrigger>
+          <SelectTrigger size="sm" className="cursor-pointer">
+            <SelectValue>
+              {() => ({ all: "Prioridad: Todas", alta: "Alta", media: "Media", baja: "Baja" }[priorityFilter] ?? "Prioridad: Todas")}
+            </SelectValue>
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Prioridad: Todas</SelectItem>
             <SelectItem value="alta">Alta</SelectItem>
