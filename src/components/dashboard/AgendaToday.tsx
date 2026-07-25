@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Phone, Mail, Users, FileText, AlertCircle } from "lucide-react";
+import { Clock, Phone, Mail, Users, FileText, AlertCircle, ArrowRight } from "lucide-react";
 
 interface FollowUp {
   id: string;
@@ -111,6 +112,12 @@ export function AgendaToday() {
             })}
           </div>
         )}
+        <Link
+          href="/activities"
+          className="mt-3 flex items-center justify-center gap-1.5 text-sm font-medium rounded-lg border py-2 hover:bg-muted/50 transition-colors"
+        >
+          Ver agenda <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
       </CardContent>
     </Card>
   );

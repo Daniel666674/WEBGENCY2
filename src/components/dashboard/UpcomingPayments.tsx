@@ -1,7 +1,7 @@
 "use client";
 
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { CreditCard, AlertCircle } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/constants";
 
@@ -22,17 +22,22 @@ interface UpcomingPaymentsProps {
 export function UpcomingPayments({ payments, totalThisMonth }: UpcomingPaymentsProps) {
   return (
     <Card className="h-full">
-      <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
-          <CreditCard className="h-4 w-4 text-primary" />
-          Cobros Próximos
-        </CardTitle>
-        <p className="text-xs text-muted-foreground">
-          Este mes:{" "}
-          <span className="font-semibold text-foreground">
-            {formatCurrency(totalThisMonth)}
-          </span>
-        </p>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="text-base flex items-center gap-2">
+            <CreditCard className="h-4 w-4 text-primary" />
+            Cobros Próximos
+          </CardTitle>
+          <p className="text-xs text-muted-foreground mt-1">
+            Este mes:{" "}
+            <span className="font-semibold text-foreground">
+              {formatCurrency(totalThisMonth)}
+            </span>
+          </p>
+        </div>
+        <Link href="/revenue" className="text-xs text-primary hover:underline shrink-0">
+          Ver todos
+        </Link>
       </CardHeader>
       <CardContent>
         {payments.length === 0 ? (

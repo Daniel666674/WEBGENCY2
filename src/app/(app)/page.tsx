@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { db } from "@/db";
-import { contacts, deals, activities, pipelineStages, projects, projectMilestones } from "@/db/schema";
+import { contacts, deals, activities, pipelineStages, proposals } from "@/db/schema";
 import { eq, asc, desc } from "drizzle-orm";
 import { FunnelHorizontal } from "@/components/dashboard/FunnelHorizontal";
 import { HotLeadCards } from "@/components/dashboard/HotLeadCards";
@@ -8,12 +9,12 @@ import { AgendaToday } from "@/components/dashboard/AgendaToday";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { PipelineChart } from "@/components/dashboard/PipelineChart";
 import { ActivitySummary } from "@/components/dashboard/ActivitySummary";
+import { ClientLifetimeValue } from "@/components/dashboard/ClientLifetimeValue";
 import { NotificationBanner } from "@/components/dashboard/NotificationBanner";
-import { ActiveProjects } from "@/components/dashboard/ActiveProjects";
 import { StatTile } from "@/components/shared/StatTile";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/constants";
-import { Flame, DollarSign, Users, FileText, UserCheck, Gauge } from "lucide-react";
+import { Flame, DollarSign, Users, FileText, UserCheck, Gauge, Calendar as CalendarIcon } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -23,10 +24,6 @@ export default async function DashboardPage() {
   const stages = await db.select().from(pipelineStages).orderBy(asc(pipelineStages.order)).all();
 
   // Deal segments
-  const activeDeals = allDeals.filter((d) => {
-    const s = stages.find((s) => s.id === d.stageId);
-    return s && !s.isWon && !s.isLost;
-  });
   const wonDeals = allDeals.filter((d) => stages.find((s) => s.id === d.stageId)?.isWon);
 
   // Contact segments
@@ -40,7 +37,6 @@ export default async function DashboardPage() {
   // Revenue
   const mrr = activeClients.reduce((sum, c) => sum + (c.monthlyPayment || 0), 0);
   const arr = mrr * 12;
-  const pipeline = activeDeals.reduce((sum, d) => sum + d.value, 0);
   const conversionRate =
     allDeals.length > 0 ? Math.round((wonDeals.length / allDeals.length) * 100) : 0;
 
@@ -94,32 +90,52 @@ export default async function DashboardPage() {
   const pctChange = (curr: number, prev: number) =>
     prev > 0 ? Math.round(((curr - prev) / prev) * 100) : curr > 0 ? 100 : 0;
 
+  const dayStartOf = (d: Date) => {
+    const x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    return x.getTime();
+  };
+  const todayStart = dayStartOf(now);
+  const weekAgoStart = todayStart - 6 * 86400000;
+  const twoWeeksAgoStart = todayStart - 13 * 86400000;
+
+  const contactsToday = allContacts.filter((c) => toMs(c.createdAt) >= todayStart).length;
   const contactsThisMonth = allContacts.filter((c) => toMs(c.createdAt) >= monthStart).length;
   const contactsLastMonth = allContacts.filter(
     (c) => toMs(c.createdAt) >= prevMonthStart && toMs(c.createdAt) < monthStart
   ).length;
-  const proposalsThisMonth = proposalSent.filter((c) => toMs(c.createdAt) >= monthStart).length;
-  const proposalsLastMonth = proposalSent.filter(
-    (c) => toMs(c.createdAt) >= prevMonthStart && toMs(c.createdAt) < monthStart
+  const proposalsThisWeek = proposalSent.filter((c) => toMs(c.createdAt) >= weekAgoStart).length;
+  const proposalsLastWeek = proposalSent.filter(
+    (c) => toMs(c.createdAt) >= twoWeeksAgoStart && toMs(c.createdAt) < weekAgoStart
   ).length;
-  const clientsThisMonth = activeClients.filter((c) => toMs(c.createdAt) >= monthStart).length;
-  const clientsLastMonth = activeClients.filter(
-    (c) => toMs(c.createdAt) >= prevMonthStart && toMs(c.createdAt) < monthStart
-  ).length;
+  const clientsToday = activeClients.filter((c) => toMs(c.createdAt) >= todayStart).length;
   const avgScore =
     allContacts.length > 0
       ? Math.round(allContacts.reduce((sum, c) => sum + c.score, 0) / allContacts.length)
       : 0;
+  // Score trend: avg score of contacts already on file before this month vs. everyone now
+  const olderContacts = allContacts.filter((c) => toMs(c.createdAt) < monthStart);
+  const avgScoreOlder =
+    olderContacts.length > 0
+      ? olderContacts.reduce((sum, c) => sum + c.score, 0) / olderContacts.length
+      : avgScore;
 
-  const leadsTrend = pctChange(contactsThisMonth, contactsLastMonth);
-  const proposalsTrend = pctChange(proposalsThisMonth, proposalsLastMonth);
-  const clientsTrend = pctChange(clientsThisMonth, clientsLastMonth);
+  const leadsMonthTrend = pctChange(contactsThisMonth, contactsLastMonth);
+  const proposalsWeekTrend = proposalsThisWeek - proposalsLastWeek;
+  const scoreTrend = pctChange(avgScore, Math.round(avgScoreOlder));
 
   // Resumen de Actividad: real counts per day for the last 7 days
   const allActivitiesForTrend = await db
-    .select({ id: activities.id, createdAt: activities.createdAt })
+    .select({ id: activities.id, type: activities.type, createdAt: activities.createdAt })
     .from(activities)
     .all();
+  const allProposalsForTrend = await db
+    .select({ id: proposals.id, createdAt: proposals.createdAt, oneTimeFee: proposals.oneTimeFee, monthlyFee: proposals.monthlyFee })
+    .from(proposals)
+    .all();
+  const negotiationStageIds = new Set(
+    stages.filter((s) => s.name.toLowerCase().startsWith("negociaci")).map((s) => s.id)
+  );
 
   const dayLabels = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
   const activityTrendData = Array.from({ length: 7 }).map((_, i) => {
@@ -127,16 +143,37 @@ export default async function DashboardPage() {
     dayStart.setDate(now.getDate() - (6 - i));
     dayStart.setHours(0, 0, 0, 0);
     const dayEnd = dayStart.getTime() + 86400000;
+    const inDay = (t: number) => t >= dayStart.getTime() && t < dayEnd;
     return {
       day: dayLabels[dayStart.getDay()],
-      actividades: allActivitiesForTrend.filter(
-        (a) => toMs(a.createdAt) >= dayStart.getTime() && toMs(a.createdAt) < dayEnd
-      ).length,
-      leads: allContacts.filter(
-        (c) => toMs(c.createdAt) >= dayStart.getTime() && toMs(c.createdAt) < dayEnd
+      leads: allContacts.filter((c) => inDay(toMs(c.createdAt))).length,
+      propuestas: allProposalsForTrend.filter((p) => inDay(toMs(p.createdAt))).length,
+      reuniones: allActivitiesForTrend.filter((a) => a.type === "meeting" && inDay(toMs(a.createdAt))).length,
+      negociaciones: allDeals.filter(
+        (d) => negotiationStageIds.has(d.stageId) && inDay(toMs(d.createdAt))
       ).length,
     };
   });
+  const activityTotals = activityTrendData.reduce(
+    (acc, d) => ({
+      leads: acc.leads + d.leads,
+      propuestas: acc.propuestas + d.propuestas,
+      reuniones: acc.reuniones + d.reuniones,
+      negociaciones: acc.negociaciones + d.negociaciones,
+    }),
+    { leads: 0, propuestas: 0, reuniones: 0, negociaciones: 0 }
+  );
+
+  // Client lifetime value: real average setup + monthly fee from actual proposals
+  const proposalsWithFees = allProposalsForTrend.filter((p) => p.oneTimeFee > 0 || p.monthlyFee > 0);
+  const avgSetupFee =
+    proposalsWithFees.length > 0
+      ? Math.round(proposalsWithFees.reduce((sum, p) => sum + p.oneTimeFee, 0) / proposalsWithFees.length)
+      : 0;
+  const avgMonthlyFee =
+    proposalsWithFees.length > 0
+      ? Math.round(proposalsWithFees.reduce((sum, p) => sum + p.monthlyFee, 0) / proposalsWithFees.length)
+      : 0;
 
   // Pipeline chart
   const pipelineData = stages
@@ -149,35 +186,6 @@ export default async function DashboardPage() {
         .reduce((sum, d) => sum + d.value, 0),
       color: stage.color ?? "#64748b",
     }));
-
-  // Active projects (not launched, not paused)
-  const allProjects = await db
-    .select({
-      id: projects.id,
-      name: projects.name,
-      status: projects.status,
-      deadline: projects.deadline,
-      clientId: projects.clientId,
-      clientName: contacts.name,
-    })
-    .from(projects)
-    .leftJoin(contacts, eq(projects.clientId, contacts.id))
-    .all();
-
-  const allMilestones = await db.select({ id: projectMilestones.id, projectId: projectMilestones.projectId, completedAt: projectMilestones.completedAt }).from(projectMilestones).all();
-
-  const activeProjects = allProjects
-    .filter((p) => p.status !== "launched" && p.status !== "paused")
-    .map((p) => {
-      const ms = allMilestones.filter((m) => m.projectId === p.id);
-      return {
-        ...p,
-        deadline: p.deadline ? (p.deadline as unknown as Date).getTime?.() ?? Number(p.deadline) : null,
-        milestonesTotal: ms.length,
-        milestonesCompleted: ms.filter((m) => m.completedAt !== null).length,
-      };
-    })
-    .slice(0, 6);
 
   // Recent activity
   const recentActivities = await db
@@ -194,22 +202,27 @@ export default async function DashboardPage() {
     .limit(6)
     .all();
 
-  const dateStr = now.toLocaleDateString("es-CO", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const dateStr = now
+    .toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" })
+    .replace(".", "");
 
   return (
     <div className="space-y-6">
       {/* ── Greeting ─────────────────────────────────── */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Revenue Engine</h1>
-        <p className="text-muted-foreground capitalize text-sm mt-0.5">{dateStr}</p>
+        <h1 className="text-2xl font-bold tracking-tight">¡Bienvenido de vuelta, Daniel! 👋</h1>
+        <p className="text-muted-foreground text-sm mt-0.5">
+          Aquí tienes el resumen de tu pipeline y actividad comercial.
+        </p>
       </div>
 
-      <NotificationBanner />
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <NotificationBanner />
+        <span className="ml-auto flex items-center gap-2 text-sm border rounded-lg px-3 py-1.5 text-muted-foreground">
+          <CalendarIcon className="h-3.5 w-3.5" />
+          {dateStr} - {dateStr}
+        </span>
+      </div>
 
       {/* ── Row 1: Stat tiles ──────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
@@ -224,28 +237,28 @@ export default async function DashboardPage() {
           icon={Users}
           label="Leads"
           value={allContacts.length}
-          subtext={`${leadsTrend >= 0 ? "↑" : "↓"}${Math.abs(leadsTrend)}% vs mes anterior`}
+          subtext={contactsToday > 0 ? `${contactsToday} nuevos hoy` : `${leadsMonthTrend >= 0 ? "↑" : "↓"}${Math.abs(leadsMonthTrend)}% vs mes anterior`}
           color="blue"
         />
         <StatTile
           icon={FileText}
           label="Propuestas"
           value={proposalSent.length}
-          subtext={`${proposalsTrend >= 0 ? "↑" : "↓"}${Math.abs(proposalsTrend)}% vs mes anterior`}
+          subtext={`${proposalsWeekTrend >= 0 ? "↑" : "↓"}${Math.abs(proposalsWeekTrend)} vs semana anterior`}
           color="amber"
         />
         <StatTile
           icon={UserCheck}
           label="Clientes Activos"
           value={activeClients.length}
-          subtext={`${clientsTrend >= 0 ? "↑" : "↓"}${Math.abs(clientsTrend)}% vs mes anterior`}
+          subtext={clientsToday > 0 ? `${clientsToday} nuevo hoy` : `${conversionRate}% tasa de cierre`}
           color="green"
         />
         <StatTile
           icon={Gauge}
           label="Score Promedio"
-          value={avgScore}
-          subtext={`Tasa de cierre ${conversionRate}%`}
+          value={`${avgScore} /100`}
+          subtext={`${scoreTrend >= 0 ? "↑" : "↓"}${Math.abs(scoreTrend)}% vs mes anterior`}
           color="purple"
         />
       </div>
@@ -262,14 +275,41 @@ export default async function DashboardPage() {
         <PipelineChart data={pipelineData} />
       </div>
 
-      {/* ── Row: Resumen de Actividad (7 días) ────────── */}
-      <ActivitySummary data={activityTrendData} />
+      {/* ── Row: Valor del cliente a 3 años ───────────── */}
+      {avgSetupFee + avgMonthlyFee > 0 && (
+        <ClientLifetimeValue avgSetupFee={avgSetupFee} avgMonthlyFee={avgMonthlyFee} months={36} />
+      )}
 
-      {/* ── Row 3: Agenda · Payments · Projects · Activity */}
+      {/* ── Row 3: Leads · Agenda · Cobros · Actividad ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Flame className="h-4 w-4 text-red-500" />
+              Leads Calientes ({hotLeads.length})
+            </CardTitle>
+            <Link href="/contacts" className="text-xs text-primary hover:underline shrink-0">
+              Ver todos
+            </Link>
+          </CardHeader>
+          <CardContent>
+            <HotLeadCards
+              leads={hotLeads.map((c) => ({
+                id: c.id,
+                name: c.name,
+                company: c.company,
+                source: c.source,
+                temperature: c.temperature,
+                score: c.score,
+                mockupUrl: c.mockupUrl,
+                siteUrl: c.siteUrl,
+                clientStatus: c.clientStatus,
+              }))}
+            />
+          </CardContent>
+        </Card>
         <AgendaToday />
         <UpcomingPayments payments={upcomingPayments} totalThisMonth={totalThisMonth} />
-        <ActiveProjects projects={activeProjects} />
         <RecentActivity
           activities={
             recentActivities as Array<{
@@ -283,30 +323,8 @@ export default async function DashboardPage() {
         />
       </div>
 
-      {/* ── Row: Hot Lead Cards ────────────────────────── */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Flame className="h-4 w-4 text-red-500" />
-            Leads Calientes ({hotLeads.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <HotLeadCards
-            leads={hotLeads.map((c) => ({
-              id: c.id,
-              name: c.name,
-              company: c.company,
-              source: c.source,
-              temperature: c.temperature,
-              score: c.score,
-              mockupUrl: c.mockupUrl,
-              siteUrl: c.siteUrl,
-              clientStatus: c.clientStatus,
-            }))}
-          />
-        </CardContent>
-      </Card>
+      {/* ── Row: Resumen de Actividad (7 días) ────────── */}
+      <ActivitySummary data={activityTrendData} totals={activityTotals} />
     </div>
   );
 }
