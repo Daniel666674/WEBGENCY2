@@ -42,6 +42,7 @@ export function TaskDetailPanel({ task, users, projects, onUpdate, onDelete, onC
   };
 
   return (
+    <div className="space-y-4">
     <div className="rounded-xl border bg-card">
       <div className="p-4 border-b flex items-start justify-between gap-2">
         <div className="min-w-0">
@@ -127,12 +128,14 @@ export function TaskDetailPanel({ task, users, projects, onUpdate, onDelete, onC
       </div>
 
       {task.description && task.title && (
-        <div className="p-4 border-b">
+        <div className="p-4">
           <p className="text-xs font-semibold text-muted-foreground mb-1">Descripción</p>
           <p className="text-sm text-foreground/80 leading-relaxed">{task.description}</p>
         </div>
       )}
+    </div>
 
+    <div className="rounded-xl border bg-card">
       <div className="p-4 space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-xs font-semibold text-muted-foreground">Actividad reciente</p>
@@ -178,6 +181,7 @@ export function TaskDetailPanel({ task, users, projects, onUpdate, onDelete, onC
           </button>
         </div>
       </div>
+    </div>
     </div>
   );
 }
