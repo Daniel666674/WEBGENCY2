@@ -32,7 +32,7 @@ export function KanbanColumn({ id, name, color, deals }: KanbanColumnProps) {
   return (
     <div
       ref={setNodeRef}
-      className="flex flex-col min-w-[280px] w-[280px] rounded-lg bg-muted/50 transition-all duration-200"
+      className="flex flex-col w-full md:min-w-[280px] md:w-[280px] rounded-lg bg-muted/50 transition-all duration-200"
       style={
         isOver
           ? { boxShadow: `0 0 0 2px ${color}, 0 8px 24px ${color}33`, backgroundColor: `${color}0d` }
