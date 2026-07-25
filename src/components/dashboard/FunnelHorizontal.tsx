@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowRight, ImageIcon } from "lucide-react";
+import { ImageIcon } from "lucide-react";
 
 interface FunnelHorizontalProps {
   totalLeads: number;
@@ -55,36 +55,30 @@ export function FunnelHorizontal({
         )}
       </CardHeader>
       <CardContent>
-        <div className="flex items-end gap-0">
+        <div className="space-y-3">
           {stages.map((stage, i) => (
-            <div key={stage.label} className="flex items-end gap-0 flex-1">
-              {/* Stage block */}
-              <div className="flex-1 flex flex-col items-center gap-2">
-                {/* Big count */}
-                <span className={`text-3xl font-bold leading-none ${stage.color}`}>
-                  {stage.count}
-                </span>
-                {/* Bar */}
-                <div className="w-full h-16 bg-muted rounded-t-md overflow-hidden flex items-end">
-                  <div
-                    className={`w-full ${stage.bar} rounded-t-md transition-all duration-700`}
-                    style={{ height: `${Math.max((stage.count / max) * 100, 4)}%` }}
-                  />
-                </div>
-                {/* Label */}
-                <div className="text-center">
+            <div key={stage.label}>
+              <div className="flex items-center gap-3">
+                <div className="w-24 shrink-0">
                   <p className="text-xs font-semibold text-foreground">{stage.label}</p>
                   <p className="text-[10px] text-muted-foreground">{stage.sub}</p>
                 </div>
-              </div>
-
-              {/* Arrow + rate between stages */}
-              {i < stages.length - 1 && (
-                <div className="flex flex-col items-center justify-end pb-8 px-1 shrink-0">
-                  <span className="text-[10px] text-muted-foreground mb-0.5">{rates[i]}%</span>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground/50" />
+                <span className={`text-xl font-bold leading-none w-8 shrink-0 text-right ${stage.color}`}>
+                  {stage.count}
+                </span>
+                <div className="flex-1 h-2.5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className={`h-full ${stage.bar} rounded-full transition-all duration-700`}
+                    style={{ width: `${Math.max((stage.count / max) * 100, 2)}%` }}
+                  />
                 </div>
-              )}
+                {i < stages.length - 1 && (
+                  <span className="text-[10px] font-medium text-muted-foreground w-9 shrink-0 text-right">
+                    {rates[i]}%
+                  </span>
+                )}
+                {i === stages.length - 1 && <span className="w-9 shrink-0" />}
+              </div>
             </div>
           ))}
         </div>

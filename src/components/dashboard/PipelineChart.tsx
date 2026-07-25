@@ -26,8 +26,11 @@ interface PipelineChartProps {
 export function PipelineChart({ data }: PipelineChartProps) {
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-base">Pipeline de Ventas</CardTitle>
+        <span className="text-xs text-muted-foreground border rounded-md px-2 py-1">
+          Este mes
+        </span>
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (

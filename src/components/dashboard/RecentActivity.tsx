@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Phone, Mail, Users, FileText, Clock } from "lucide-react";
 import { formatRelativeDate } from "@/lib/constants";
@@ -54,6 +55,12 @@ export function RecentActivity({ activities }: RecentActivityProps) {
                 </div>
               );
             })}
+            <Link
+              href="/activities"
+              className="block text-center text-xs font-medium text-primary hover:underline pt-1"
+            >
+              Ver toda la actividad →
+            </Link>
           </div>
         )}
       </CardContent>
