@@ -1,16 +1,19 @@
 import { db } from "@/db";
 import { contacts, deals, activities, pipelineStages, projects, projectMilestones } from "@/db/schema";
 import { eq, asc, desc } from "drizzle-orm";
-import { MRRHero } from "@/components/dashboard/MRRHero";
 import { FunnelHorizontal } from "@/components/dashboard/FunnelHorizontal";
 import { HotLeadCards } from "@/components/dashboard/HotLeadCards";
 import { UpcomingPayments } from "@/components/dashboard/UpcomingPayments";
 import { AgendaToday } from "@/components/dashboard/AgendaToday";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { PipelineChart } from "@/components/dashboard/PipelineChart";
+import { ActivitySummary } from "@/components/dashboard/ActivitySummary";
 import { NotificationBanner } from "@/components/dashboard/NotificationBanner";
 import { ActiveProjects } from "@/components/dashboard/ActiveProjects";
-import { Flame } from "lucide-react";
+import { StatTile } from "@/components/shared/StatTile";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatCurrency } from "@/lib/constants";
+import { Flame, DollarSign, Users, FileText, UserCheck, Gauge } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -82,6 +85,58 @@ export default async function DashboardPage() {
       return d >= startOfMonth && d <= endOfMonth;
     })
     .reduce((sum, c) => sum + (c.monthlyPayment || 0), 0);
+
+  // Month-over-month trends (real createdAt-based counts, no fabricated data)
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime();
+  const toMs = (d: unknown) => (d instanceof Date ? d.getTime() : Number(d));
+
+  const pctChange = (curr: number, prev: number) =>
+    prev > 0 ? Math.round(((curr - prev) / prev) * 100) : curr > 0 ? 100 : 0;
+
+  const contactsThisMonth = allContacts.filter((c) => toMs(c.createdAt) >= monthStart).length;
+  const contactsLastMonth = allContacts.filter(
+    (c) => toMs(c.createdAt) >= prevMonthStart && toMs(c.createdAt) < monthStart
+  ).length;
+  const proposalsThisMonth = proposalSent.filter((c) => toMs(c.createdAt) >= monthStart).length;
+  const proposalsLastMonth = proposalSent.filter(
+    (c) => toMs(c.createdAt) >= prevMonthStart && toMs(c.createdAt) < monthStart
+  ).length;
+  const clientsThisMonth = activeClients.filter((c) => toMs(c.createdAt) >= monthStart).length;
+  const clientsLastMonth = activeClients.filter(
+    (c) => toMs(c.createdAt) >= prevMonthStart && toMs(c.createdAt) < monthStart
+  ).length;
+  const avgScore =
+    allContacts.length > 0
+      ? Math.round(allContacts.reduce((sum, c) => sum + c.score, 0) / allContacts.length)
+      : 0;
+
+  const leadsTrend = pctChange(contactsThisMonth, contactsLastMonth);
+  const proposalsTrend = pctChange(proposalsThisMonth, proposalsLastMonth);
+  const clientsTrend = pctChange(clientsThisMonth, clientsLastMonth);
+
+  // Resumen de Actividad: real counts per day for the last 7 days
+  const allActivitiesForTrend = await db
+    .select({ id: activities.id, createdAt: activities.createdAt })
+    .from(activities)
+    .all();
+
+  const dayLabels = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+  const activityTrendData = Array.from({ length: 7 }).map((_, i) => {
+    const dayStart = new Date(now);
+    dayStart.setDate(now.getDate() - (6 - i));
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = dayStart.getTime() + 86400000;
+    return {
+      day: dayLabels[dayStart.getDay()],
+      actividades: allActivitiesForTrend.filter(
+        (a) => toMs(a.createdAt) >= dayStart.getTime() && toMs(a.createdAt) < dayEnd
+      ).length,
+      leads: allContacts.filter(
+        (c) => toMs(c.createdAt) >= dayStart.getTime() && toMs(c.createdAt) < dayEnd
+      ).length,
+    };
+  });
 
   // Pipeline chart
   const pipelineData = stages
@@ -156,15 +211,47 @@ export default async function DashboardPage() {
 
       <NotificationBanner />
 
-      {/* ── Row 1: MRR Hero (left) + Funnel (right) ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6">
-        <MRRHero
-          mrr={mrr}
-          arr={arr}
-          activeClients={activeClients.length}
-          conversionRate={conversionRate}
-          overdueFollowups={0}
+      {/* ── Row 1: Stat tiles ──────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <StatTile
+          icon={DollarSign}
+          label="MRR Actual"
+          value={formatCurrency(mrr)}
+          subtext={`ARR ${formatCurrency(arr)}`}
+          color="primary"
         />
+        <StatTile
+          icon={Users}
+          label="Leads"
+          value={allContacts.length}
+          subtext={`${leadsTrend >= 0 ? "↑" : "↓"}${Math.abs(leadsTrend)}% vs mes anterior`}
+          color="blue"
+        />
+        <StatTile
+          icon={FileText}
+          label="Propuestas"
+          value={proposalSent.length}
+          subtext={`${proposalsTrend >= 0 ? "↑" : "↓"}${Math.abs(proposalsTrend)}% vs mes anterior`}
+          color="amber"
+        />
+        <StatTile
+          icon={UserCheck}
+          label="Clientes Activos"
+          value={activeClients.length}
+          subtext={`${clientsTrend >= 0 ? "↑" : "↓"}${Math.abs(clientsTrend)}% vs mes anterior`}
+          color="green"
+        />
+        <StatTile
+          icon={Gauge}
+          label="Score Promedio"
+          value={avgScore}
+          subtext={`Tasa de cierre ${conversionRate}%`}
+          color="purple"
+        />
+      </div>
+
+      {/* ── Row 2: Funnel + Pipeline chart ────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <FunnelHorizontal
           totalLeads={allContacts.length}
           withMockup={withMockup.length}
@@ -172,30 +259,11 @@ export default async function DashboardPage() {
           activeClients={activeClients.length}
           mockupsUnsent={mockupsUnsent}
         />
+        <PipelineChart data={pipelineData} />
       </div>
 
-      {/* ── Row 2: Hot Lead Cards (horizontal scroll) ─ */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <Flame className="h-4 w-4 text-red-500" />
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Leads Calientes ({hotLeads.length})
-          </h2>
-        </div>
-        <HotLeadCards
-          leads={hotLeads.map((c) => ({
-            id: c.id,
-            name: c.name,
-            company: c.company,
-            source: c.source,
-            temperature: c.temperature,
-            score: c.score,
-            mockupUrl: c.mockupUrl,
-            siteUrl: c.siteUrl,
-            clientStatus: c.clientStatus,
-          }))}
-        />
-      </div>
+      {/* ── Row: Resumen de Actividad (7 días) ────────── */}
+      <ActivitySummary data={activityTrendData} />
 
       {/* ── Row 3: Agenda · Payments · Projects · Activity */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
@@ -215,8 +283,30 @@ export default async function DashboardPage() {
         />
       </div>
 
-      {/* ── Row 4: Pipeline chart ─────────────────────── */}
-      <PipelineChart data={pipelineData} />
+      {/* ── Row: Hot Lead Cards ────────────────────────── */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Flame className="h-4 w-4 text-red-500" />
+            Leads Calientes ({hotLeads.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <HotLeadCards
+            leads={hotLeads.map((c) => ({
+              id: c.id,
+              name: c.name,
+              company: c.company,
+              source: c.source,
+              temperature: c.temperature,
+              score: c.score,
+              mockupUrl: c.mockupUrl,
+              siteUrl: c.siteUrl,
+              clientStatus: c.clientStatus,
+            }))}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }
