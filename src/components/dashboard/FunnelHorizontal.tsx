@@ -48,11 +48,16 @@ export function FunnelHorizontal({
           <ImageIcon className="h-4 w-4 text-primary" />
           Embudo de Ventas — Modelo Mockup
         </CardTitle>
-        {mockupsUnsent > 0 && (
-          <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 rounded-full px-2 py-0.5 font-medium">
-            {mockupsUnsent} sin enviar
+        <div className="flex items-center gap-2">
+          {mockupsUnsent > 0 && (
+            <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 rounded-full px-2 py-0.5 font-medium">
+              {mockupsUnsent} sin enviar
+            </span>
+          )}
+          <span className="text-xs text-muted-foreground border rounded-md px-2 py-1">
+            Este mes
           </span>
-        )}
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
