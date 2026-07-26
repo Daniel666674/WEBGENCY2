@@ -198,8 +198,8 @@ export function Sidebar() {
                     onClick={() => setOpen(false)}
                     className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors cursor-pointer group"
                     style={isActive ? {
-                      background: "color-mix(in srgb, var(--sidebar-primary) 15%, transparent)",
-                      border: "1px solid color-mix(in srgb, var(--sidebar-primary) 40%, transparent)",
+                      background: "var(--sidebar-accent)",
+                      border: "1px solid var(--sidebar-primary)",
                     } : {
                       border: "1px solid transparent",
                     }}
@@ -214,11 +214,9 @@ export function Sidebar() {
                     <div
                       className="rounded-lg p-1.5 shrink-0"
                       style={{
-                        background: isActive
-                          ? "color-mix(in srgb, var(--sidebar-primary) 25%, transparent)"
-                          : "color-mix(in srgb, var(--sidebar-foreground) 8%, transparent)",
-                        color: isActive ? "var(--sidebar-primary)" : "var(--sidebar-foreground)",
-                        opacity: isActive ? 1 : 0.65,
+                        background: isActive ? "var(--sidebar-primary)" : "var(--sidebar-accent)",
+                        color: isActive ? "var(--sidebar-primary-foreground)" : "var(--sidebar-foreground)",
+                        opacity: isActive ? 1 : 0.7,
                       }}
                     >
                       <item.icon className="h-4 w-4" />
@@ -245,9 +243,7 @@ export function Sidebar() {
                       <div
                         className="w-1.5 h-1.5 rounded-full shrink-0"
                         style={{
-                          background: isActive
-                            ? "var(--sidebar-primary)"
-                            : "color-mix(in srgb, var(--sidebar-foreground) 20%, transparent)",
+                          background: isActive ? "var(--sidebar-primary)" : "var(--sidebar-accent)",
                         }}
                       />
                     )}
