@@ -33,13 +33,10 @@ interface NavItem {
   label: string;
   subtitle: string;
   icon: React.ComponentType<{ className?: string }>;
-  iconColor: string;
-  iconBg: string;
 }
 
 interface NavSection {
   header?: string;
-  headerColor?: string;
   items: NavItem[];
   showDots?: boolean;
   showChevron?: boolean;
@@ -48,61 +45,55 @@ interface NavSection {
 const navSections: NavSection[] = [
   {
     header: "PRINCIPAL",
-    headerColor: "text-purple-400",
     showDots: true,
     items: [
-      { href: "/onboarding",   label: "Inicio",           subtitle: "Onboarding",      icon: GraduationCap,  iconColor: "text-purple-300", iconBg: "bg-purple-500/25" },
-      { href: "/",             label: "Vista General",    subtitle: "Dashboard",        icon: LayoutDashboard, iconColor: "text-purple-300", iconBg: "bg-purple-500/25" },
-      { href: "/pipeline",     label: "Pipeline",         subtitle: "Ventas",           icon: Kanban,          iconColor: "text-purple-300", iconBg: "bg-purple-500/25" },
-      { href: "/contacts",     label: "Contactos",        subtitle: "Clientes & Leads", icon: Users,           iconColor: "text-purple-300", iconBg: "bg-purple-500/25" },
-      { href: "/deals",        label: "Deals",            subtitle: "Oportunidades",    icon: Briefcase,       iconColor: "text-purple-300", iconBg: "bg-purple-500/25" },
-      { href: "/activities",   label: "Actividades",      subtitle: "Seguimiento",      icon: Zap,             iconColor: "text-purple-300", iconBg: "bg-purple-500/25" },
+      { href: "/onboarding",   label: "Inicio",           subtitle: "Onboarding",       icon: GraduationCap },
+      { href: "/",             label: "Vista General",    subtitle: "Dashboard",         icon: LayoutDashboard },
+      { href: "/pipeline",     label: "Pipeline",         subtitle: "Ventas",            icon: Kanban },
+      { href: "/contacts",     label: "Contactos",        subtitle: "Clientes & Leads",  icon: Users },
+      { href: "/deals",        label: "Deals",            subtitle: "Oportunidades",     icon: Briefcase },
+      { href: "/activities",   label: "Actividades",      subtitle: "Seguimiento",       icon: Zap },
     ],
   },
   {
     header: "REVENUE",
-    headerColor: "text-purple-400",
     showChevron: true,
     items: [
-      { href: "/revenue",  label: "Revenue",  subtitle: "Ingresos",    icon: DollarSign, iconColor: "text-green-300", iconBg: "bg-green-500/25" },
-      { href: "/forecast", label: "Forecast", subtitle: "Proyecciones", icon: TrendingUp, iconColor: "text-green-300", iconBg: "bg-green-500/25" },
+      { href: "/revenue",  label: "Revenue",  subtitle: "Ingresos",     icon: DollarSign },
+      { href: "/forecast", label: "Forecast", subtitle: "Proyecciones", icon: TrendingUp },
     ],
   },
   {
     header: "CUENTAS",
-    headerColor: "text-purple-400",
     showChevron: true,
     items: [
-      { href: "/clients",      label: "Clientes Activos", subtitle: "Organizaciones", icon: UserCheck,    iconColor: "text-blue-300",   iconBg: "bg-blue-500/25" },
-      { href: "/projects",     label: "Proyectos",        subtitle: "En curso",       icon: FolderKanban, iconColor: "text-blue-300",   iconBg: "bg-blue-500/25" },
-      { href: "/tareas",       label: "Tareas",           subtitle: "Pendientes",     icon: ClipboardList, iconColor: "text-blue-300",  iconBg: "bg-blue-500/25" },
-      { href: "/solicitudes",  label: "Solicitudes",      subtitle: "Gestión",        icon: MessageSquare, iconColor: "text-purple-300", iconBg: "bg-purple-500/25" },
-      { href: "/deliverables", label: "Entregables",      subtitle: "Entregables",    icon: Package,       iconColor: "text-purple-300", iconBg: "bg-purple-500/25" },
+      { href: "/clients",      label: "Clientes Activos", subtitle: "Organizaciones", icon: UserCheck },
+      { href: "/projects",     label: "Proyectos",        subtitle: "En curso",       icon: FolderKanban },
+      { href: "/tareas",       label: "Tareas",           subtitle: "Pendientes",     icon: ClipboardList },
+      { href: "/solicitudes",  label: "Solicitudes",      subtitle: "Gestión",        icon: MessageSquare },
+      { href: "/deliverables", label: "Entregables",      subtitle: "Entregables",    icon: Package },
     ],
   },
   {
     header: "NEGOCIOS",
-    headerColor: "text-purple-400",
     showChevron: true,
     items: [
-      { href: "/proposals",   label: "Propuestas",  subtitle: "Cotizaciones", icon: FileText,  iconColor: "text-pink-300", iconBg: "bg-pink-500/25" },
-      { href: "/calculator",  label: "Calculadora", subtitle: "Herramientas", icon: Calculator, iconColor: "text-pink-300", iconBg: "bg-pink-500/25" },
+      { href: "/proposals",  label: "Propuestas",  subtitle: "Cotizaciones", icon: FileText },
+      { href: "/calculator", label: "Calculadora", subtitle: "Herramientas", icon: Calculator },
     ],
   },
   {
     header: "ARSENAL",
-    headerColor: "text-purple-400",
     showChevron: true,
     items: [
-      { href: "/arsenal",  label: "Arsenal",       subtitle: "Herramientas", icon: Layers,  iconColor: "text-amber-300", iconBg: "bg-amber-500/25" },
+      { href: "/arsenal", label: "Arsenal", subtitle: "Herramientas", icon: Layers },
     ],
   },
   {
     header: "CONFIG",
-    headerColor: "text-purple-400",
     showChevron: true,
     items: [
-      { href: "/settings", label: "Configuración", subtitle: "Ajustes",      icon: Settings, iconColor: "text-muted-foreground", iconBg: "bg-muted/50" },
+      { href: "/settings", label: "Configuración", subtitle: "Ajustes", icon: Settings },
     ],
   },
 ];
@@ -128,7 +119,7 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Invisible trigger strip */}
+      {/* Desktop hover strip */}
       <div
         className="hidden md:block fixed left-0 top-0 h-full w-[10px] z-50"
         onMouseEnter={() => { cancelClose(); setOpen(true); }}
@@ -145,41 +136,42 @@ export function Sidebar() {
       {/* Sidebar panel */}
       <aside
         className={cn(
-          "fixed left-0 top-0 h-full w-72 z-50 flex flex-col",
-          "bg-[var(--sidebar)] text-[var(--sidebar-foreground)]",
-          "shadow-2xl",
+          "fixed left-0 top-0 h-full w-72 z-50 flex flex-col shadow-2xl",
           "transition-transform duration-300 ease-in-out",
           open ? "translate-x-0" : "-translate-x-full"
         )}
+        style={{ background: "var(--sidebar)", color: "var(--sidebar-foreground)" }}
         onMouseEnter={() => { cancelClose(); setOpen(true); }}
         onMouseLeave={scheduleClose}
       >
-        {/* Logo / header */}
+        {/* Header */}
         <div className="flex items-center gap-3 px-4 py-5 shrink-0">
-          {/* Logo with purple ring */}
           <div className="relative shrink-0">
-            <div className="absolute inset-0 rounded-full border-2 border-purple-500/70 scale-110" />
+            {/* Ring uses sidebar-primary */}
             <div
-              className="absolute inset-0 rounded-full blur-md opacity-50"
+              className="absolute inset-[-3px] rounded-full border-2"
+              style={{ borderColor: "var(--sidebar-primary)" }}
+            />
+            <div
+              className="absolute inset-0 rounded-full blur-md opacity-40"
               style={{ backgroundColor: "var(--sidebar-primary)", animation: "oliwan-pulse 3.2s ease-in-out infinite" }}
             />
-            <Image
-              src="/logo.png"
-              alt="OLIWAN"
-              width={44}
-              height={44}
-              className="relative rounded-full"
-            />
+            <Image src="/logo.png" alt="OLIWAN" width={44} height={44} className="relative rounded-full" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-lg font-bold tracking-tight leading-none">OLIWAN</p>
-            <p className="text-xs font-medium text-purple-400 mt-0.5">Revenue Engine</p>
+            <p className="text-lg font-bold tracking-tight leading-none" style={{ color: "var(--sidebar-foreground)" }}>
+              OLIWAN
+            </p>
+            <p className="text-xs font-medium mt-0.5" style={{ color: "var(--sidebar-primary)" }}>
+              Revenue Engine
+            </p>
           </div>
           <button
             onClick={() => setOpen(false)}
-            className="p-1.5 rounded-lg border border-[var(--sidebar-border)] hover:bg-[var(--sidebar-accent)] transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg transition-colors cursor-pointer"
+            style={{ border: "1px solid var(--sidebar-border)" }}
           >
-            <ChevronLeft className="h-4 w-4 text-[var(--sidebar-foreground)]/60" />
+            <ChevronLeft className="h-4 w-4" style={{ color: "var(--sidebar-foreground)", opacity: 0.6 }} />
           </button>
         </div>
 
@@ -188,7 +180,10 @@ export function Sidebar() {
           {navSections.map((section, si) => (
             <div key={si} className={si > 0 ? "mt-3" : ""}>
               {section.header && (
-                <p className={cn("text-[10px] font-bold uppercase tracking-widest px-3 pb-1.5 pt-2", section.headerColor ?? "text-muted-foreground/50")}>
+                <p
+                  className="text-[10px] font-bold uppercase tracking-widest px-3 pb-1.5 pt-2"
+                  style={{ color: "var(--sidebar-primary)", opacity: 0.8 }}
+                >
                   {section.header}
                 </p>
               )}
@@ -201,34 +196,66 @@ export function Sidebar() {
                     key={item.href}
                     href={item.href}
                     onClick={() => setOpen(false)}
-                    className={cn(
-                      "flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors cursor-pointer group",
-                      isActive
-                        ? "bg-purple-500/15 border border-purple-500/40"
-                        : "hover:bg-[var(--sidebar-accent)] border border-transparent"
-                    )}
+                    className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors cursor-pointer group"
+                    style={isActive ? {
+                      background: "color-mix(in srgb, var(--sidebar-primary) 15%, transparent)",
+                      border: "1px solid color-mix(in srgb, var(--sidebar-primary) 40%, transparent)",
+                    } : {
+                      border: "1px solid transparent",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isActive) (e.currentTarget as HTMLElement).style.background = "var(--sidebar-accent)";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive) (e.currentTarget as HTMLElement).style.background = "";
+                    }}
                   >
-                    {/* Icon square */}
-                    <div className={cn("rounded-lg p-1.5 shrink-0", isActive ? "bg-purple-500/25" : item.iconBg)}>
-                      <item.icon className={cn("h-4 w-4", isActive ? "text-purple-300" : item.iconColor)} />
+                    {/* Icon */}
+                    <div
+                      className="rounded-lg p-1.5 shrink-0"
+                      style={{
+                        background: isActive
+                          ? "color-mix(in srgb, var(--sidebar-primary) 25%, transparent)"
+                          : "color-mix(in srgb, var(--sidebar-foreground) 8%, transparent)",
+                        color: isActive ? "var(--sidebar-primary)" : "var(--sidebar-foreground)",
+                        opacity: isActive ? 1 : 0.65,
+                      }}
+                    >
+                      <item.icon className="h-4 w-4" />
                     </div>
 
                     {/* Label + subtitle */}
                     <div className="flex-1 min-w-0">
-                      <p className={cn("text-sm font-semibold leading-tight", isActive ? "text-white" : "text-[var(--sidebar-foreground)]/80")}>
+                      <p
+                        className="text-sm font-semibold leading-tight"
+                        style={{ color: "var(--sidebar-foreground)", opacity: isActive ? 1 : 0.8 }}
+                      >
                         {item.label}
                       </p>
-                      <p className="text-[11px] text-[var(--sidebar-foreground)]/40 leading-tight mt-0.5">
+                      <p
+                        className="text-[11px] leading-tight mt-0.5"
+                        style={{ color: "var(--sidebar-foreground)", opacity: 0.4 }}
+                      >
                         {item.subtitle}
                       </p>
                     </div>
 
                     {/* Right indicator */}
                     {section.showDots && (
-                      <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", isActive ? "bg-purple-400" : "bg-[var(--sidebar-foreground)]/20")} />
+                      <div
+                        className="w-1.5 h-1.5 rounded-full shrink-0"
+                        style={{
+                          background: isActive
+                            ? "var(--sidebar-primary)"
+                            : "color-mix(in srgb, var(--sidebar-foreground) 20%, transparent)",
+                        }}
+                      />
                     )}
                     {section.showChevron && (
-                      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[var(--sidebar-foreground)]/30 group-hover:text-[var(--sidebar-foreground)]/60 transition-colors" />
+                      <ChevronRight
+                        className="h-3.5 w-3.5 shrink-0 transition-opacity"
+                        style={{ color: "var(--sidebar-foreground)", opacity: 0.3 }}
+                      />
                     )}
                   </Link>
                 );
@@ -238,17 +265,20 @@ export function Sidebar() {
         </nav>
 
         {/* Footer */}
-        <div className="mx-3 mb-3 rounded-xl border border-[var(--sidebar-border)] bg-[var(--sidebar-accent)]/50 px-4 py-3 shrink-0 relative overflow-hidden">
-          {/* Wave background */}
-          <div className="absolute inset-0 opacity-10 pointer-events-none" style={{
-            backgroundImage: "radial-gradient(ellipse at 80% 50%, #6366f1 0%, transparent 70%)",
-          }} />
+        <div
+          className="mx-3 mb-3 rounded-xl px-4 py-3 shrink-0 relative overflow-hidden"
+          style={{ border: "1px solid var(--sidebar-border)", background: "var(--sidebar-accent)" }}
+        >
+          <div
+            className="absolute inset-0 pointer-events-none opacity-10"
+            style={{ background: "radial-gradient(ellipse at 80% 50%, var(--sidebar-primary) 0%, transparent 70%)" }}
+          />
           <div className="relative">
-            <p className="text-xs font-semibold text-[var(--sidebar-foreground)]/80">OLIWAN v1.0</p>
-            <p className="text-[11px] text-[var(--sidebar-foreground)]/40">Revenue Engine</p>
+            <p className="text-xs font-semibold" style={{ color: "var(--sidebar-foreground)", opacity: 0.8 }}>OLIWAN v1.0</p>
+            <p className="text-[11px]" style={{ color: "var(--sidebar-foreground)", opacity: 0.4 }}>Revenue Engine</p>
             <div className="flex items-center gap-1.5 mt-2">
               <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
-              <span className="text-[11px] text-[var(--sidebar-foreground)]/60">Activo</span>
+              <span className="text-[11px]" style={{ color: "var(--sidebar-foreground)", opacity: 0.6 }}>Activo</span>
             </div>
           </div>
         </div>
