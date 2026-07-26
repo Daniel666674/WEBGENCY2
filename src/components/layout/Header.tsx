@@ -26,7 +26,11 @@ export function Header() {
         </SheetContent>
       </Sheet>
 
-      <div className="hidden md:flex items-center gap-2 mr-2">
+      <button
+        className="hidden md:flex items-center gap-2 mr-2 cursor-pointer rounded-lg p-1 hover:bg-muted/50 transition-colors"
+        onClick={() => window.dispatchEvent(new CustomEvent("oliwan:sidebar:open"))}
+        title="Abrir menú"
+      >
         <div className="relative shrink-0">
           <div
             className="absolute inset-0 rounded-md blur-sm opacity-50"
@@ -35,7 +39,7 @@ export function Header() {
           <Image src="/logo.png" alt="OLIWAN" width={30} height={30} className="relative rounded-md" />
         </div>
         <span className="text-sm font-bold tracking-tight hidden lg:block">OLIWAN</span>
-      </div>
+      </button>
 
       <div className="flex-1 flex items-center gap-4">
         <div className="relative w-full max-w-md">

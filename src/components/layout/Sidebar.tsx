@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
@@ -119,6 +119,12 @@ export function Sidebar() {
   const scheduleClose = useCallback(() => {
     closeTimer.current = setTimeout(() => setOpen(false), 120);
   }, []);
+
+  useEffect(() => {
+    const handler = () => { cancelClose(); setOpen(true); };
+    window.addEventListener("oliwan:sidebar:open", handler);
+    return () => window.removeEventListener("oliwan:sidebar:open", handler);
+  }, [cancelClose]);
 
   return (
     <>
