@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   let rows;
   if (contactId) {
     rows = await db
-      .select({ p: proposals, contactName: contacts.name, contactCompany: contacts.company })
+      .select({ p: proposals, contactName: contacts.name, contactCompany: contacts.company, contactClientStatus: contacts.clientStatus })
       .from(proposals)
       .leftJoin(contacts, eq(proposals.contactId, contacts.id))
       .where(eq(proposals.contactId, contactId))
@@ -18,16 +18,17 @@ export async function GET(request: NextRequest) {
       .all();
   } else {
     rows = await db
-      .select({ p: proposals, contactName: contacts.name, contactCompany: contacts.company })
+      .select({ p: proposals, contactName: contacts.name, contactCompany: contacts.company, contactClientStatus: contacts.clientStatus })
       .from(proposals)
       .leftJoin(contacts, eq(proposals.contactId, contacts.id))
       .orderBy(desc(proposals.createdAt))
       .all();
   }
 
-  const parsed = rows.map(({ p, contactName, contactCompany }) => ({
+  const parsed = rows.map(({ p, contactName, contactCompany, contactClientStatus }) => ({
     ...p,
     contactName: contactCompany || contactName || null,
+    contactClientStatus: contactClientStatus || null,
     features: JSON.parse(p.features || "[]"),
     addOns: JSON.parse(p.addOns || "[]"),
     automations: JSON.parse(p.automations || "[]"),
