@@ -1,34 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Bell, Menu } from "lucide-react";
+import { Search, Bell } from "lucide-react";
 import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { MobileNav } from "./MobileNav";
 import { UserSwitcher } from "@/components/user/UserSwitcher";
 
 export function Header() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [sheetOpen, setSheetOpen] = useState(false);
+
+  const openSidebar = () => window.dispatchEvent(new CustomEvent("oliwan:sidebar:open"));
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6">
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetTrigger
-          render={<Button variant="ghost" size="icon" className="md:hidden cursor-pointer" />}
-        >
-          <Menu className="h-5 w-5" />
-        </SheetTrigger>
-        <SheetContent side="left" className="w-64 p-0">
-          <MobileNav onNavigate={() => setSheetOpen(false)} />
-        </SheetContent>
-      </Sheet>
-
       <button
-        className="hidden md:flex items-center gap-2 mr-2 cursor-pointer rounded-lg p-1 hover:bg-muted/50 transition-colors"
-        onClick={() => window.dispatchEvent(new CustomEvent("oliwan:sidebar:open"))}
+        className="flex items-center gap-2 mr-2 cursor-pointer rounded-lg p-1 hover:bg-muted/50 transition-colors"
+        onClick={openSidebar}
         title="Abrir menú"
       >
         <div className="relative shrink-0">
@@ -38,7 +26,7 @@ export function Header() {
           />
           <Image src="/logo.png" alt="OLIWAN" width={30} height={30} className="relative rounded-md" />
         </div>
-        <span className="text-sm font-bold tracking-tight hidden lg:block">OLIWAN</span>
+        <span className="text-sm font-bold tracking-tight hidden md:block">OLIWAN</span>
       </button>
 
       <div className="flex-1 flex items-center gap-4">
