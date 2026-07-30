@@ -58,6 +58,7 @@
 
 :root {
   --font-recoleta: 'Recoleta', Georgia, serif;
+  --font-sans: 'Recoleta', Georgia, serif;
   --background: #faf7ef;
   --foreground: #1a1a2e;
   --card: #ffffff;
@@ -140,11 +141,12 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-recoleta);
   }
   html {
-    @apply font-sans;
+    font-family: var(--font-recoleta);
   }
-  h1, h2, h3 {
+  h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
     font-weight: 400;
   }
