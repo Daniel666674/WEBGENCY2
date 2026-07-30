@@ -8,6 +8,7 @@
   font-weight: 400;
   font-style: normal;
   font-display: swap;
+  unicode-range: U+0020-U+007E;
 }
 
 @custom-variant dark (&:is(.dark *));
@@ -57,8 +58,8 @@
 }
 
 :root {
-  --font-recoleta: 'Recoleta', Georgia, serif;
-  --font-sans: 'Recoleta', Georgia, serif;
+  --font-recoleta: 'Recoleta', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Recoleta', system-ui, -apple-system, sans-serif;
   --background: #faf7ef;
   --foreground: #1a1a2e;
   --card: #ffffff;
