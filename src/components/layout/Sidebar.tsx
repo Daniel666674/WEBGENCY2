@@ -25,6 +25,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Zap,
+  ScrollText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -94,6 +95,7 @@ const navSections: NavSection[] = [
     showChevron: true,
     items: [
       { href: "/settings", label: "Configuración", subtitle: "Ajustes", icon: Settings },
+      { href: "/audit",    label: "Auditoría",     subtitle: "Actividad", icon: ScrollText },
     ],
   },
 ];

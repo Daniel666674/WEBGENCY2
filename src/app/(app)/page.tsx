@@ -202,9 +202,11 @@ export default async function DashboardPage() {
     .limit(6)
     .all();
 
+  const bogota: Intl.DateTimeFormatOptions = { timeZone: "America/Bogota" };
   const dateStr = now
-    .toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" })
+    .toLocaleDateString("es-CO", { ...bogota, day: "numeric", month: "short", year: "numeric" })
     .replace(".", "");
+  const timeStr = now.toLocaleTimeString("es-CO", { ...bogota, hour: "2-digit", minute: "2-digit", hour12: true });
 
   return (
     <div className="space-y-6">
@@ -220,7 +222,7 @@ export default async function DashboardPage() {
         <NotificationBanner />
         <span className="ml-auto flex items-center gap-2 text-sm border rounded-lg px-3 py-1.5 text-muted-foreground">
           <CalendarIcon className="h-3.5 w-3.5" />
-          {dateStr} - {dateStr}
+          {dateStr} &middot; {timeStr} (BOG)
         </span>
       </div>
 

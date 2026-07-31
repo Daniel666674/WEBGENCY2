@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, persistNow } from "@/db";
 import { deals, contacts, pipelineStages } from "@/db/schema";
+import { logAudit } from "@/lib/audit";
 import { eq, desc } from "drizzle-orm";
 
 export async function GET() {
@@ -88,6 +89,7 @@ export async function POST(request: NextRequest) {
       .get();
 
     await persistNow();
+    await logAudit(request, "create", "deal", result.id, { title: result.title });
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown";

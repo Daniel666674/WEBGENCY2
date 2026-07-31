@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, persistNow } from "@/db";
 import { contacts, deals, activities } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { logAudit } from "@/lib/audit";
 import { parseContactJsonFields, applyContactJsonFields } from "@/lib/contactJsonFields";
 
 export async function GET(
@@ -94,6 +95,7 @@ export async function PUT(
     .get();
 
   await persistNow();
+  await logAudit(request, "update", "contact", id, { name: result.name });
   return NextResponse.json(parseContactJsonFields(result));
 }
 
@@ -118,5 +120,6 @@ export async function DELETE(
 
   await db.delete(contacts).where(eq(contacts.id, id)).run();
   await persistNow();
+  await logAudit(_request, "delete", "contact", id, { name: existing.name });
   return NextResponse.json({ success: true });
 }
