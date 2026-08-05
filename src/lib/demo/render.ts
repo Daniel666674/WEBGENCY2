@@ -51,6 +51,19 @@ export function renderDemo(cfg: DemoConfig): string {
   const hairline = mix(ink, paper, 0.86);
   const soft = mix(accent, paper, 0.9);
   const onAccent = isDark(accent) ? "#ffffff" : "#111111";
+
+  // Background texture is the single biggest lever for making templates
+  // read as visually distinct rather than the same layout recolored.
+  const dotColor = mix(accent, paper, 0.75);
+  const gridColor = mix(ink, paper, 0.92);
+  const noiseColor = mix(ink, paper, 0.965);
+  const bodyBackground: Record<typeof d.texture, string> = {
+    none: `background:${paper};`,
+    dots: `background-color:${paper};background-image:radial-gradient(${dotColor} 1.5px,transparent 1.5px);background-size:24px 24px;`,
+    grid: `background-color:${paper};background-image:linear-gradient(${gridColor} 1px,transparent 1px),linear-gradient(90deg,${gridColor} 1px,transparent 1px);background-size:56px 56px;`,
+    gradient: `background:radial-gradient(130% 100% at 15% -10%,${mix(accent, paper, 0.82)} 0%,${paper} 55%);`,
+    noise: `background-color:${paper};background-image:repeating-linear-gradient(135deg,${noiseColor} 0px,${noiseColor} 1px,transparent 1px,transparent 3px);`,
+  };
   const upper = f.headingCase === "upper";
 
   const btnRadius = b.buttonShape === "sharp" ? "0px" : b.buttonShape === "rounded" ? "10px" : "999px";
@@ -64,8 +77,12 @@ export function renderDemo(cfg: DemoConfig): string {
     const scale = PAD_SCALE[s.style?.pad ?? "normal"];
     return `calc(${d.sectionPadY} * ${scale})`;
   }
+  const dividerLine = d.divider === "none" ? "none" : d.divider === "thick" ? `2px solid ${ink}` : `1px solid ${hairline}`;
   function bgOf(s: Section): string {
-    return s.style?.bg || paper;
+    if (s.style?.bg) return s.style.bg;
+    // Let the body's background texture show through when the template has
+    // one and the user hasn't pinned this section to an explicit color.
+    return d.texture === "none" ? paper : "transparent";
   }
   function alignOf(s: Section): "left" | "center" {
     return s.style?.align ?? d.align;
@@ -106,7 +123,7 @@ export function renderDemo(cfg: DemoConfig): string {
       return `<div style="background:${dark ? mix(paper, "#ffffff", 0.06) : "#ffffff"};border-radius:${d.radius};padding:${pad};box-shadow:0 1px 3px rgba(0,0,0,.06),0 8px 24px -12px rgba(0,0,0,.12);">${inner}</div>`;
     if (d.surface === "bordered")
       return `<div style="border:2px solid ${ink};border-radius:${d.radius};padding:${pad};">${inner}</div>`;
-    return `<div style="padding:${pad} 0;border-top:1px solid ${hairline};">${inner}</div>`;
+    return `<div style="padding:${pad} 0;border-top:${dividerLine};">${inner}</div>`;
   };
 
   // sec() now resolves bg/width/padding from the section's own style overrides.
@@ -183,7 +200,7 @@ export function renderDemo(cfg: DemoConfig): string {
 
     if (s.variant === "rows") {
       return sec(s, head + items.map((it, i) => `
-        <div class="split" style="display:grid;grid-template-columns:${i % 2 ? ".95fr 1.05fr" : "1.05fr .95fr"};gap:clamp(28px,4vw,64px);align-items:center;padding:clamp(28px,4vw,52px) 0;${i ? `border-top:1px solid ${hairline};` : ""}">
+        <div class="split" style="display:grid;grid-template-columns:${i % 2 ? ".95fr 1.05fr" : "1.05fr .95fr"};gap:clamp(28px,4vw,64px);align-items:center;padding:clamp(28px,4vw,52px) 0;${i ? `border-top:${dividerLine};` : ""}">
           <div style="${i % 2 ? "order:2;" : ""}">
             <h3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:clamp(1.3rem,2.4vw,1.9rem);color:${ink};margin:0 0 12px;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}">${esc(it.title)}</h3>
             <p style="color:${muted};line-height:1.7;margin:0;font-size:1.02rem;">${esc(it.body)}</p>
@@ -194,7 +211,7 @@ export function renderDemo(cfg: DemoConfig): string {
 
     if (s.variant === "numbered") {
       return sec(s, head + `<div style="display:grid;gap:0;">` + items.map((it, i) => `
-        <div style="display:grid;grid-template-columns:auto 1fr;gap:clamp(20px,3vw,44px);padding:clamp(24px,3.5vw,40px) 0;${i ? `border-top:1px solid ${hairline};` : ""}">
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:clamp(20px,3vw,44px);padding:clamp(24px,3.5vw,40px) 0;${i ? `border-top:${dividerLine};` : ""}">
           <span style="font-family:${f.heading};font-size:clamp(1.8rem,3.4vw,2.8rem);font-weight:${f.headingWeight};color:${accent};line-height:1;min-width:2.2ch;">${String(i + 1).padStart(2, "0")}</span>
           <div>
             <h3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:clamp(1.2rem,2.2vw,1.6rem);color:${ink};margin:0 0 10px;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}">${esc(it.title)}</h3>
@@ -451,7 +468,7 @@ export function renderDemo(cfg: DemoConfig): string {
     }
 
     return sec(s, head + `<div style="max-width:760px;${align === "center" ? "margin:0 auto;" : ""}">` +
-      items.map((it, i) => `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:20px;padding:20px 0;${i ? `border-top:1px solid ${hairline};` : ""}">
+      items.map((it, i) => `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:20px;padding:20px 0;${i ? `border-top:${dividerLine};` : ""}">
         <div style="text-align:left;">
           <h3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.08rem;color:${ink};margin:0 0 5px;${upper ? "text-transform:uppercase;" : ""}">${esc(it.title)}</h3>
           ${it.body ? `<p style="color:${muted};margin:0;font-size:.94rem;line-height:1.6;">${esc(it.body)}</p>` : ""}
@@ -660,7 +677,7 @@ export function renderDemo(cfg: DemoConfig): string {
 <style>
 *{box-sizing:border-box;}
 html{scroll-behavior:smooth;}
-body{margin:0;background:${paper};color:${ink};font-family:${f.body};font-weight:${f.bodyWeight};-webkit-font-smoothing:antialiased;}
+body{margin:0;${bodyBackground[d.texture]}color:${ink};font-family:${f.body};font-weight:${f.bodyWeight};-webkit-font-smoothing:antialiased;background-attachment:fixed;}
 img,video{max-width:100%;}
 .btn:hover{transform:translateY(-1px);opacity:.92;}
 .nav-links a:hover{opacity:1!important;}
