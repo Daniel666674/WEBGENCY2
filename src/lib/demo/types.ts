@@ -128,6 +128,12 @@ export interface Section {
   media?: MediaRef;
   items?: SectionItem[];
   style?: SectionStyle;
+  /**
+   * Internal team note — never reaches render.ts and is never sent to the
+   * public /demo/[slug] route. Purely for handoff between whoever is
+   * building the demo and whoever reviews or takes over.
+   */
+  notes?: string;
 }
 
 export type ButtonShape = "pill" | "rounded" | "sharp";
@@ -156,6 +162,13 @@ export interface NavLink {
   id: string;
   label: string;
   url: string;
+  /**
+   * When set, this link targets another DemoPage by id instead of `url`.
+   * Resolved to a relative "./slug" href at render time so it works
+   * regardless of the demo's own slug. `url` is kept as a fallback for
+   * single-page demos and is ignored once `page` is set.
+   */
+  page?: string;
   children?: NavLink[]; // submenu / dropdown items
 }
 
@@ -193,11 +206,29 @@ export interface FooterConfig {
   copyrightExtra?: string;
 }
 
+export interface DemoPage {
+  id: string;
+  /** URL segment. "" is the home page, served at the demo's own root. */
+  slug: string;
+  title: string;
+  sections: Section[];
+}
+
 export interface DemoConfig {
   template: string;
   fontPair: string;
   brand: Brand;
+  /**
+   * The home page's sections. Kept as the single source of truth for
+   * single-page demos (the overwhelming majority) and mirrored to
+   * `pages[0].sections` whenever `pages` is present, so every older
+   * caller that only knows about a flat `sections` list — nav-link
+   * defaults, the design advisor's per-page view, demo creation — keeps
+   * working without modification.
+   */
   sections: Section[];
+  /** Present only for demos with more than one page. */
+  pages?: DemoPage[];
   customCss?: string;
   nav?: NavConfig;
   footer?: FooterConfig;
@@ -205,6 +236,10 @@ export interface DemoConfig {
 
 export function newId(): string {
   return Math.random().toString(36).slice(2, 10);
+}
+
+export function defaultPages(sections: Section[]): DemoPage[] {
+  return [{ id: newId(), slug: "", title: "Inicio", sections }];
 }
 
 export function defaultNav(): NavConfig {

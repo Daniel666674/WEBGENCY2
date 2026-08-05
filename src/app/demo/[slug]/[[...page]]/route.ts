@@ -14,8 +14,17 @@ function shell(title: string, heading: string, message: string, status: number) 
 
 // Public demo page — served as raw HTML so the client sees a real website,
 // not the CRM shell. Returned regardless of CRM auth; the slug is the secret.
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+//
+// [[...page]] is an optional catch-all: /demo/mydemo (no segments) is the
+// home page, /demo/mydemo/about is the "about" page for multi-page demos.
+// Single-page demos (the overwhelming majority) never populate `page` at
+// all, so this route replaces the old single-segment one without changing
+// behavior for them.
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ slug: string; page?: string[] }> }
+) {
+  const { slug, page } = await params;
   const row = await db.select().from(demoPages).where(eq(demoPages.slug, slug)).get();
 
   if (!row || !row.published) {
@@ -42,9 +51,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ slu
     return shell("No disponible", "500", "Este demo no se pudo cargar.", 500);
   }
 
+  // A page segment on a single-page demo (stale link, typo) has nothing to
+  // resolve to — 404 rather than silently re-serving the home page.
+  const pageSlug = page?.[0];
+  if (pageSlug && !result.config.pages?.some((p) => p.slug === pageSlug)) {
+    return shell("No disponible", "404", "Esta página no existe.", 404);
+  }
+
   let html: string;
   try {
-    html = renderDemo(result.config);
+    html = renderDemo(result.config, { page: pageSlug });
   } catch {
     return shell("No disponible", "500", "Este demo no se pudo cargar.", 500);
   }

@@ -97,3 +97,41 @@ Responde con este formato JSON exacto:
     reasoning: "No se pudo analizar la respuesta de la IA",
   };
 }
+
+export type RewriteTone = "shorter" | "punchier" | "formal" | "casual";
+
+const TONE_INSTRUCTIONS: Record<RewriteTone, string> = {
+  shorter: "Hazlo mas corto y directo, sin perder el sentido.",
+  punchier: "Hazlo mas contundente y persuasivo, tipo copy de venta.",
+  formal: "Hazlo mas formal y profesional.",
+  casual: "Hazlo mas cercano y conversacional.",
+};
+
+/**
+ * Rewrites a single piece of website copy. Returns the original text
+ * unchanged (never throws) when no API key is configured, so callers can
+ * always render the result without a separate "AI unavailable" branch.
+ */
+export async function rewriteCopy(text: string, tone: RewriteTone): Promise<string> {
+  const anthropic = getClient();
+  if (!anthropic || !text.trim()) return text;
+
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-4-6-20250514",
+    max_tokens: 400,
+    messages: [
+      {
+        role: "user",
+        content: `Reescribe este texto de un sitio web en espanol. ${TONE_INSTRUCTIONS[tone]}
+No agregues comillas, explicaciones ni texto adicional — responde SOLO con el texto reescrito.
+Mantén aproximadamente la misma longitud salvo que se pida "mas corto".
+
+Texto original:
+${text}`,
+      },
+    ],
+  });
+
+  const out = response.content[0].type === "text" ? response.content[0].text.trim() : "";
+  return out || text;
+}

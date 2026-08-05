@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MonitorSmartphone, Plus, ExternalLink, Trash2, FileEdit, Loader2 } from "lucide-react";
+import { MonitorSmartphone, Plus, ExternalLink, Trash2, FileEdit, Loader2, Copy } from "lucide-react";
 import { TEMPLATES } from "@/lib/demo/templates";
 
 interface DemoRow {
@@ -59,6 +59,21 @@ export default function DemosPage() {
   async function remove(id: string) {
     setDemos((d) => d.filter((x) => x.id !== id));
     await fetch(`/api/demo-pages/${id}`, { method: "DELETE" });
+  }
+
+  const [duplicating, setDuplicating] = useState<string | null>(null);
+
+  async function duplicate(id: string) {
+    setDuplicating(id);
+    try {
+      const res = await fetch(`/api/demo-pages/${id}/duplicate`, { method: "POST" });
+      if (res.ok) {
+        const created = await res.json();
+        router.push(`/demos/${created.id}`);
+      }
+    } finally {
+      setDuplicating(null);
+    }
   }
 
   const publishedCount = demos.filter((d) => d.published).length;
@@ -157,6 +172,14 @@ export default function DemosPage() {
                         <ExternalLink className="h-3.5 w-3.5" />
                       </a>
                     )}
+                    <button
+                      onClick={() => duplicate(d.id)}
+                      disabled={duplicating === d.id}
+                      className="flex items-center justify-center rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:border-primary hover:text-primary disabled:opacity-60"
+                      title="Duplicar"
+                    >
+                      {duplicating === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
+                    </button>
                     <button
                       onClick={() => remove(d.id)}
                       className="flex items-center justify-center rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:border-red-500 hover:text-red-500"
