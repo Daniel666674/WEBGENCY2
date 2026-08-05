@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, persistNow } from "@/db";
 import { proposals } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { logAudit } from "@/lib/audit";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -48,6 +49,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (!result) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
     await persistNow();
+    await logAudit(request, "update", "proposal", id, { planName: result.planName });
     return NextResponse.json({
       ...result,
       features: JSON.parse(result.features || "[]"),
@@ -63,9 +65,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const existing = await db.select().from(proposals).where(eq(proposals.id, id)).get();
   await db.delete(proposals).where(eq(proposals.id, id)).run();
   await persistNow();
+  await logAudit(req, "delete", "proposal", id, { planName: existing?.planName });
   return NextResponse.json({ success: true });
 }

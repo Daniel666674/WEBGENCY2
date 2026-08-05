@@ -346,6 +346,26 @@ export const arsenalItems = sqliteTable("arsenal_items", {
     .$defaultFn(() => new Date()),
 });
 
+export const demoPages = sqliteTable("demo_pages", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  contactId: text("contact_id").references(() => contacts.id, { onDelete: "cascade" }),
+  title: text("title").notNull().default("Demo"),
+  slug: text("slug").notNull().unique(),
+  template: text("template").notNull().default("editorial"),
+  // Full builder state (brand, fonts, ordered sections with content + media).
+  // JSON-serialized, same convention as proposals.features.
+  config: text("config").notNull().default("{}"),
+  published: integer("published", { mode: "boolean" }).notNull().default(false),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 export const analyticsProperties = sqliteTable("analytics_properties", {
   id: text("id")
     .primaryKey()

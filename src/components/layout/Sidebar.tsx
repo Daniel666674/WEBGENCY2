@@ -25,6 +25,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Zap,
+  ScrollText,
+  MonitorSmartphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -79,6 +81,7 @@ const navSections: NavSection[] = [
     showChevron: true,
     items: [
       { href: "/proposals",  label: "Propuestas",  subtitle: "Cotizaciones", icon: FileText },
+      { href: "/demos",      label: "Demos",       subtitle: "Sitios de muestra", icon: MonitorSmartphone },
       { href: "/calculator", label: "Calculadora", subtitle: "Herramientas", icon: Calculator },
     ],
   },
@@ -94,6 +97,7 @@ const navSections: NavSection[] = [
     showChevron: true,
     items: [
       { href: "/settings", label: "Configuración", subtitle: "Ajustes", icon: Settings },
+      { href: "/audit",    label: "Auditoría",     subtitle: "Actividad", icon: ScrollText },
     ],
   },
 ];

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, persistNow } from "@/db";
 import { proposals, contacts } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { logAudit } from "@/lib/audit";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -77,6 +78,7 @@ export async function POST(request: NextRequest) {
       .get();
 
     await persistNow();
+    await logAudit(request, "create", "proposal", result.id, { planName: result.planName, contactId: result.contactId });
     return NextResponse.json({
       ...result,
       features: JSON.parse(result.features || "[]"),

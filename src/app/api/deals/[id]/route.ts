@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, persistNow } from "@/db";
 import { deals } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { logAudit } from "@/lib/audit";
 
 export async function GET(
   _request: NextRequest,
@@ -65,6 +66,7 @@ export async function PUT(
     .get();
 
   await persistNow();
+  await logAudit(request, "update", "deal", id, { title: result.title });
   return NextResponse.json(result);
 }
 
@@ -85,5 +87,6 @@ export async function DELETE(
 
   await db.delete(deals).where(eq(deals.id, id)).run();
   await persistNow();
+  await logAudit(_request, "delete", "deal", id, { title: existing.title });
   return NextResponse.json({ success: true });
 }

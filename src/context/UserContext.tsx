@@ -51,6 +51,25 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    // If Google Auth is enabled, identity comes from the server session.
+    const meRes = await fetch("/api/me").then((r) => r.json()).catch(() => ({ authEnabled: false }));
+    if (meRes.authEnabled && meRes.user) {
+      const u = meRes.user as AppUser & { email?: string; role?: string };
+      const appUser: AppUser = {
+        id: u.id,
+        name: u.name,
+        color: u.color ?? "#6b7280",
+        isHers: u.isHers ?? false,
+        avatar: u.avatar ?? null,
+        image: u.image ?? null,
+      };
+      setUsers([appUser]);
+      setActiveUser(appUser);
+      // Set cookie for audit logging in API routes
+      document.cookie = `oliwan-active-name=${encodeURIComponent(appUser.name)}; path=/; SameSite=Lax`;
+      return [appUser];
+    }
+
     const data: AppUser[] = await fetch("/api/users").then((r) => r.json());
     setUsers(data);
     setActiveUser((current) => {
