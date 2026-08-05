@@ -209,6 +209,8 @@ const brandSchema = z.object({
   instagram: text(120).optional(),
   buttonShape: z.enum(["pill", "rounded", "sharp"]).optional(),
   buttonFill: z.enum(["solid", "outline"]).optional(),
+  density: z.enum(["compact", "normal", "spacious"]).optional(),
+  imageStyle: z.enum(["normal", "grayscale", "duotone", "soft"]).optional(),
 });
 
 export const demoConfigSchema = z.object({

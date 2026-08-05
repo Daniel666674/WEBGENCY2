@@ -9,7 +9,7 @@ import {
   GripVertical, Eye, EyeOff, Monitor, Smartphone, Tablet, ArrowLeft,
   ExternalLink, Loader2, Globe, Check, Palette, Type, Layers, Plus,
   Undo2, Redo2, Code2, Menu, ChevronRight, Copy, Trash2, PanelsTopLeft,
-  AlertTriangle,
+  AlertTriangle, Lightbulb,
 } from "lucide-react";
 import type { DemoConfig, Section, SectionType, ButtonShape, ButtonFill, ElementKey } from "@/lib/demo/types";
 import { SECTION_LABELS, SECTION_CATEGORIES, newId, defaultNav, defaultFooter, defaultNavLinks } from "@/lib/demo/types";
@@ -20,11 +20,13 @@ import { SectionEditor } from "./SectionEditor";
 import { MediaPicker } from "./MediaPicker";
 import { NavEditor, FooterEditor } from "./NavFooterEditor";
 import { ElementInspector } from "./ElementInspector";
+import { DesignAdvisor } from "./DesignAdvisor";
+import { analyzeDemo } from "@/lib/demo/advisor";
 
 const inputCls =
   "w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm outline-none focus:border-primary transition-colors";
 
-type GlobalTab = "design" | "brand" | "navfooter" | "advanced";
+type GlobalTab = "design" | "brand" | "navfooter" | "advisor" | "advanced";
 type Device = "desktop" | "tablet" | "mobile";
 
 const BUTTON_SHAPES: { id: ButtonShape; label: string }[] = [
@@ -35,6 +37,18 @@ const BUTTON_SHAPES: { id: ButtonShape; label: string }[] = [
 const BUTTON_FILLS: { id: ButtonFill; label: string }[] = [
   { id: "solid", label: "Relleno" },
   { id: "outline", label: "Contorno" },
+];
+
+const DENSITIES = [
+  { id: "compact" as const, label: "Compacto" },
+  { id: "normal" as const, label: "Normal" },
+  { id: "spacious" as const, label: "Amplio" },
+];
+const IMAGE_STYLES = [
+  { id: "normal" as const, label: "Normal" },
+  { id: "grayscale" as const, label: "B/N" },
+  { id: "duotone" as const, label: "Duotono" },
+  { id: "soft" as const, label: "Sombra" },
 ];
 
 const MAX_HISTORY = 60;
@@ -316,6 +330,11 @@ export function DemoBuilder({
   // Gate on the resolved section so a deleted-while-selected section falls
   // back to the tabs instead of rendering an empty panel.
   const inspecting = !!(selected && activeSection && selected.id === activeSection.id);
+  const adviceCount = useMemo(() => {
+    const a = analyzeDemo(cfg);
+    return a.filter((x) => x.level !== "tip").length;
+  }, [cfg]);
+
   const frameW = device === "desktop" ? "100%" : device === "tablet" ? "820px" : "390px";
   const canUndo = historyIndex.current > 0;
   const canRedo = historyIndex.current < history.current.length - 1;
@@ -557,20 +576,26 @@ export function DemoBuilder({
             </>
           ) : (
             <>
-              <div className="grid grid-cols-4 gap-1 border-b border-border p-2">
+              <div className="grid grid-cols-5 gap-1 border-b border-border p-2">
                 {([
                   ["design", "Diseño", Palette],
                   ["navfooter", "Menú", Menu],
                   ["brand", "Marca", Type],
+                  ["advisor", "Consejos", Lightbulb],
                   ["advanced", "CSS", Code2],
                 ] as const).map(([id, label, Icon]) => (
                   <button
                     key={id} type="button" onClick={() => setGlobalTab(id)}
-                    className={`flex flex-col items-center gap-1 rounded-md px-1 py-1.5 text-[10px] font-medium transition-colors ${
+                    className={`relative flex flex-col items-center gap-1 rounded-md px-1 py-1.5 text-[10px] font-medium transition-colors ${
                       globalTab === id ? "bg-muted text-primary" : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
                     <Icon className="h-3.5 w-3.5" /> {label}
+                    {id === "advisor" && adviceCount > 0 && (
+                      <span className="absolute right-0.5 top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white">
+                        {adviceCount}
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -618,6 +643,38 @@ export function DemoBuilder({
                               {cfg.fontPair === f.id && <Check className="h-3.5 w-3.5 text-primary" />}
                             </div>
                             <p className="text-[10px] text-muted-foreground">{f.mood}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="mb-2 text-xs font-medium text-muted-foreground">Espaciado general</p>
+                      <div className="grid grid-cols-3 gap-1">
+                        {DENSITIES.map((o) => (
+                          <button
+                            key={o.id} type="button" onClick={() => updateBrand({ density: o.id })}
+                            className={`rounded-md border px-1 py-1.5 text-[10px] font-medium transition-colors ${
+                              (cfg.brand.density ?? "normal") === o.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                            }`}
+                          >
+                            {o.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="mb-2 text-xs font-medium text-muted-foreground">Tratamiento de imágenes</p>
+                      <div className="grid grid-cols-4 gap-1">
+                        {IMAGE_STYLES.map((o) => (
+                          <button
+                            key={o.id} type="button" onClick={() => updateBrand({ imageStyle: o.id })}
+                            className={`rounded-md border px-1 py-1.5 text-[10px] font-medium transition-colors ${
+                              (cfg.brand.imageStyle ?? "normal") === o.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                            }`}
+                          >
+                            {o.label}
                           </button>
                         ))}
                       </div>
@@ -713,6 +770,10 @@ export function DemoBuilder({
                       </div>
                     ))}
                   </div>
+                )}
+
+                {globalTab === "advisor" && (
+                  <DesignAdvisor cfg={cfg} onGoToSection={selectSection} />
                 )}
 
                 {globalTab === "advanced" && (
