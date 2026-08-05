@@ -1,6 +1,7 @@
-import type { DemoConfig, Section, MediaRef, SectionWidth, SectionPad } from "./types";
+import type { DemoConfig, Section, MediaRef, SectionWidth, SectionPad, NavConfig, FooterConfig, NavLink, NavSize, FooterSize } from "./types";
 import { getTemplate } from "./templates";
 import { getFontPair } from "./fonts";
+import { defaultNav, defaultFooter, defaultNavLinks } from "./types";
 
 function esc(s: string | undefined): string {
   return (s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -521,26 +522,131 @@ export function renderDemo(cfg: DemoConfig): string {
     hero, features, gallery, video, about, testimonials, menu, faq, stats, team, logos, banner, divider, columns, cta, contact,
   };
 
+  // data-demo-section-id lets the builder's canvas click-to-select feature
+  // (postMessage from the iframe) map a click anywhere on the page back to
+  // the exact section/nav/footer editor panel in the sidebar.
   const body = (cfg.sections ?? [])
     .filter((s) => s.enabled)
-    .map((s) => renderers[s.type]?.(s) ?? "")
+    .map((s) => {
+      const html = renderers[s.type]?.(s) ?? "";
+      return html ? `<div data-demo-section-id="${s.id}">${html}</div>` : "";
+    })
     .join("\n");
 
-  const navLinks = (cfg.sections ?? [])
-    .filter((s) => s.enabled && !["hero", "cta", "banner", "divider", "columns"].includes(s.type))
-    .map((s) => {
-      const map: Record<string, [string, string]> = {
-        features: ["servicios", "Servicios"], gallery: ["galeria", "Galería"],
-        video: ["video", "Video"], about: ["nosotros", "Nosotros"],
-        testimonials: ["testimonios", "Testimonios"], menu: ["menu", "Menú"],
-        faq: ["preguntas", "Preguntas"], stats: ["cifras", "Cifras"],
-        team: ["equipo", "Equipo"], logos: ["clientes", "Clientes"],
-        contact: ["contacto", "Contacto"],
-      };
-      const m = map[s.type];
-      return m ? `<a href="#${m[0]}" style="color:${ink};text-decoration:none;font-size:.92rem;opacity:.75;">${m[1]}</a>` : "";
-    })
-    .join("");
+  const nav: NavConfig = cfg.nav ?? { ...defaultNav(), links: defaultNavLinks(cfg.sections ?? []) };
+  const footer: FooterConfig = cfg.footer ?? { ...defaultFooter(), columns: [{ id: "default", title: "Enlaces", links: defaultNavLinks(cfg.sections ?? []) }] };
+
+  const NAV_SIZE_PAD: Record<NavSize, string> = { compact: "8px 24px", normal: "14px 24px", large: "22px 24px" };
+  const NAV_LOGO_H: Record<NavSize, string> = { compact: "32px", normal: "40px", large: "52px" };
+
+  function navLinkHtml(l: NavLink, mobile: boolean): string {
+    const hasChildren = !!l.children?.length;
+    if (mobile) {
+      const child = hasChildren
+        ? `<div style="display:flex;flex-direction:column;gap:10px;padding:8px 0 4px 16px;">${l.children!.map((c) => `<a href="${esc(c.url)}" style="color:${ink};opacity:.72;text-decoration:none;font-size:.94rem;">${esc(c.label)}</a>`).join("")}</div>`
+        : "";
+      return `<div><a href="${esc(l.url)}" style="color:${ink};text-decoration:none;font-size:1.05rem;font-weight:600;">${esc(l.label)}</a>${child}</div>`;
+    }
+    if (!hasChildren) {
+      return `<a href="${esc(l.url)}" style="color:${ink};text-decoration:none;font-size:.92rem;opacity:.75;">${esc(l.label)}</a>`;
+    }
+    return `<div class="nav-item" style="position:relative;">
+      <a href="${esc(l.url)}" style="color:${ink};text-decoration:none;font-size:.92rem;opacity:.75;display:flex;align-items:center;gap:4px;">${esc(l.label)}<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></a>
+      <div class="nav-submenu" style="display:none;position:absolute;top:100%;left:0;margin-top:8px;background:${paper};border:1px solid ${hairline};border-radius:10px;padding:8px;min-width:180px;box-shadow:0 8px 24px -8px rgba(0,0,0,.2);">
+        ${l.children!.map((c) => `<a href="${esc(c.url)}" style="display:block;padding:8px 10px;border-radius:6px;color:${ink};text-decoration:none;font-size:.88rem;">${esc(c.label)}</a>`).join("")}
+      </div>
+    </div>`;
+  }
+
+  function renderNav(): string {
+    if (!nav.links.length && !nav.ctaText) return "";
+    const logo = nav.showLogo
+      ? (b.logo?.url
+          ? `<img src="${esc(b.logo.url)}" alt="${esc(b.name)}" style="height:${NAV_LOGO_H[nav.size]};width:auto;object-fit:contain;"/>`
+          : `<span style="font-family:${f.heading};font-weight:${f.headingWeight};color:${ink};font-size:1.05rem;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}">${esc(b.name)}</span>`)
+      : "";
+    const navCta = nav.ctaText ? btn(nav.ctaText, nav.ctaUrl) : "";
+    const desktopLinks = nav.links.map((l) => navLinkHtml(l, false)).join("");
+    const mobileLinks = nav.links.map((l) => navLinkHtml(l, true)).join("");
+
+    return `<nav data-demo-section-id="__nav__" style="${nav.sticky ? "position:sticky;top:0;" : ""}z-index:50;background:${paper}e8;backdrop-filter:blur(12px);border-bottom:1px solid ${hairline};max-width:100%;">
+      <input type="checkbox" id="oliwan-burger" class="burger-toggle" style="display:none;"/>
+      <div style="padding:${NAV_SIZE_PAD[nav.size]};display:flex;align-items:center;${nav.layout === "center" ? "flex-direction:column;gap:14px;" : "justify-content:space-between;gap:24px;"}">
+        <a href="#inicio" style="text-decoration:none;display:flex;align-items:center;">${logo || `<span></span>`}</a>
+        <div class="nav-links" style="display:flex;gap:22px;align-items:center;">
+          ${desktopLinks}
+          ${navCta}
+        </div>
+        <label for="oliwan-burger" class="burger-btn" style="display:none;cursor:pointer;width:26px;height:20px;flex-direction:column;justify-content:space-between;">
+          <span style="display:block;height:2px;background:${ink};border-radius:2px;"></span>
+          <span style="display:block;height:2px;background:${ink};border-radius:2px;"></span>
+          <span style="display:block;height:2px;background:${ink};border-radius:2px;"></span>
+        </label>
+      </div>
+      <div class="nav-mobile-panel">
+        <div style="display:flex;flex-direction:column;gap:18px;padding:8px 28px 32px;">
+          ${mobileLinks}
+          ${navCta}
+        </div>
+      </div>
+    </nav>`;
+  }
+
+  const FOOTER_PAD: Record<FooterSize, string> = { compact: "32px 24px", normal: "52px 24px", spacious: "80px 24px" };
+
+  function renderFooter(): string {
+    const footerBg = dark ? mix(paper, "#000", 0.4) : mix(ink, paper, 0.05);
+    const footerInk = dark ? ink : paper;
+    const footerMuted = dark ? mix(ink, footerBg, 0.5) : mix(paper, footerBg, 0.35);
+
+    const socialRows: { label: string; url: string }[] = [];
+    if (b.instagram) socialRows.push({ label: "Instagram", url: `https://instagram.com/${b.instagram.replace("@", "")}` });
+    if (b.whatsapp) socialRows.push({ label: "WhatsApp", url: `https://wa.me/${b.whatsapp.replace(/\D/g, "")}` });
+
+    const logoBlock = footer.showLogo
+      ? (b.logo?.url
+          ? `<img src="${esc(b.logo.url)}" alt="${esc(b.name)}" style="height:36px;width:auto;object-fit:contain;margin-bottom:12px;"/>`
+          : `<p style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.15rem;color:${footerInk};margin:0 0 10px;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}">${esc(b.name)}</p>`)
+      : "";
+
+    const contactLines = footer.showContact
+      ? [b.phone, b.email, b.address].filter(Boolean).map((v) => `<p style="margin:0 0 6px;font-size:.86rem;color:${footerMuted};">${esc(v)}</p>`).join("")
+      : "";
+
+    const socialLine = footer.showSocial && socialRows.length
+      ? `<div style="display:flex;gap:16px;margin-top:12px;">${socialRows.map((s) => `<a href="${esc(s.url)}" style="color:${footerMuted};text-decoration:none;font-size:.84rem;">${esc(s.label)}</a>`).join("")}</div>`
+      : "";
+
+    const copyright = `<p style="margin:0;opacity:.6;font-size:.82rem;color:${footerInk};">© ${new Date().getFullYear()} ${esc(b.name)} · Todos los derechos reservados${footer.copyrightExtra ? ` · ${esc(footer.copyrightExtra)}` : ""}</p>`;
+
+    if (footer.variant === "simple") {
+      return `<footer data-demo-section-id="__footer__" style="background:${footerBg};color:${footerInk};padding:${FOOTER_PAD[footer.size]};text-align:center;">
+        ${logoBlock}
+        ${footer.tagline ? `<p style="margin:0 0 14px;font-size:.92rem;color:${footerMuted};max-width:420px;margin-left:auto;margin-right:auto;">${esc(footer.tagline)}</p>` : ""}
+        ${contactLines}
+        <div style="display:flex;justify-content:center;">${socialLine}</div>
+        <div style="margin-top:18px;">${copyright}</div>
+      </footer>`;
+    }
+
+    return `<footer data-demo-section-id="__footer__" style="background:${footerBg};color:${footerInk};padding:${FOOTER_PAD[footer.size]};">
+      ${wrap(`<div style="display:grid;grid-template-columns:1.4fr repeat(${Math.max(footer.columns.length, 1)},1fr);gap:clamp(24px,4vw,56px);margin-bottom:36px;">
+        <div>
+          ${logoBlock}
+          ${footer.tagline ? `<p style="margin:0 0 14px;font-size:.9rem;color:${footerMuted};max-width:280px;">${esc(footer.tagline)}</p>` : ""}
+          ${contactLines}
+          ${socialLine}
+        </div>
+        ${footer.columns.map((col) => `<div>
+          <p style="font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:${footerMuted};font-weight:600;margin:0 0 14px;">${esc(col.title)}</p>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            ${col.links.map((l) => `<a href="${esc(l.url)}" style="color:${footerInk};opacity:.75;text-decoration:none;font-size:.88rem;">${esc(l.label)}</a>`).join("")}
+          </div>
+        </div>`).join("")}
+      </div>
+      <div style="border-top:1px solid ${dark ? "rgba(255,255,255,.1)" : "rgba(255,255,255,.15)"};padding-top:20px;">${copyright}</div>`, widthOf({ style: { width: "wide" } } as Section))}
+    </footer>`;
+  }
 
   return `<!DOCTYPE html>
 <html lang="es">
@@ -557,31 +663,38 @@ html{scroll-behavior:smooth;}
 body{margin:0;background:${paper};color:${ink};font-family:${f.body};font-weight:${f.bodyWeight};-webkit-font-smoothing:antialiased;}
 img,video{max-width:100%;}
 .btn:hover{transform:translateY(-1px);opacity:.92;}
-nav a:hover{opacity:1!important;}
+.nav-links a:hover{opacity:1!important;}
+.nav-item:hover .nav-submenu{display:block!important;}
+.nav-submenu a:hover{background:${hairline};}
+.nav-mobile-panel{display:none;}
 details summary::-webkit-details-marker{display:none;}
+[data-demo-section-id]{cursor:pointer;}
 @media(max-width:860px){
   .split{grid-template-columns:1fr!important;}
   .split > div[style*="order:2"]{order:0!important;}
   .split > div[style*="order:1"]{order:1!important;}
   .masonry{columns:2!important;}
+  .nav-links{display:none!important;}
+  .burger-btn{display:flex!important;}
+  #oliwan-burger:checked ~ .nav-mobile-panel{display:block!important;}
 }
 @media(max-width:560px){
   .masonry{columns:1!important;}
-  nav{display:none!important;}
 }
 ${cfg.customCss || ""}
 </style>
 </head>
 <body>
-${navLinks ? `<nav style="position:sticky;top:0;z-index:50;background:${paper}e8;backdrop-filter:blur(12px);border-bottom:1px solid ${hairline};padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:24px;max-width:100%;">
-  <a href="#inicio" style="font-family:${f.heading};font-weight:${f.headingWeight};color:${ink};text-decoration:none;font-size:1.05rem;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}">${esc(b.name)}</a>
-  <div style="display:flex;gap:24px;align-items:center;">${navLinks}</div>
-</nav>` : ""}
+${renderNav()}
 ${body}
-<footer style="background:${dark ? mix(paper, "#000", 0.4) : mix(ink, paper, 0.05)};color:${dark ? ink : paper};padding:44px 24px;text-align:center;">
-  <p style="margin:0 0 6px;font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.1rem;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}">${esc(b.name)}</p>
-  <p style="margin:0;opacity:.6;font-size:.86rem;">© ${new Date().getFullYear()} · Todos los derechos reservados</p>
-</footer>
+${renderFooter()}
+<script>
+document.addEventListener('click', function(e){
+  var el = e.target && e.target.closest ? e.target.closest('[data-demo-section-id]') : null;
+  if (!el) return;
+  try { parent.postMessage({ source: 'oliwan-demo', type: 'select', id: el.getAttribute('data-demo-section-id') }, '*'); } catch (err) {}
+});
+</script>
 </body>
 </html>`;
 }
