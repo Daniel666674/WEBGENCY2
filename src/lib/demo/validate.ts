@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { SectionType, DemoConfig } from "./types";
+import type { SectionType, DemoConfig, ElementKey } from "./types";
 
 // ─────────────────────────────────────────────────────────────
 // Safety primitives
@@ -110,11 +110,43 @@ const sectionStyleSchema = z.object({
   overlay: z.number().min(0).max(100).optional(),
 });
 
+const ELEMENT_KEYS = [
+  "eyebrow", "heading", "subheading", "body", "cta", "media",
+  "items.title", "items.body", "items.price",
+] as const;
+
+type _MissingElementKey = Exclude<ElementKey, (typeof ELEMENT_KEYS)[number]>;
+const _elementKeysComplete: _MissingElementKey extends never ? true : never = true;
+void _elementKeysComplete;
+
+// Numeric ranges are clamped rather than rejected: a slider that overshoots
+// should snap to a sane value, not fail the whole save.
+const px = (min: number, max: number) => z.number().min(min).max(max).catch(min);
+
+const elementStyleSchema = z.object({
+  fontFamily: z.enum(["heading", "body"]).optional(),
+  fontSize: px(8, 400).optional(),
+  fontWeight: z.string().max(10).optional(),
+  lineHeight: z.number().min(0.5).max(4).catch(1.2).optional(),
+  letterSpacing: z.number().min(-0.5).max(2).catch(0).optional(),
+  color: colorField.optional(),
+  align: z.enum(["left", "center", "right"]).optional(),
+  textTransform: z.enum(["none", "uppercase"]).optional(),
+  marginTop: px(-200, 400).optional(),
+  marginBottom: px(-200, 400).optional(),
+  bg: colorField.optional(),
+  radius: px(0, 200).optional(),
+  hideDesktop: z.boolean().optional(),
+  hideTablet: z.boolean().optional(),
+  hideMobile: z.boolean().optional(),
+});
+
 const sectionSchema = z.object({
   id: z.string().min(1).max(64),
   type: z.enum(SECTION_TYPES),
   variant: z.string().max(40),
   enabled: z.boolean(),
+  elements: z.partialRecord(z.enum(ELEMENT_KEYS), elementStyleSchema).optional(),
   eyebrow: text(200).optional(),
   heading: text(500).optional(),
   subheading: text(2_000).optional(),

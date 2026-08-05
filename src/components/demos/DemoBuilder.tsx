@@ -9,7 +9,7 @@ import {
   Save, ExternalLink, Loader2, Globe, Check, Palette, Type, Layers, Plus,
   Undo2, Redo2, Code2, Menu,
 } from "lucide-react";
-import type { DemoConfig, Section, SectionType, ButtonShape, ButtonFill } from "@/lib/demo/types";
+import type { DemoConfig, Section, SectionType, ButtonShape, ButtonFill, ElementKey } from "@/lib/demo/types";
 import { SECTION_LABELS, SECTION_CATEGORIES, newId, defaultNav, defaultFooter, defaultNavLinks } from "@/lib/demo/types";
 import { TEMPLATES, getTemplate } from "@/lib/demo/templates";
 import { FONT_PAIRS } from "@/lib/demo/fonts";
@@ -17,6 +17,7 @@ import { renderDemo } from "@/lib/demo/render";
 import { SectionEditor } from "./SectionEditor";
 import { MediaPicker } from "./MediaPicker";
 import { NavEditor, FooterEditor } from "./NavFooterEditor";
+import { ElementInspector } from "./ElementInspector";
 
 const inputCls =
   "w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm outline-none focus:border-primary transition-colors";
@@ -92,6 +93,10 @@ export function DemoBuilder({
   const [published, setPublished] = useState(initialPublished);
   const [tab, setTab] = useState<Tab>("design");
   const [openSection, setOpenSection] = useState<string | null>(null);
+  // Which element the canvas currently has selected, if any. When set,
+  // the panel shows that element's inspector instead of the tab content.
+  const [selected, setSelected] = useState<{ id: string; key: ElementKey } | null>(null);
+  const frameRef = useRef<HTMLIFrameElement | null>(null);
   const [addPickerOpen, setAddPickerOpen] = useState(false);
   const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [saving, setSaving] = useState(false);
@@ -114,7 +119,7 @@ export function DemoBuilder({
   const suppressHistory = useRef(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
-  const html = useMemo(() => renderDemo(cfg), [cfg]);
+  const html = useMemo(() => renderDemo(cfg, { mode: "edit" }), [cfg]);
 
   const setCfg = useCallback((next: DemoConfig) => {
     setCfgRaw(next);
@@ -170,8 +175,20 @@ export function DemoBuilder({
   // jump straight to its editor instead of making them hunt for it.
   useEffect(() => {
     function onMessage(e: MessageEvent) {
-      const data = e.data as { source?: string; type?: string; id?: string } | undefined;
-      if (!data || data.source !== "oliwan-demo" || data.type !== "select" || !data.id) return;
+      const data = e.data as { source?: string; type?: string; id?: string; key?: string } | undefined;
+      if (!data || data.source !== "oliwan-demo") return;
+
+      if (data.type === "select-element" && data.id && data.key) {
+        setSelected({ id: data.id, key: data.key as ElementKey });
+        return;
+      }
+      if (data.type === "deselect") {
+        setSelected(null);
+        return;
+      }
+      if (data.type !== "select" || !data.id) return;
+
+      setSelected(null);
       if (data.id === "__nav__" || data.id === "__footer__") {
         setTab("navfooter");
       } else {
@@ -306,6 +323,19 @@ export function DemoBuilder({
     update({ sections: next });
   }
 
+  const selectedSection = selected ? cfg.sections.find((s) => s.id === selected.id) ?? null : null;
+  // Gate the panel on the *resolved* section, not just the selection: if the
+  // section was deleted while selected, fall back to the tabs rather than
+  // rendering an empty panel.
+  const inspecting = !!(selected && selectedSection);
+
+  // Clearing from the sidebar has to tell the canvas too, or its outline
+  // would linger on an element the inspector is no longer showing.
+  const clearSelection = useCallback(() => {
+    setSelected(null);
+    frameRef.current?.contentWindow?.postMessage({ source: "oliwan-editor", type: "deselect" }, "*");
+  }, []);
+
   const frameW = device === "desktop" ? "100%" : device === "tablet" ? "820px" : "390px";
   const canUndo = historyIndex.current > 0;
   const canRedo = historyIndex.current < history.current.length - 1;
@@ -401,8 +431,8 @@ export function DemoBuilder({
           </div>
         )}
 
-        {/* Tabs */}
-        <div className="grid grid-cols-5 gap-1 rounded-lg bg-muted p-1">
+        {/* Tabs — replaced by the element inspector while something is selected */}
+        <div className={`grid grid-cols-5 gap-1 rounded-lg bg-muted p-1${inspecting ? " hidden" : ""}`}>
           {([
             ["design", "Diseño", Palette],
             ["content", "Contenido", Layers],
@@ -423,7 +453,16 @@ export function DemoBuilder({
 
         {/* Panel */}
         <div className="flex-1 overflow-y-auto pr-1">
-          {tab === "design" && (
+          {selectedSection && selected && (
+            <ElementInspector
+              section={selectedSection}
+              elementKey={selected.key}
+              onChange={updateSection}
+              onClearSelection={clearSelection}
+            />
+          )}
+
+          {!inspecting && tab === "design" && (
             <div className="flex flex-col gap-4">
               <div>
                 <p className="mb-2 text-xs font-medium text-muted-foreground">Plantilla</p>
@@ -501,7 +540,7 @@ export function DemoBuilder({
             </div>
           )}
 
-          {tab === "content" && (
+          {!inspecting && tab === "content" && (
             <div className="flex flex-col gap-2.5">
               <p className="text-xs text-muted-foreground">
                 Arrastra para reordenar. El ojo oculta o muestra la sección.
@@ -571,7 +610,7 @@ export function DemoBuilder({
             </div>
           )}
 
-          {tab === "navfooter" && cfg.nav && cfg.footer && (
+          {!inspecting && tab === "navfooter" && cfg.nav && cfg.footer && (
             <div className="flex flex-col gap-6">
               <div>
                 <p className="mb-3 text-sm font-semibold">Menú de navegación</p>
@@ -584,7 +623,7 @@ export function DemoBuilder({
             </div>
           )}
 
-          {tab === "brand" && (
+          {!inspecting && tab === "brand" && (
             <div className="flex flex-col gap-3.5">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Nombre del negocio</label>
@@ -633,7 +672,7 @@ export function DemoBuilder({
             </div>
           )}
 
-          {tab === "advanced" && (
+          {!inspecting && tab === "advanced" && (
             <div className="flex flex-col gap-3.5">
               <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
                 <p className="text-xs text-amber-700 dark:text-amber-400">
@@ -676,6 +715,7 @@ export function DemoBuilder({
         </div>
         <div className="flex flex-1 justify-center overflow-auto p-3">
           <iframe
+            ref={frameRef}
             srcDoc={html}
             title="Vista previa"
             className="h-full rounded-lg border border-border bg-white shadow-sm transition-all"
