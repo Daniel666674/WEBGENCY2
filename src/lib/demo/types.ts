@@ -146,6 +146,10 @@ export interface Brand {
   instagram?: string;
   buttonShape?: ButtonShape;
   buttonFill?: ButtonFill;
+  /** Global vertical rhythm multiplier applied on top of the template's. */
+  density?: "compact" | "normal" | "spacious";
+  /** Treatment applied to every in-section image (logos are excluded). */
+  imageStyle?: "normal" | "grayscale" | "duotone" | "soft";
 }
 
 export interface NavLink {

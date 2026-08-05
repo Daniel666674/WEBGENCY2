@@ -27,6 +27,18 @@ function mix(hex: string, target: string, pct: number): string {
   return `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
 }
 
+/** Approximate hue of a hex color, used to tint the duotone image filter. */
+function hueFor(hex: string): number {
+  const [r, g, b] = hexToRgb(hex).map((v) => v / 255);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), delta = max - min;
+  if (delta === 0) return 0;
+  let h: number;
+  if (max === r) h = ((g - b) / delta) % 6;
+  else if (max === g) h = (b - r) / delta + 2;
+  else h = (r - g) / delta + 4;
+  return Math.round(h * 60);
+}
+
 function isDark(hex: string): boolean {
   const [r, g, b] = hexToRgb(hex);
   return (r * 299 + g * 587 + b * 114) / 1000 < 140;
@@ -86,8 +98,9 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
   function widthOf(s: Section): string {
     return s.style?.width ? WIDTH_PX[s.style.width] : d.maxWidth;
   }
+  const densityScale = b.density === "compact" ? 0.7 : b.density === "spacious" ? 1.35 : 1;
   function padOf(s: Section): string {
-    const scale = PAD_SCALE[s.style?.pad ?? "normal"];
+    const scale = PAD_SCALE[s.style?.pad ?? "normal"] * densityScale;
     return `calc(${d.sectionPadY} * ${scale})`;
   }
   const dividerLine = d.divider === "none" ? "none" : d.divider === "thick" ? `2px solid ${ink}` : `1px solid ${hairline}`;
@@ -164,9 +177,19 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     return `<p${elClass("eyebrow", "eyebrow")}${elHandle("eyebrow")} style="font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:${accent};font-weight:600;margin:0 0 14px;${elStyle("eyebrow")}">${esc(text)}</p>`;
   };
 
+  // Heading decoration. "bar" sits above the heading as its own element;
+  // the others attach to the heading box itself.
+  const headingBar = d.headingAccent === "bar"
+    ? `<span style="display:block;width:44px;height:4px;background:${accent};margin:0 0 16px;${d.align === "center" ? "margin-left:auto;margin-right:auto;" : ""}"></span>`
+    : "";
+  const headingDecor =
+    d.headingAccent === "underline" ? `display:inline-block;border-bottom:3px solid ${accent};padding-bottom:10px;`
+    : d.headingAccent === "highlight" ? `display:inline;background:${accent};color:${onAccent};padding:2px 12px;box-decoration-break:clone;-webkit-box-decoration-break:clone;`
+    : "";
+
   const h2 = (text?: string) =>
     text
-      ? `<h2${elClass("heading")}${elHandle("heading")} style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:${d.h2};line-height:1.08;letter-spacing:${f.headingTracking};color:${ink};margin:0 0 18px;${upper ? "text-transform:uppercase;" : ""}${elStyle("heading")}">${esc(text)}</h2>`
+      ? `${headingBar}<h2${elClass("heading")}${elHandle("heading")} style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:${d.h2};line-height:1.08;letter-spacing:${f.headingTracking};color:${ink};margin:0 0 18px;${upper ? "text-transform:uppercase;" : ""}${headingDecor}${elStyle("heading")}">${esc(text)}</h2>`
       : "";
 
   const lede = (text?: string, align: "left" | "center" = d.align) =>
@@ -183,9 +206,14 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     return `<a href="${escUrl(url || "#contacto")}"${elClass("cta", "btn")}${elHandle("cta")} style="${style}${elStyle("cta")}">${esc(text)}</a>`;
   };
 
+  const cardShadow =
+    d.shadow === "hard" ? `box-shadow:5px 5px 0 ${ink};`
+    : d.shadow === "soft" ? "box-shadow:0 1px 3px rgba(0,0,0,.06),0 8px 24px -12px rgba(0,0,0,.12);"
+    : "";
+
   const surfaceCard = (inner: string, pad = "32px") => {
     if (d.surface === "card")
-      return `<div style="background:${dark ? mix(paper, "#ffffff", 0.06) : "#ffffff"};border-radius:${d.radius};padding:${pad};box-shadow:0 1px 3px rgba(0,0,0,.06),0 8px 24px -12px rgba(0,0,0,.12);">${inner}</div>`;
+      return `<div style="background:${dark ? mix(paper, "#ffffff", 0.06) : "#ffffff"};border-radius:${d.radius};padding:${pad};${cardShadow}">${inner}</div>`;
     if (d.surface === "bordered")
       return `<div style="border:2px solid ${ink};border-radius:${d.radius};padding:${pad};">${inner}</div>`;
     return `<div style="padding:${pad} 0;border-top:${dividerLine};">${inner}</div>`;
@@ -763,6 +791,9 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
 html{scroll-behavior:smooth;}
 body{margin:0;${bodyBackground[d.texture]}color:${ink};font-family:${f.body};font-weight:${f.bodyWeight};-webkit-font-smoothing:antialiased;background-attachment:fixed;}
 img,video{max-width:100%;}
+${b.imageStyle === "grayscale" ? "section img,section video{filter:grayscale(1);transition:filter .35s ease;}section img:hover,section video:hover{filter:grayscale(0);}" : ""}
+${b.imageStyle === "duotone" ? `section img,section video{filter:grayscale(1) contrast(1.05) sepia(.45) hue-rotate(${hueFor(accent)}deg) saturate(2.2);}` : ""}
+${b.imageStyle === "soft" ? "section img,section video{box-shadow:0 24px 48px -24px rgba(0,0,0,.4);}" : ""}
 .btn:hover{transform:translateY(-1px);opacity:.92;}
 .nav-links a:hover{opacity:1!important;}
 .nav-item:hover .nav-submenu{display:block!important;}
