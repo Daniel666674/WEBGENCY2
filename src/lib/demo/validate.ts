@@ -68,6 +68,49 @@ export function safeCss(v: unknown): string {
     .slice(0, 20_000);
 }
 
+/**
+ * Inline editing lets the user produce HTML (bold, italic, links) that ends
+ * up on a public page, so it needs a real allowlist — not a blocklist.
+ *
+ * The strategy is escape-then-restore: everything is escaped first, then a
+ * fixed set of known-good patterns is selectively un-escaped. A tag can only
+ * survive by exactly matching one of those patterns, so anything the browser
+ * or a paste invents (style=, onclick=, <script>, <img>) is inert by
+ * construction rather than by us having thought to forbid it.
+ *
+ * Idempotent: applied on write and again at render time.
+ */
+const RICH_TAGS = ["strong", "b", "em", "i", "u"] as const;
+
+export function sanitizeRich(v: unknown): string {
+  if (typeof v !== "string") return "";
+
+  // Ampersands that already begin an entity are left alone — this runs on
+  // write and again at render, and a naive escape would turn "&" into
+  // "&amp;amp;" on the second pass and render it literally.
+  let s = v
+    .replace(/&(?!(?:[a-zA-Z][a-zA-Z0-9]{1,9}|#\d{1,7}|#[xX][0-9a-fA-F]{1,6});)/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
+  for (const t of RICH_TAGS) {
+    s = s.replace(new RegExp(`&lt;${t}&gt;`, "gi"), `<${t}>`);
+    s = s.replace(new RegExp(`&lt;/${t}&gt;`, "gi"), `</${t}>`);
+  }
+  s = s.replace(/&lt;br\s*\/?&gt;/gi, "<br/>");
+
+  // Anchors keep only href, and only if the URL passes the scheme allowlist.
+  // The capture excludes & so no entity can smuggle a quote into the attribute.
+  s = s.replace(/&lt;a href=&quot;([^&]*)&quot;&gt;/gi, (_m, url: string) => {
+    const safe = safeUrl(url);
+    return safe ? `<a href="${safe.replace(/"/g, "&quot;")}" target="_blank" rel="noopener noreferrer">` : "";
+  });
+  s = s.replace(/&lt;\/a&gt;/gi, "</a>");
+
+  return s.slice(0, 20_000);
+}
+
 // ─────────────────────────────────────────────────────────────
 // Schema
 // ─────────────────────────────────────────────────────────────
@@ -94,8 +137,8 @@ const mediaRefSchema = z.object({
 });
 
 const sectionItemSchema = z.object({
-  title: text(500).optional(),
-  body: text(5_000).optional(),
+  title: text(500).transform(sanitizeRich).optional(),
+  body: text(5_000).transform(sanitizeRich).optional(),
   media: mediaRefSchema.optional(),
   price: text(100).optional(),
   author: text(200).optional(),
@@ -148,9 +191,9 @@ const sectionSchema = z.object({
   enabled: z.boolean(),
   elements: z.partialRecord(z.enum(ELEMENT_KEYS), elementStyleSchema).optional(),
   eyebrow: text(200).optional(),
-  heading: text(500).optional(),
-  subheading: text(2_000).optional(),
-  body: text(20_000).optional(),
+  heading: text(500).transform(sanitizeRich).optional(),
+  subheading: text(2_000).transform(sanitizeRich).optional(),
+  body: text(20_000).transform(sanitizeRich).optional(),
   ctaText: text(200).optional(),
   ctaUrl: urlField.optional(),
   media: mediaRefSchema.optional(),

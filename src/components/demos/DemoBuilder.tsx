@@ -21,6 +21,7 @@ import { MediaPicker } from "./MediaPicker";
 import { NavEditor, FooterEditor } from "./NavFooterEditor";
 import { ElementInspector } from "./ElementInspector";
 import { DesignAdvisor } from "./DesignAdvisor";
+import { DemoSetup } from "./DemoSetup";
 import { analyzeDemo } from "@/lib/demo/advisor";
 
 const inputCls =
@@ -50,6 +51,9 @@ const IMAGE_STYLES = [
   { id: "duotone" as const, label: "Duotono" },
   { id: "soft" as const, label: "Sombra" },
 ];
+
+/** Section fields that can be edited directly in the canvas. */
+const EDITABLE_FIELDS = ["heading", "subheading", "body", "eyebrow", "ctaText"];
 
 const MAX_HISTORY = 60;
 
@@ -93,10 +97,10 @@ function StructureRow({
 }
 
 export function DemoBuilder({
-  demoId, initialConfig, initialTitle, initialPublished, initialVersion, slug,
+  demoId, initialConfig, initialTitle, initialPublished, initialVersion, slug, isNew = false,
 }: {
   demoId: string; initialConfig: DemoConfig; initialTitle: string;
-  initialPublished: boolean; initialVersion: number; slug: string;
+  initialPublished: boolean; initialVersion: number; slug: string; isNew?: boolean;
 }) {
   const [cfg, setCfgRaw] = useState<DemoConfig>(() => ({
     ...initialConfig,
@@ -113,6 +117,7 @@ export function DemoBuilder({
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [globalTab, setGlobalTab] = useState<GlobalTab>("design");
   const [addPickerOpen, setAddPickerOpen] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(isNew);
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -130,10 +135,22 @@ export function DemoBuilder({
   const suppressHistory = useRef(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
-  const html = useMemo(() => renderDemo(cfg, { mode: "edit" }), [cfg]);
 
-  const setCfg = useCallback((next: DemoConfig) => {
+  // The canvas renders from its own copy of the config. Typing inside the
+  // canvas updates `cfg` (so it saves and lands in history) but deliberately
+  // does NOT advance `renderCfg` — regenerating srcDoc would reload the
+  // iframe and drop the caret on every keystroke. The DOM already shows the
+  // new text, so there is nothing to re-render.
+  const [renderCfg, setRenderCfg] = useState<DemoConfig>(cfg);
+  const html = useMemo(() => renderDemo(renderCfg, { mode: "edit" }), [renderCfg]);
+
+  // Lets the canvas message handler read current state without re-subscribing.
+  const cfgRef = useRef(cfg);
+  useEffect(() => { cfgRef.current = cfg; }, [cfg]);
+
+  const setCfg = useCallback((next: DemoConfig, rerender = true) => {
     setCfgRaw(next);
+    if (rerender) setRenderCfg(next);
     if (suppressHistory.current) return;
     const h = history.current.slice(0, historyIndex.current + 1);
     h.push(next);
@@ -150,12 +167,35 @@ export function DemoBuilder({
     setCfg({ ...cfg, ...patch });
   }, [cfg, setCfg]);
 
+  /** Writes text typed in the canvas back into the config, without re-rendering. */
+  const applyCanvasText = useCallback((sectionId: string, field: string, value: string) => {
+    const current = cfgRef.current;
+    const itemMatch = /^items\.(\d+)\.(title|body|price)$/.exec(field);
+    if (!itemMatch && !EDITABLE_FIELDS.includes(field)) return;
+
+    const sections = current.sections.map((sec) => {
+      if (sec.id !== sectionId) return sec;
+      if (itemMatch) {
+        const idx = Number(itemMatch[1]);
+        const items = (sec.items ?? []).map((it, i) => (i === idx ? { ...it, [itemMatch[2]]: value } : it));
+        return { ...sec, items };
+      }
+      return { ...sec, [field]: value };
+    });
+
+    dirty.current = true;
+    setSaved(false);
+    setUnpublishedChanges(true);
+    setCfg({ ...current, sections }, false);
+  }, [setCfg]);
+
   const undo = useCallback(() => {
     if (historyIndex.current <= 0) return;
     historyIndex.current -= 1;
     suppressHistory.current = true;
     dirty.current = true;
     setCfgRaw(history.current[historyIndex.current]);
+    setRenderCfg(history.current[historyIndex.current]);
     suppressHistory.current = false;
     setHistoryTick((v) => v + 1);
   }, []);
@@ -166,6 +206,7 @@ export function DemoBuilder({
     suppressHistory.current = true;
     dirty.current = true;
     setCfgRaw(history.current[historyIndex.current]);
+    setRenderCfg(history.current[historyIndex.current]);
     suppressHistory.current = false;
     setHistoryTick((v) => v + 1);
   }, []);
@@ -184,8 +225,16 @@ export function DemoBuilder({
   // Canvas -> sidebar selection.
   useEffect(() => {
     function onMessage(e: MessageEvent) {
-      const data = e.data as { source?: string; type?: string; id?: string; key?: string } | undefined;
+      const data = e.data as {
+        source?: string; type?: string; id?: string; key?: string;
+        field?: string; value?: string;
+      } | undefined;
       if (!data || data.source !== "oliwan-demo") return;
+
+      if (data.type === "text-change" && data.id && data.field !== undefined) {
+        applyCanvasText(data.id, data.field, data.value ?? "");
+        return;
+      }
 
       if (data.type === "select-element" && data.id && data.key) {
         setSelected({ id: data.id, key: data.key as ElementKey });
@@ -208,7 +257,7 @@ export function DemoBuilder({
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, []);
+  }, [applyCanvasText]);
 
   const toCanvas = useCallback((msg: Record<string, unknown>) => {
     frameRef.current?.contentWindow?.postMessage({ source: "oliwan-editor", ...msg }, "*");
@@ -335,6 +384,38 @@ export function DemoBuilder({
     return a.filter((x) => x.level !== "tip").length;
   }, [cfg]);
 
+  const finishSetup = useCallback(async ({ name, template, contactId }: { name: string; template: string; contactId: string }) => {
+    const t = getTemplate(template);
+    const fresh = t.defaults();
+    fresh.brand.name = name;
+    const nextCfg: DemoConfig = { ...fresh, nav: fresh.nav, footer: fresh.footer };
+
+    const res = await fetch(`/api/demo-pages/${demoId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: name, config: nextCfg, template, contactId: contactId || null,
+        version: version.current,
+      }),
+    });
+    if (res.ok) {
+      const row = await res.json();
+      version.current = row.version ?? version.current + 1;
+    }
+
+    setTitle(name);
+    setCfgRaw(nextCfg);
+    setRenderCfg(nextCfg);
+    history.current = [nextCfg];
+    historyIndex.current = 0;
+    setHistoryTick((v) => v + 1);
+    dirty.current = false;
+    setSetupOpen(false);
+    // Fresh demos start on Consejos: the templates ship with placeholder copy
+    // and the advisor is the checklist for replacing it.
+    setGlobalTab("advisor");
+  }, [demoId]);
+
   const frameW = device === "desktop" ? "100%" : device === "tablet" ? "820px" : "390px";
   const canUndo = historyIndex.current > 0;
   const canRedo = historyIndex.current < history.current.length - 1;
@@ -342,6 +423,7 @@ export function DemoBuilder({
 
   return (
     <div className="fixed inset-0 flex flex-col bg-background text-foreground">
+      {setupOpen && <DemoSetup initialTemplate={cfg.template} onDone={finishSetup} />}
       {/* ── Top bar ───────────────────────────────────────── */}
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card px-3">
         <Link

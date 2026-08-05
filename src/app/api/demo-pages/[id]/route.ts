@@ -57,6 +57,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   if (body.title !== undefined) updateData.title = String(body.title).slice(0, 200);
+  if (body.contactId !== undefined) updateData.contactId = body.contactId || null;
   if (body.template !== undefined) updateData.template = String(body.template).slice(0, 40);
 
   // Publishing snapshots whatever the draft holds right now into the copy
