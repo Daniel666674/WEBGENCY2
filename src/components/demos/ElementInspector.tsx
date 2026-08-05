@@ -1,8 +1,14 @@
 "use client";
 
-import { Monitor, Tablet, Smartphone, RotateCcw, ChevronRight } from "lucide-react";
-import type { Section, ElementKey, ElementStyle } from "@/lib/demo/types";
+import { useState } from "react";
+import { Monitor, Tablet, Smartphone, RotateCcw, ChevronRight, Clipboard, ClipboardCheck, ClipboardPaste } from "lucide-react";
+import type { Section, ElementKey, ElementStyle, ElementKind } from "@/lib/demo/types";
 import { ELEMENT_KIND, ELEMENT_LABELS, SECTION_LABELS } from "@/lib/demo/types";
+
+// Module-scoped on purpose: "copy this button's style, click another button,
+// paste" is a same-session gesture, not something that should survive a
+// reload or leak across demos via localStorage.
+let styleClipboard: { kind: ElementKind; style: ElementStyle } | null = null;
 
 const numCls =
   "w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none focus:border-primary";
@@ -143,6 +149,24 @@ export function ElementInspector({
   const hasOverrides = Object.keys(style).length > 0;
   const isText = kind === "text" || kind === "button";
 
+  const [justCopied, setJustCopied] = useState(false);
+  // Re-read on every render (selection changes) rather than syncing local
+  // state from the module variable, so switching elements always reflects
+  // whatever was most recently copied.
+  const canPaste = styleClipboard?.kind === kind;
+
+  function copyStyle() {
+    styleClipboard = { kind, style };
+    setJustCopied(true);
+    setTimeout(() => setJustCopied(false), 1200);
+  }
+
+  function pasteStyle() {
+    if (!styleClipboard || styleClipboard.kind !== kind) return;
+    const elements = { ...(section.elements ?? {}), [elementKey]: { ...styleClipboard.style } };
+    onChange({ ...section, elements });
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {/* Breadcrumb — mirrors the reference's "Hero > Título" */}
@@ -158,16 +182,38 @@ export function ElementInspector({
           <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
           <span className="truncate font-semibold">{ELEMENT_LABELS[elementKey]}</span>
         </div>
-        {hasOverrides && (
+        <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
-            onClick={resetAll}
-            title="Quitar todos los cambios de este elemento"
-            className="flex shrink-0 items-center gap-1 rounded-md border border-border px-1.5 py-1 text-[10px] font-medium text-muted-foreground hover:border-primary hover:text-primary"
+            onClick={copyStyle}
+            disabled={!hasOverrides}
+            title={hasOverrides ? "Copiar este estilo" : "Este elemento no tiene estilo propio que copiar"}
+            className="flex items-center gap-1 rounded-md border border-border px-1.5 py-1 text-[10px] font-medium text-muted-foreground hover:border-primary hover:text-primary disabled:opacity-40"
           >
-            <RotateCcw className="h-3 w-3" /> Restablecer
+            {justCopied ? <ClipboardCheck className="h-3 w-3 text-green-600 dark:text-green-400" /> : <Clipboard className="h-3 w-3" />}
+            {justCopied ? "Copiado" : "Copiar"}
           </button>
-        )}
+          {canPaste && (
+            <button
+              type="button"
+              onClick={pasteStyle}
+              title="Pegar el estilo copiado"
+              className="flex items-center gap-1 rounded-md border border-border px-1.5 py-1 text-[10px] font-medium text-muted-foreground hover:border-primary hover:text-primary"
+            >
+              <ClipboardPaste className="h-3 w-3" /> Pegar
+            </button>
+          )}
+          {hasOverrides && (
+            <button
+              type="button"
+              onClick={resetAll}
+              title="Quitar todos los cambios de este elemento"
+              className="flex items-center gap-1 rounded-md border border-border px-1.5 py-1 text-[10px] font-medium text-muted-foreground hover:border-primary hover:text-primary"
+            >
+              <RotateCcw className="h-3 w-3" /> Restablecer
+            </button>
+          )}
+        </div>
       </div>
 
       {isText && (

@@ -376,6 +376,18 @@ export const demoPages = sqliteTable("demo_pages", {
     .$defaultFn(() => new Date()),
 });
 
+export const demoAssets = sqliteTable("demo_assets", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  url: text("url").notNull(),
+  alt: text("alt"),
+  kind: text("kind").notNull().default("image"), // "image" | "video"
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 export const analyticsProperties = sqliteTable("analytics_properties", {
   id: text("id")
     .primaryKey()

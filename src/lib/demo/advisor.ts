@@ -80,8 +80,12 @@ function isEmpty(s: Section): boolean {
 export function analyzeDemo(cfg: DemoConfig): Advice[] {
   const out: Advice[] = [];
   const b = cfg.brand;
-  const enabled = cfg.sections.filter((s) => s.enabled);
-  const hero = cfg.sections.find((s) => s.type === "hero" && s.enabled);
+  // Multi-page demos: audit every page's content, not just home — a client
+  // reviewing an "about" page full of placeholder text deserves the same
+  // warning as one on the home page.
+  const allSections = cfg.pages?.length ? cfg.pages.flatMap((p) => p.sections) : cfg.sections;
+  const enabled = allSections.filter((s) => s.enabled);
+  const hero = allSections.find((s) => s.type === "hero" && s.enabled);
 
   // ── Blockers ────────────────────────────────────────────
   if (!b.name?.trim()) {
@@ -223,8 +227,7 @@ export function analyzeDemo(cfg: DemoConfig): Advice[] {
     });
   }
 
-  const imagesWithoutAlt = cfg.sections
-    .filter((s) => s.enabled)
+  const imagesWithoutAlt = enabled
     .flatMap((s) => [s.media, ...(s.items ?? []).map((i) => i.media)])
     .filter((m) => m?.url && !m.alt?.trim()).length;
   if (imagesWithoutAlt > 0) {

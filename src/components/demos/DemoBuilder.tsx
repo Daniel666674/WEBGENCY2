@@ -8,11 +8,11 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   GripVertical, Eye, EyeOff, Monitor, Smartphone, Tablet, ArrowLeft,
   ExternalLink, Loader2, Globe, Check, Palette, Type, Layers, Plus,
-  Undo2, Redo2, Code2, Menu, ChevronRight, Copy, Trash2, PanelsTopLeft,
+  Undo2, Redo2, Code2, Menu, ChevronRight, Copy, Trash2, PanelsTopLeft, Files,
   AlertTriangle, Lightbulb,
 } from "lucide-react";
-import type { DemoConfig, Section, SectionType, ButtonShape, ButtonFill, ElementKey } from "@/lib/demo/types";
-import { SECTION_LABELS, SECTION_CATEGORIES, newId, defaultNav, defaultFooter, defaultNavLinks } from "@/lib/demo/types";
+import type { DemoConfig, DemoPage, Section, SectionType, ButtonShape, ButtonFill, ElementKey } from "@/lib/demo/types";
+import { SECTION_LABELS, SECTION_CATEGORIES, newId, defaultNav, defaultFooter, defaultNavLinks, defaultPages } from "@/lib/demo/types";
 import { TEMPLATES, getTemplate } from "@/lib/demo/templates";
 import { FONT_PAIRS } from "@/lib/demo/fonts";
 import { renderDemo } from "@/lib/demo/render";
@@ -106,10 +106,16 @@ export function DemoBuilder({
     ...initialConfig,
     nav: initialConfig.nav ?? { ...defaultNav(), links: defaultNavLinks(initialConfig.sections) },
     footer: initialConfig.footer ?? { ...defaultFooter(), columns: [{ id: newId(), title: "Enlaces", links: defaultNavLinks(initialConfig.sections) }] },
+    // Normalized the same way nav/footer are: every demo has `pages` in the
+    // builder from here on, even a single-page one — it's just a one-page
+    // array. `sections` stays mirrored to pages[0] so nothing that only
+    // knows about the flat list (the advisor, demo creation) has to change.
+    pages: initialConfig.pages?.length ? initialConfig.pages : defaultPages(initialConfig.sections),
   }));
   const [title, setTitle] = useState(initialTitle);
   const [published, setPublished] = useState(initialPublished);
   const [device, setDevice] = useState<Device>("desktop");
+  const [activePageId, setActivePageId] = useState(() => (cfg.pages?.[0]?.id ?? ""));
 
   // The right panel shows one of three things, most specific first:
   // an element inspector, a section editor, or the global settings tabs.
@@ -136,13 +142,53 @@ export function DemoBuilder({
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
+  const pages: DemoPage[] = cfg.pages?.length ? cfg.pages : defaultPages(cfg.sections);
+  const activePage = pages.find((p) => p.id === activePageId) ?? pages[0];
+  const activeSections = activePage.sections;
+  const isMultiPage = pages.length > 1;
+
   // The canvas renders from its own copy of the config. Typing inside the
   // canvas updates `cfg` (so it saves and lands in history) but deliberately
   // does NOT advance `renderCfg` — regenerating srcDoc would reload the
   // iframe and drop the caret on every keystroke. The DOM already shows the
   // new text, so there is nothing to re-render.
   const [renderCfg, setRenderCfg] = useState<DemoConfig>(cfg);
-  const html = useMemo(() => renderDemo(renderCfg, { mode: "edit" }), [renderCfg]);
+  // Hovering a template swatch shows what it would look like without
+  // touching saved state — separate from renderCfg so mouseleave restores
+  // exactly, with no risk of a stray write reaching the server.
+  const [previewOverride, setPreviewOverride] = useState<DemoConfig | null>(null);
+  const html = useMemo(
+    () => renderDemo(previewOverride ?? renderCfg, { mode: "edit", page: activePage.slug }),
+    [renderCfg, previewOverride, activePage.slug]
+  );
+
+  function templatePreviewConfig(id: string): DemoConfig {
+    const t = getTemplate(id);
+    const fresh = t.defaults();
+    return {
+      ...cfg,
+      template: id,
+      fontPair: t.defaultFontPair,
+      brand: {
+        ...cfg.brand,
+        accent: fresh.brand.accent, ink: fresh.brand.ink, paper: fresh.brand.paper,
+        buttonShape: fresh.brand.buttonShape, buttonFill: fresh.brand.buttonFill,
+      },
+      sections: cfg.sections.map((s) => {
+        const match = fresh.sections.find((f) => f.type === s.type);
+        return match ? { ...s, variant: match.variant } : s;
+      }),
+      // Swap the variant on every page, not just home, so previewing a
+      // template swatch looks right regardless of which page is open.
+      pages: (cfg.pages?.length ? cfg.pages : defaultPages(cfg.sections)).map((p) => ({
+        ...p,
+        sections: p.sections.map((s) => {
+          const match = fresh.sections.find((f) => f.type === s.type);
+          return match ? { ...s, variant: match.variant } : s;
+        }),
+      })),
+    };
+  }
 
   // Lets the canvas message handler read current state without re-subscribing.
   const cfgRef = useRef(cfg);
@@ -167,13 +213,48 @@ export function DemoBuilder({
     setCfg({ ...cfg, ...patch });
   }, [cfg, setCfg]);
 
+  /** Every section CRUD op reads/writes the active page's sections through
+   *  this, instead of cfg.sections directly. Keeps `sections` mirrored to
+   *  pages[0] so other code that only knows the flat list stays correct. */
+  const updateSections = useCallback((next: Section[]) => {
+    const nextPages = pages.map((p) => (p.id === activePage.id ? { ...p, sections: next } : p));
+    update({ pages: nextPages, sections: activePage.id === pages[0].id ? next : cfg.sections });
+  }, [pages, activePage, cfg.sections, update]);
+
+  function addPage() {
+    const usedSlugs = new Set(pages.map((p) => p.slug));
+    let n = pages.length;
+    let slug = `pagina-${n}`;
+    while (usedSlugs.has(slug)) { n += 1; slug = `pagina-${n}`; }
+    // Seed with a real, template-consistent starter section rather than
+    // copying something from home — a page can start from nothing.
+    const starter = getTemplate(cfg.template).defaults().sections.find((s) => s.type === "about");
+    const seedSection: Section = starter
+      ? { ...starter, id: newId(), enabled: true, heading: "Nueva página" }
+      : { id: newId(), type: "columns", variant: "single", enabled: true, heading: "Nueva página" };
+    const page: DemoPage = { id: newId(), slug, title: "Nueva página", sections: [seedSection] };
+    update({ pages: [...pages, page] });
+    setActivePageId(page.id);
+  }
+
+  function renamePage(id: string, patch: Partial<Pick<DemoPage, "title" | "slug">>) {
+    update({ pages: pages.map((p) => (p.id === id ? { ...p, ...patch } : p)) });
+  }
+
+  function removePage(id: string) {
+    if (pages.length <= 1) return; // always at least the home page
+    const next = pages.filter((p) => p.id !== id);
+    update({ pages: next });
+    if (activePageId === id) setActivePageId(next[0].id);
+  }
+
   /** Writes text typed in the canvas back into the config, without re-rendering. */
   const applyCanvasText = useCallback((sectionId: string, field: string, value: string) => {
     const current = cfgRef.current;
     const itemMatch = /^items\.(\d+)\.(title|body|price)$/.exec(field);
     if (!itemMatch && !EDITABLE_FIELDS.includes(field)) return;
 
-    const sections = current.sections.map((sec) => {
+    const patchSection = (sec: Section): Section => {
       if (sec.id !== sectionId) return sec;
       if (itemMatch) {
         const idx = Number(itemMatch[1]);
@@ -181,12 +262,19 @@ export function DemoBuilder({
         return { ...sec, items };
       }
       return { ...sec, [field]: value };
-    });
+    };
+
+    // The edited section lives in whichever page the canvas is currently
+    // showing (the only page that could have posted this message), so only
+    // that page needs patching — but resolve it from `pages` rather than
+    // assuming home, since most demos are single-page but not all are.
+    const currentPages = current.pages?.length ? current.pages : defaultPages(current.sections);
+    const nextPages = currentPages.map((p) => ({ ...p, sections: p.sections.map(patchSection) }));
 
     dirty.current = true;
     setSaved(false);
     setUnpublishedChanges(true);
-    setCfg({ ...current, sections }, false);
+    setCfg({ ...current, pages: nextPages, sections: nextPages[0].sections }, false);
   }, [setCfg]);
 
   const undo = useCallback(() => {
@@ -222,17 +310,53 @@ export function DemoBuilder({
     return () => window.removeEventListener("keydown", onKey);
   }, [undo, redo]);
 
-  // Canvas -> sidebar selection.
+  const [rewriteError, setRewriteError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!rewriteError) return;
+    const t = setTimeout(() => setRewriteError(null), 6000);
+    return () => clearTimeout(t);
+  }, [rewriteError]);
+
+  // Canvas -> sidebar selection, plus the AI rewrite round-trip. The rewrite
+  // request is handled here (not in the iframe) so the network call goes
+  // through the same fetch path as everything else in the builder.
   useEffect(() => {
     function onMessage(e: MessageEvent) {
       const data = e.data as {
         source?: string; type?: string; id?: string; key?: string;
-        field?: string; value?: string;
+        field?: string; value?: string; rich?: boolean; text?: string; tone?: string;
       } | undefined;
       if (!data || data.source !== "oliwan-demo") return;
 
       if (data.type === "text-change" && data.id && data.field !== undefined) {
         applyCanvasText(data.id, data.field, data.value ?? "");
+        return;
+      }
+
+      if (data.type === "rewrite-request" && data.id && data.field !== undefined) {
+        const { id, field, rich, text, tone } = data;
+        fetch("/api/demo-pages/rewrite", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, tone, rich }),
+        })
+          .then((r) => r.json())
+          .then((res) => {
+            if (res.error) {
+              setRewriteError(res.error);
+              // No `text` — the canvas branch just re-enables the field.
+              frameRef.current?.contentWindow?.postMessage({ source: "oliwan-editor", type: "rewrite-result", id, field }, "*");
+              return;
+            }
+            applyCanvasText(id, field, res.text);
+            frameRef.current?.contentWindow?.postMessage(
+              { source: "oliwan-editor", type: "rewrite-result", id, field, text: res.text }, "*"
+            );
+          })
+          .catch(() => {
+            setRewriteError("No se pudo reescribir el texto.");
+            frameRef.current?.contentWindow?.postMessage({ source: "oliwan-editor", type: "rewrite-result", id, field }, "*");
+          });
         return;
       }
 
@@ -264,7 +388,7 @@ export function DemoBuilder({
   }, []);
 
   const updateBrand = (patch: Partial<DemoConfig["brand"]>) => update({ brand: { ...cfg.brand, ...patch } });
-  const updateSection = (s: Section) => update({ sections: cfg.sections.map((x) => (x.id === s.id ? s : x)) });
+  const updateSection = (s: Section) => updateSections(activeSections.map((x) => (x.id === s.id ? s : x)));
   const updateNav = (n: NonNullable<DemoConfig["nav"]>) => update({ nav: n });
   const updateFooter = (f: NonNullable<DemoConfig["footer"]>) => update({ footer: f });
 
@@ -314,28 +438,16 @@ export function DemoBuilder({
   function onSectionDragEnd(e: DragEndEvent) {
     const { active, over } = e;
     if (!over || active.id === over.id) return;
-    const from = cfg.sections.findIndex((s) => s.id === active.id);
-    const to = cfg.sections.findIndex((s) => s.id === over.id);
+    const from = activeSections.findIndex((s) => s.id === active.id);
+    const to = activeSections.findIndex((s) => s.id === over.id);
     if (from < 0 || to < 0) return;
-    update({ sections: arrayMove(cfg.sections, from, to) });
+    updateSections(arrayMove(activeSections, from, to));
   }
 
   function applyTemplate(id: string) {
-    const t = getTemplate(id);
-    const fresh = t.defaults();
-    update({
-      template: id,
-      fontPair: t.defaultFontPair,
-      brand: {
-        ...cfg.brand,
-        accent: fresh.brand.accent, ink: fresh.brand.ink, paper: fresh.brand.paper,
-        buttonShape: fresh.brand.buttonShape, buttonFill: fresh.brand.buttonFill,
-      },
-      sections: cfg.sections.map((s) => {
-        const match = fresh.sections.find((f) => f.type === s.type);
-        return match ? { ...s, variant: match.variant } : s;
-      }),
-    });
+    setPreviewOverride(null);
+    const { template, fontPair, brand, sections, pages: newPages } = templatePreviewConfig(id);
+    update({ template, fontPair, brand, sections, pages: newPages });
   }
 
   function addSection(type: SectionType) {
@@ -343,7 +455,7 @@ export function DemoBuilder({
     const built: Section = proto
       ? { ...proto, id: newId(), enabled: true }
       : { id: newId(), type, variant: "list", enabled: true, heading: "" };
-    update({ sections: [...cfg.sections, built] });
+    updateSections([...activeSections, built]);
     setAddPickerOpen(false);
     setSelected(null);
     setActiveSectionId(built.id);
@@ -351,15 +463,15 @@ export function DemoBuilder({
 
   function duplicateSection(s: Section) {
     const clone: Section = { ...s, id: newId() };
-    const idx = cfg.sections.findIndex((x) => x.id === s.id);
-    const next = [...cfg.sections];
+    const idx = activeSections.findIndex((x) => x.id === s.id);
+    const next = [...activeSections];
     next.splice(idx + 1, 0, clone);
-    update({ sections: next });
+    updateSections(next);
     setActiveSectionId(clone.id);
   }
 
   function removeSection(id: string) {
-    update({ sections: cfg.sections.filter((x) => x.id !== id) });
+    updateSections(activeSections.filter((x) => x.id !== id));
     if (activeSectionId === id) setActiveSectionId(null);
     if (selected?.id === id) setSelected(null);
   }
@@ -370,12 +482,18 @@ export function DemoBuilder({
     toCanvas({ type: "select", id });
   }
 
+  function switchPage(id: string) {
+    setActivePageId(id);
+    setActiveSectionId(null);
+    setSelected(null);
+  }
+
   const clearSelection = useCallback(() => {
     setSelected(null);
     toCanvas({ type: "deselect" });
   }, [toCanvas]);
 
-  const activeSection = activeSectionId ? cfg.sections.find((s) => s.id === activeSectionId) ?? null : null;
+  const activeSection = activeSectionId ? activeSections.find((s) => s.id === activeSectionId) ?? null : null;
   // Gate on the resolved section so a deleted-while-selected section falls
   // back to the tabs instead of rendering an empty panel.
   const inspecting = !!(selected && activeSection && selected.id === activeSection.id);
@@ -527,6 +645,14 @@ export function DemoBuilder({
         </div>
       )}
 
+      {rewriteError && (
+        <div className="fixed right-4 top-16 z-[200] flex items-center gap-2 rounded-lg border border-red-500/40 bg-card px-3 py-2 shadow-lg">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-500" />
+          <p className="text-xs">{rewriteError}</p>
+          <button type="button" onClick={() => setRewriteError(null)} className="text-xs text-muted-foreground hover:text-foreground">✕</button>
+        </div>
+      )}
+
       <div className="flex min-h-0 flex-1">
         {/* ── Left: structure ─────────────────────────────── */}
         <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-card md:flex">
@@ -536,6 +662,60 @@ export function DemoBuilder({
           </div>
 
           <div className="flex-1 overflow-y-auto p-2">
+            {/* Page switcher — always shown, even for single-page demos, so
+                adding a second page doesn't require hunting for the control. */}
+            <div className="mb-2 flex flex-col gap-1 rounded-lg border border-border bg-muted/40 p-1.5">
+              {pages.map((p) => (
+                <div key={p.id} className="group flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => switchPage(p.id)}
+                    className={`flex flex-1 items-center gap-1.5 truncate rounded-md px-2 py-1 text-left text-[12px] ${
+                      p.id === activePage.id ? "bg-primary/10 font-semibold text-primary" : "text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    <Files className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{p.title || "(sin nombre)"}</span>
+                  </button>
+                  {p.id === activePage.id && pages.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removePage(p.id)}
+                      className="rounded p-0.5 text-muted-foreground opacity-0 hover:text-red-500 group-hover:opacity-100"
+                      title="Eliminar página"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={addPage}
+                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-left text-[11px] font-medium text-primary hover:bg-primary/5"
+              >
+                <Plus className="h-3 w-3" /> Agregar página
+              </button>
+              {isMultiPage && (
+                <div className="mt-0.5 grid grid-cols-2 gap-1 border-t border-border pt-1.5">
+                  <input
+                    value={activePage.title}
+                    onChange={(e) => renamePage(activePage.id, { title: e.target.value })}
+                    placeholder="Título"
+                    className="rounded border border-border bg-background px-1.5 py-1 text-[11px] outline-none focus:border-primary"
+                  />
+                  <input
+                    value={activePage.slug}
+                    onChange={(e) => renamePage(activePage.id, { slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })}
+                    placeholder="url-de-la-pagina"
+                    disabled={activePage.id === pages[0].id}
+                    title={activePage.id === pages[0].id ? "La página de inicio no lleva slug" : "Segmento de URL, ej. \"contacto\""}
+                    className="rounded border border-border bg-background px-1.5 py-1 text-[11px] outline-none focus:border-primary disabled:opacity-50"
+                  />
+                </div>
+              )}
+            </div>
+
             <button
               type="button"
               onClick={() => { setSelected(null); setActiveSectionId(null); setGlobalTab("navfooter"); toCanvas({ type: "select", id: "__nav__" }); }}
@@ -545,9 +725,9 @@ export function DemoBuilder({
             </button>
 
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onSectionDragEnd}>
-              <SortableContext items={cfg.sections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+              <SortableContext items={activeSections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
                 <div className="flex flex-col gap-0.5">
-                  {cfg.sections.map((s) => (
+                  {activeSections.map((s) => (
                     <StructureRow
                       key={s.id}
                       section={s}
@@ -691,6 +871,8 @@ export function DemoBuilder({
                         {TEMPLATES.map((t) => (
                           <button
                             key={t.id} type="button" onClick={() => applyTemplate(t.id)}
+                            onMouseEnter={() => setPreviewOverride(t.id === cfg.template ? null : templatePreviewConfig(t.id))}
+                            onMouseLeave={() => setPreviewOverride(null)}
                             className={`flex flex-col gap-1 rounded-lg border p-2.5 text-left transition-colors ${
                               cfg.template === t.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
                             }`}
@@ -796,11 +978,11 @@ export function DemoBuilder({
                   <div className="flex flex-col gap-6">
                     <div>
                       <p className="mb-3 text-sm font-semibold">Menú de navegación</p>
-                      <NavEditor nav={cfg.nav} onChange={updateNav} />
+                      <NavEditor nav={cfg.nav} onChange={updateNav} pages={pages} />
                     </div>
                     <div className="border-t border-border pt-5">
                       <p className="mb-3 text-sm font-semibold">Pie de página</p>
-                      <FooterEditor footer={cfg.footer} onChange={updateFooter} />
+                      <FooterEditor footer={cfg.footer} onChange={updateFooter} pages={pages} />
                     </div>
                   </div>
                 )}

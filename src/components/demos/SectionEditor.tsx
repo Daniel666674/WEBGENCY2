@@ -4,7 +4,7 @@ import { useState } from "react";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Plus, Trash2, Settings2, ChevronDown } from "lucide-react";
+import { GripVertical, Plus, Trash2, Settings2, ChevronDown, StickyNote } from "lucide-react";
 import type { Section, SectionItem, SectionStyle, SectionWidth, SectionPad } from "@/lib/demo/types";
 import { SECTION_VARIANTS, WIDTH_LABELS, PAD_LABELS } from "@/lib/demo/types";
 import { MediaPicker } from "./MediaPicker";
@@ -372,6 +372,19 @@ export function SectionEditor({
       )}
 
       {usesStyle && <StylePanel section={section} onChange={onChange} />}
+
+      <div className="rounded-lg border border-dashed border-border p-2.5">
+        <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+          <StickyNote className="h-3.5 w-3.5" /> Nota interna <span className="opacity-60">· solo para el equipo, nunca se publica</span>
+        </label>
+        <textarea
+          rows={2}
+          className={inputCls}
+          placeholder="Ej. Pendiente foto del cliente, o: confirmar precio con Daniel"
+          value={section.notes ?? ""}
+          onChange={(e) => set({ notes: e.target.value })}
+        />
+      </div>
     </div>
   );
 }

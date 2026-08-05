@@ -190,6 +190,10 @@ const sectionSchema = z.object({
   variant: z.string().max(40),
   enabled: z.boolean(),
   elements: z.partialRecord(z.enum(ELEMENT_KEYS), elementStyleSchema).optional(),
+  // Deliberately NOT passed through sanitizeRich or rendered anywhere — this
+  // never reaches HTML, so it isn't a public-page injection surface. Length
+  // capped like everything else, plain text only.
+  notes: text(2_000).optional(),
   eyebrow: text(200).optional(),
   heading: text(500).transform(sanitizeRich).optional(),
   subheading: text(2_000).transform(sanitizeRich).optional(),
@@ -207,6 +211,7 @@ const navLeafSchema = z.object({
   id: z.string().min(1).max(64),
   label: text(120),
   url: urlField,
+  page: z.string().max(64).optional(),
 });
 
 const navLinkSchema = navLeafSchema.extend({
@@ -256,14 +261,35 @@ const brandSchema = z.object({
   imageStyle: z.enum(["normal", "grayscale", "duotone", "soft"]).optional(),
 });
 
+// Lowercase-alnum-hyphen only, matching the segment the public route reads
+// straight off the URL — "" (home) is the sole exception.
+const pageSlugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+const demoPageSchema = z.object({
+  id: z.string().min(1).max(64),
+  slug: z.string().max(60).refine((v) => v === "" || pageSlugPattern.test(v), "Usa solo minúsculas, números y guiones"),
+  title: text(120),
+  sections: z.array(sectionSchema).max(80),
+});
+
 export const demoConfigSchema = z.object({
   template: z.string().max(40),
   fontPair: z.string().max(40),
   brand: brandSchema,
   sections: z.array(sectionSchema).max(80),
+  pages: z.array(demoPageSchema).max(12).optional(),
   customCss: z.string().max(25_000).transform(safeCss).optional(),
   nav: navSchema.optional(),
   footer: footerSchema.optional(),
+}).superRefine((cfg, ctx) => {
+  if (!cfg.pages) return;
+  const slugs = new Set<string>();
+  for (const p of cfg.pages) {
+    if (slugs.has(p.slug)) {
+      ctx.addIssue({ code: "custom", path: ["pages"], message: `Slug de página repetido: "${p.slug || "(inicio)"}"` });
+    }
+    slugs.add(p.slug);
+  }
 });
 
 /** Roughly 1 MB of JSON — generous for text, tight enough that nobody

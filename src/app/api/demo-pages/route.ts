@@ -4,16 +4,7 @@ import { demoPages, contacts } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { logAudit } from "@/lib/audit";
 import { getTemplate } from "@/lib/demo/templates";
-
-function slugify(s: string): string {
-  return (s || "demo")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40) || "demo";
-}
+import { uniqueSlug } from "@/lib/demo/slug";
 
 export async function GET(request: NextRequest) {
   const contactId = new URL(request.url).searchParams.get("contactId");
@@ -53,18 +44,8 @@ export async function POST(request: NextRequest) {
   const config = tpl.defaults();
   config.brand.name = title || "Nuevo Demo";
 
-  // Generated up front so it can back the deterministic slug fallback below.
   const id = crypto.randomUUID();
-
-  // Unique slug — random suffixes first (they stay readable), then fall back
-  // to the row id, which cannot collide.
-  const baseSlug = slugify(title);
-  let slug = baseSlug;
-  for (let i = 0; i < 6; i++) {
-    const clash = await db.select({ id: demoPages.id }).from(demoPages).where(eq(demoPages.slug, slug)).get();
-    if (!clash) break;
-    slug = i === 5 ? `${baseSlug}-${id.slice(0, 8)}` : `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`;
-  }
+  const slug = await uniqueSlug(title, id);
 
   const now = new Date();
   const result = await db

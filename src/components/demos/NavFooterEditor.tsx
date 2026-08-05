@@ -43,14 +43,18 @@ function SegButtons<T extends string>({
   );
 }
 
+export interface PageOption { id: string; title: string }
+
 function SortableLinkRow({
-  id, link, onChange, onRemove, allowChildren,
+  id, link, onChange, onRemove, allowChildren, pages,
 }: {
   id: string; link: NavLink; onChange: (l: NavLink) => void; onRemove: () => void; allowChildren?: boolean;
+  pages?: PageOption[];
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const [showChildren, setShowChildren] = useState(!!link.children?.length);
   const children = link.children ?? [];
+  const hasPages = (pages?.length ?? 0) > 1; // >1 because a single-page demo has nothing to link between
 
   return (
     <div
@@ -63,7 +67,20 @@ function SortableLinkRow({
           <GripVertical className="h-3.5 w-3.5" />
         </button>
         <input className={miniInputCls} placeholder="Texto" value={link.label} onChange={(e) => onChange({ ...link, label: e.target.value })} />
-        <input className={miniInputCls} placeholder="#seccion o URL" value={link.url} onChange={(e) => onChange({ ...link, url: e.target.value })} />
+        {hasPages && (
+          <select
+            className={`${miniInputCls} shrink-0`}
+            style={{ maxWidth: 108 }}
+            value={link.page ?? ""}
+            onChange={(e) => onChange({ ...link, page: e.target.value || undefined })}
+          >
+            <option value="">Enlace/ancla</option>
+            {pages!.map((p) => <option key={p.id} value={p.id}>{p.title || "(página)"}</option>)}
+          </select>
+        )}
+        {!link.page && (
+          <input className={miniInputCls} placeholder="#seccion o URL" value={link.url} onChange={(e) => onChange({ ...link, url: e.target.value })} />
+        )}
         {allowChildren && (
           <button
             type="button" onClick={() => setShowChildren((v) => !v)}
@@ -116,9 +133,9 @@ function SortableLinkRow({
 }
 
 function LinkListEditor({
-  links, onChange, allowChildren,
+  links, onChange, allowChildren, pages,
 }: {
-  links: NavLink[]; onChange: (links: NavLink[]) => void; allowChildren?: boolean;
+  links: NavLink[]; onChange: (links: NavLink[]) => void; allowChildren?: boolean; pages?: PageOption[];
 }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -138,7 +155,7 @@ function LinkListEditor({
           <div className="flex flex-col gap-1.5">
             {links.map((l) => (
               <SortableLinkRow
-                key={l.id} id={l.id} link={l} allowChildren={allowChildren}
+                key={l.id} id={l.id} link={l} allowChildren={allowChildren} pages={pages}
                 onChange={(next) => onChange(links.map((x) => (x.id === l.id ? next : x)))}
                 onRemove={() => onChange(links.filter((x) => x.id !== l.id))}
               />
@@ -170,7 +187,7 @@ const FOOTER_SIZES: { id: FooterSize; label: string }[] = [
   { id: "compact", label: "Compacto" }, { id: "normal", label: "Normal" }, { id: "spacious", label: "Espacioso" },
 ];
 
-export function NavEditor({ nav, onChange }: { nav: NavConfig; onChange: (n: NavConfig) => void }) {
+export function NavEditor({ nav, onChange, pages }: { nav: NavConfig; onChange: (n: NavConfig) => void; pages?: PageOption[] }) {
   const set = (patch: Partial<NavConfig>) => onChange({ ...nav, ...patch });
   return (
     <div className="flex flex-col gap-4">
@@ -205,7 +222,7 @@ export function NavEditor({ nav, onChange }: { nav: NavConfig; onChange: (n: Nav
         <p className="mb-2 text-xs font-medium text-muted-foreground">
           Enlaces del menú <span className="opacity-60">· arrastra para reordenar · el ícono abre submenús</span>
         </p>
-        <LinkListEditor links={nav.links} onChange={(links) => set({ links })} allowChildren />
+        <LinkListEditor links={nav.links} onChange={(links) => set({ links })} allowChildren pages={pages} />
       </div>
 
       <div className="grid grid-cols-2 gap-2.5">
@@ -220,8 +237,8 @@ export function NavEditor({ nav, onChange }: { nav: NavConfig; onChange: (n: Nav
   );
 }
 
-export function FooterEditor({ footer, onChange }: {
-  footer: FooterConfig; onChange: (f: FooterConfig) => void;
+export function FooterEditor({ footer, onChange, pages }: {
+  footer: FooterConfig; onChange: (f: FooterConfig) => void; pages?: PageOption[];
 }) {
   const set = (patch: Partial<FooterConfig>) => onChange({ ...footer, ...patch });
   const columns = footer.columns;
@@ -291,7 +308,7 @@ export function FooterEditor({ footer, onChange }: {
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
-              <LinkListEditor links={col.links} onChange={(links) => setColumn(col.id, { links })} />
+              <LinkListEditor links={col.links} onChange={(links) => setColumn(col.id, { links })} pages={pages} />
             </div>
           ))}
           <button

@@ -59,6 +59,9 @@ export interface RenderOptions {
   /** "edit" adds selection handles, outlines and the editor bridge.
    *  "publish" (default) emits clean HTML with zero editor chrome. */
   mode?: "edit" | "publish";
+  /** Page slug to render, for multi-page demos. Ignored (and unnecessary)
+   *  for the overwhelming majority of demos, which have a single page. */
+  page?: string;
 }
 
 export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
@@ -67,6 +70,17 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
   const f = getFontPair(cfg.fontPair);
   const d = t.dna;
   const b = cfg.brand;
+
+  // Multi-page resolution: fall back to the home page, then to the flat
+  // `sections` list — so a config from before this feature existed (no
+  // `pages` at all) renders exactly as it always did.
+  const pages = cfg.pages && cfg.pages.length ? cfg.pages : null;
+  const activePage = pages ? (pages.find((p) => p.slug === (opts.page ?? "")) ?? pages[0]) : null;
+  const pageSections = activePage ? activePage.sections : (cfg.sections ?? []);
+  const pageHref = (pageId: string): string => {
+    const target = pages?.find((p) => p.id === pageId);
+    return target ? (target.slug ? `./${target.slug}` : "./") : "#";
+  };
 
   const accent = safeColor(b.accent, "#6366f1");
   const ink = safeColor(b.ink, "#111827");
@@ -662,7 +676,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
   // data-demo-section-id lets the builder's canvas click-to-select feature
   // (postMessage from the iframe) map a click anywhere on the page back to
   // the exact section/nav/footer editor panel in the sidebar.
-  const body = (cfg.sections ?? [])
+  const body = pageSections
     .filter((s) => s.enabled)
     .map((s) => {
       const html = renderers[s.type]?.(s) ?? "";
@@ -671,27 +685,32 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     })
     .join("\n");
 
-  const nav: NavConfig = cfg.nav ?? { ...defaultNav(), links: defaultNavLinks(cfg.sections ?? []) };
-  const footer: FooterConfig = cfg.footer ?? { ...defaultFooter(), columns: [{ id: "default", title: "Enlaces", links: defaultNavLinks(cfg.sections ?? []) }] };
+  const nav: NavConfig = cfg.nav ?? { ...defaultNav(), links: defaultNavLinks(pageSections) };
+  const footer: FooterConfig = cfg.footer ?? { ...defaultFooter(), columns: [{ id: "default", title: "Enlaces", links: defaultNavLinks(pageSections) }] };
 
   const NAV_SIZE_PAD: Record<NavSize, string> = { compact: "8px 24px", normal: "14px 24px", large: "22px 24px" };
   const NAV_LOGO_H: Record<NavSize, string> = { compact: "32px", normal: "40px", large: "52px" };
+
+  /** A link targeting another page resolves via pageHref; otherwise it's an ordinary URL/anchor. */
+  function hrefOf(l: NavLink): string {
+    return l.page ? esc(pageHref(l.page)) : escUrl(l.url);
+  }
 
   function navLinkHtml(l: NavLink, mobile: boolean): string {
     const hasChildren = !!l.children?.length;
     if (mobile) {
       const child = hasChildren
-        ? `<div style="display:flex;flex-direction:column;gap:10px;padding:8px 0 4px 16px;">${l.children!.map((c) => `<a href="${escUrl(c.url)}" style="color:${ink};opacity:.72;text-decoration:none;font-size:.94rem;">${esc(c.label)}</a>`).join("")}</div>`
+        ? `<div style="display:flex;flex-direction:column;gap:10px;padding:8px 0 4px 16px;">${l.children!.map((c) => `<a href="${hrefOf(c)}" style="color:${ink};opacity:.72;text-decoration:none;font-size:.94rem;">${esc(c.label)}</a>`).join("")}</div>`
         : "";
-      return `<div><a href="${escUrl(l.url)}" style="color:${ink};text-decoration:none;font-size:1.05rem;font-weight:600;">${esc(l.label)}</a>${child}</div>`;
+      return `<div><a href="${hrefOf(l)}" style="color:${ink};text-decoration:none;font-size:1.05rem;font-weight:600;">${esc(l.label)}</a>${child}</div>`;
     }
     if (!hasChildren) {
-      return `<a href="${escUrl(l.url)}" style="color:${ink};text-decoration:none;font-size:.92rem;opacity:.75;">${esc(l.label)}</a>`;
+      return `<a href="${hrefOf(l)}" style="color:${ink};text-decoration:none;font-size:.92rem;opacity:.75;">${esc(l.label)}</a>`;
     }
     return `<div class="nav-item" style="position:relative;">
-      <a href="${escUrl(l.url)}" style="color:${ink};text-decoration:none;font-size:.92rem;opacity:.75;display:flex;align-items:center;gap:4px;">${esc(l.label)}<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></a>
+      <a href="${hrefOf(l)}" style="color:${ink};text-decoration:none;font-size:.92rem;opacity:.75;display:flex;align-items:center;gap:4px;">${esc(l.label)}<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></a>
       <div class="nav-submenu" style="display:none;position:absolute;top:100%;left:0;margin-top:8px;background:${paper};border:1px solid ${hairline};border-radius:10px;padding:8px;min-width:180px;box-shadow:0 8px 24px -8px rgba(0,0,0,.2);">
-        ${l.children!.map((c) => `<a href="${escUrl(c.url)}" style="display:block;padding:8px 10px;border-radius:6px;color:${ink};text-decoration:none;font-size:.88rem;">${esc(c.label)}</a>`).join("")}
+        ${l.children!.map((c) => `<a href="${hrefOf(c)}" style="display:block;padding:8px 10px;border-radius:6px;color:${ink};text-decoration:none;font-size:.88rem;">${esc(c.label)}</a>`).join("")}
       </div>
     </div>`;
   }
@@ -780,7 +799,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
         ${footer.columns.map((col) => `<div>
           <p style="font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:${footerMuted};font-weight:600;margin:0 0 14px;">${esc(col.title)}</p>
           <div style="display:flex;flex-direction:column;gap:10px;">
-            ${col.links.map((l) => `<a href="${escUrl(l.url)}" style="color:${footerInk};opacity:.75;text-decoration:none;font-size:.88rem;">${esc(l.label)}</a>`).join("")}
+            ${col.links.map((l) => `<a href="${hrefOf(l)}" style="color:${footerInk};opacity:.75;text-decoration:none;font-size:.88rem;">${esc(l.label)}</a>`).join("")}
           </div>
         </div>`).join("")}
       </div>
@@ -899,31 +918,65 @@ ${editMode ? `<script>
   var tb = document.createElement('div');
   tb.id = 'oliwan-tb';
   tb.innerHTML =
+    '<span class="fmt-group" style="display:flex;gap:2px;">' +
     '<button data-cmd="bold" title="Negrita"><b>B</b></button>' +
     '<button data-cmd="italic" title="Cursiva"><i>I</i></button>' +
     '<button data-cmd="underline" title="Subrayado"><u>U</u></button>' +
     '<span class="sep"></span>' +
     '<button data-cmd="createLink" title="Enlace">🔗</button>' +
-    '<button data-cmd="unlink" title="Quitar enlace">⛓️‍💥</button>';
+    '<button data-cmd="unlink" title="Quitar enlace">⛓️‍💥</button>' +
+    '<span class="sep"></span>' +
+    '</span>' +
+    '<button data-cmd="ai" title="Reescribir con IA">✨</button>';
   document.body.appendChild(tb);
+
+  // Tone submenu, opened by the ✨ button. Kept outside #oliwan-tb so its own
+  // mousedown doesn't get swallowed by the toolbar's focus-preserving guard.
+  var toneMenu = document.createElement('div');
+  toneMenu.id = 'oliwan-tone';
+  toneMenu.style.cssText = 'position:absolute;z-index:2147483001;display:none;flex-direction:column;gap:1px;background:#18181b;border-radius:8px;padding:4px;box-shadow:0 8px 24px -6px rgba(0,0,0,.5);font-family:system-ui,sans-serif;min-width:140px;';
+  toneMenu.innerHTML =
+    '<button data-tone="shorter">Más corto</button>' +
+    '<button data-tone="punchier">Más contundente</button>' +
+    '<button data-tone="formal">Más formal</button>' +
+    '<button data-tone="casual">Más cercano</button>';
+  var toneBtnStyle = 'all:unset;cursor:pointer;color:#e4e4e7;padding:6px 8px;border-radius:5px;font-size:11px;';
+  Array.prototype.forEach.call(toneMenu.querySelectorAll('button'), function(b){
+    b.style.cssText = toneBtnStyle;
+    b.addEventListener('mouseenter', function(){ b.style.background = '#3f3f46'; });
+    b.addEventListener('mouseleave', function(){ b.style.background = 'transparent'; });
+  });
+  document.body.appendChild(toneMenu);
 
   var activeField = null;
 
-  function hideTb(){ tb.style.display = 'none'; }
+  function hideTb(){ tb.style.display = 'none'; toneMenu.style.display = 'none'; }
 
   function showTbFor(node){
+    var rich = node.getAttribute('data-rich') === '1';
+    tb.querySelector('.fmt-group').style.display = rich ? 'flex' : 'none';
     var r = node.getBoundingClientRect();
     tb.style.display = 'flex';
     tb.style.left = Math.max(8, r.left + window.scrollX) + 'px';
     tb.style.top = Math.max(8, r.top + window.scrollY - 38) + 'px';
+    toneMenu.style.display = 'none';
   }
 
   // Formatting must not steal focus from the text being edited.
   tb.addEventListener('mousedown', function(e){ e.preventDefault(); });
+  toneMenu.addEventListener('mousedown', function(e){ e.preventDefault(); });
+
   tb.addEventListener('click', function(e){
     var btn = e.target && e.target.closest ? e.target.closest('button') : null;
     if (!btn || !activeField) return;
     var cmd = btn.getAttribute('data-cmd');
+    if (cmd === 'ai') {
+      var r = tb.getBoundingClientRect();
+      toneMenu.style.left = tb.style.left;
+      toneMenu.style.top = Math.max(8, r.top + window.scrollY - 4) + 'px';
+      toneMenu.style.display = toneMenu.style.display === 'flex' ? 'none' : 'flex';
+      return;
+    }
     if (cmd === 'createLink') {
       var url = prompt('Enlace (https://… o #seccion)');
       if (!url) return;
@@ -932,6 +985,23 @@ ${editMode ? `<script>
       document.execCommand(cmd, false, undefined);
     }
     commit(activeField, true);
+  });
+
+  toneMenu.addEventListener('click', function(e){
+    var btn = e.target && e.target.closest ? e.target.closest('button[data-tone]') : null;
+    if (!btn || !activeField) return;
+    var tone = btn.getAttribute('data-tone');
+    var node = activeField;
+    var rich = node.getAttribute('data-rich') === '1';
+    var parts = String(node.getAttribute('data-text')).split(':');
+    var current = rich ? node.innerHTML : node.innerText;
+    toneMenu.style.display = 'none';
+    node.setAttribute('contenteditable', 'false'); // prevent typing mid-request
+    node.style.opacity = '.55';
+    send({
+      type: 'rewrite-request', id: parts[0], field: parts.slice(1).join(':'),
+      rich: rich, text: current, tone: tone,
+    });
   });
 
   function commit(node, immediate){
@@ -991,6 +1061,16 @@ ${editMode ? `<script>
       if (sec && sec.scrollIntoView) sec.scrollIntoView({ behavior:'smooth', block:'start' });
     } else if (d.type === 'deselect') {
       clear();
+    } else if (d.type === 'rewrite-result' && d.id && d.field !== undefined) {
+      var target = document.querySelector('[data-text="' + d.id + ':' + d.field + '"]');
+      if (!target) return;
+      target.setAttribute('contenteditable', 'true');
+      target.style.opacity = '';
+      if (typeof d.text === 'string') {
+        if (target.getAttribute('data-rich') === '1') target.innerHTML = d.text; else target.innerText = d.text;
+        commit(target, true);
+      }
+      // Errors are surfaced by the parent (toast); the field just re-enables.
     }
   });
 })();
