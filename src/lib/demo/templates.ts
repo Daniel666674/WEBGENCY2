@@ -69,6 +69,51 @@ function baseSections(overrides: Partial<Record<string, Partial<Section>>> = {})
       ],
     }),
     mk({
+      id: newId(), type: "stats", variant: "row", enabled: false,
+      eyebrow: "", heading: "",
+      items: [
+        { title: "10+", body: "Años de experiencia" },
+        { title: "200+", body: "Clientes atendidos" },
+        { title: "98%", body: "Satisfacción" },
+      ],
+    }),
+    mk({
+      id: newId(), type: "logos", variant: "row", enabled: false,
+      eyebrow: "Confían en nosotros", heading: "", items: [],
+    }),
+    mk({
+      id: newId(), type: "team", variant: "grid", enabled: false,
+      eyebrow: "Equipo", heading: "Quiénes te van a atender",
+      items: [
+        { title: "Nombre Apellido", body: "Cargo o especialidad" },
+      ],
+    }),
+    mk({
+      id: newId(), type: "faq", variant: "list", enabled: false,
+      eyebrow: "Preguntas frecuentes", heading: "¿Tienes dudas?",
+      items: [
+        { title: "¿Cómo empiezo?", body: "Escríbenos y coordinamos una primera llamada sin costo." },
+        { title: "¿Cuánto tarda?", body: "Depende del proyecto, normalmente entre 2 y 6 semanas." },
+      ],
+    }),
+    mk({
+      id: newId(), type: "banner", variant: "solid", enabled: false,
+      heading: "Oferta por tiempo limitado",
+      body: "Aprovecha antes de que termine el mes.",
+      ctaText: "Ver más", ctaUrl: "#contacto",
+    }),
+    mk({
+      id: newId(), type: "columns", variant: "two", enabled: false,
+      heading: "",
+      items: [
+        { title: "Nuestra misión", body: "Escribe aquí el primer bloque de texto libre." },
+        { title: "Nuestra visión", body: "Escribe aquí el segundo bloque de texto libre." },
+      ],
+    }),
+    mk({
+      id: newId(), type: "divider", variant: "line", enabled: false,
+    }),
+    mk({
       id: newId(), type: "menu", variant: "list", enabled: false,
       eyebrow: "Precios", heading: "Nuestros planes", items: [],
     }),
@@ -108,7 +153,8 @@ export const TEMPLATES: Template[] = [
     defaults: () => ({
       template: "editorial",
       fontPair: "editorial",
-      brand: { name: "", accent: "#b45309", ink: "#1c1917", paper: "#faf9f7" },
+      brand: { name: "", accent: "#b45309", ink: "#1c1917", paper: "#faf9f7", buttonShape: "pill", buttonFill: "solid" },
+      customCss: "",
       sections: baseSections(),
     }),
   },
@@ -133,7 +179,8 @@ export const TEMPLATES: Template[] = [
     defaults: () => ({
       template: "studio",
       fontPair: "modern",
-      brand: { name: "", accent: "#22d3ee", ink: "#fafafa", paper: "#0a0a0a" },
+      brand: { name: "", accent: "#22d3ee", ink: "#fafafa", paper: "#0a0a0a", buttonShape: "sharp", buttonFill: "solid" },
+      customCss: "",
       sections: baseSections({ hero: { variant: "cover" }, gallery: { enabled: true, variant: "masonry" } }),
     }),
   },
@@ -158,7 +205,8 @@ export const TEMPLATES: Template[] = [
     defaults: () => ({
       template: "boutique",
       fontPair: "refined",
-      brand: { name: "", accent: "#8a7358", ink: "#44403c", paper: "#faf7f2" },
+      brand: { name: "", accent: "#8a7358", ink: "#44403c", paper: "#faf7f2", buttonShape: "sharp", buttonFill: "outline" },
+      customCss: "",
       sections: baseSections({ hero: { variant: "stack" }, gallery: { enabled: true, variant: "grid2" } }),
     }),
   },
@@ -183,7 +231,8 @@ export const TEMPLATES: Template[] = [
     defaults: () => ({
       template: "mercado",
       fontPair: "warm",
-      brand: { name: "", accent: "#ea580c", ink: "#431407", paper: "#fffbf5" },
+      brand: { name: "", accent: "#ea580c", ink: "#431407", paper: "#fffbf5", buttonShape: "pill", buttonFill: "solid" },
+      customCss: "",
       sections: baseSections({
         hero: { variant: "cover" },
         menu: { enabled: true, variant: "cards" },
@@ -212,7 +261,8 @@ export const TEMPLATES: Template[] = [
     defaults: () => ({
       template: "impulso",
       fontPair: "bold",
-      brand: { name: "", accent: "#84cc16", ink: "#18181b", paper: "#fafafa" },
+      brand: { name: "", accent: "#84cc16", ink: "#18181b", paper: "#fafafa", buttonShape: "sharp", buttonFill: "solid" },
+      customCss: "",
       sections: baseSections({ hero: { variant: "offset" }, menu: { enabled: true, variant: "tiers" } }),
     }),
   },
@@ -237,7 +287,8 @@ export const TEMPLATES: Template[] = [
     defaults: () => ({
       template: "clinica",
       fontPair: "friendly",
-      brand: { name: "", accent: "#0284c7", ink: "#0f172a", paper: "#f8fafc" },
+      brand: { name: "", accent: "#0284c7", ink: "#0f172a", paper: "#f8fafc", buttonShape: "rounded", buttonFill: "solid" },
+      customCss: "",
       sections: baseSections({ hero: { variant: "split" }, testimonials: { enabled: true } }),
     }),
   },

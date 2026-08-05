@@ -1,11 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Plus, Trash2 } from "lucide-react";
-import type { Section, SectionItem } from "@/lib/demo/types";
-import { SECTION_VARIANTS } from "@/lib/demo/types";
+import { GripVertical, Plus, Trash2, Settings2, ChevronDown } from "lucide-react";
+import type { Section, SectionItem, SectionStyle, SectionWidth, SectionPad } from "@/lib/demo/types";
+import { SECTION_VARIANTS, WIDTH_LABELS, PAD_LABELS } from "@/lib/demo/types";
 import { MediaPicker } from "./MediaPicker";
 
 const inputCls =
@@ -61,6 +62,123 @@ function SortableItem({
   );
 }
 
+const NO_STYLE_TYPES = new Set(["divider"]);
+const NO_ALIGN_TYPES = new Set(["logos", "faq", "divider", "banner", "columns", "team"]);
+const OVERLAY_VARIANTS = new Set(["cover", "image"]);
+
+function StylePanel({ section, onChange }: { section: Section; onChange: (s: Section) => void }) {
+  const [open, setOpen] = useState(false);
+  const style: SectionStyle = section.style ?? {};
+  const setStyle = (patch: Partial<SectionStyle>) => onChange({ ...section, style: { ...style, ...patch } });
+  const showOverlay = OVERLAY_VARIANTS.has(section.variant);
+  const showAlign = !NO_ALIGN_TYPES.has(section.type);
+
+  return (
+    <div className="rounded-lg border border-border">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground"
+      >
+        <Settings2 className="h-3.5 w-3.5" />
+        Diseño y espaciado
+        <ChevronDown className={`ml-auto h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="flex flex-col gap-3 border-t border-border p-3">
+          <Field label="Color de fondo de esta sección">
+            <div className="flex items-center gap-1.5">
+              <input
+                type="color"
+                value={style.bg || "#ffffff"}
+                onChange={(e) => setStyle({ bg: e.target.value })}
+                className="h-8 w-8 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0.5"
+              />
+              <input
+                className={inputCls}
+                placeholder="Usar el color del tema"
+                value={style.bg ?? ""}
+                onChange={(e) => setStyle({ bg: e.target.value })}
+              />
+              {style.bg && (
+                <button type="button" onClick={() => setStyle({ bg: "" })} className="shrink-0 text-[11px] text-muted-foreground hover:text-foreground">
+                  Quitar
+                </button>
+              )}
+            </div>
+          </Field>
+
+          <Field label="Ancho del contenido">
+            <div className="grid grid-cols-4 gap-1.5">
+              {(Object.keys(WIDTH_LABELS) as SectionWidth[]).map((w) => (
+                <button
+                  key={w}
+                  type="button"
+                  onClick={() => setStyle({ width: w })}
+                  className={`rounded-md border px-1.5 py-1.5 text-[11px] font-medium transition-colors ${
+                    (style.width ?? "normal") === w ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                  }`}
+                >
+                  {WIDTH_LABELS[w]}
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          <Field label="Espaciado vertical">
+            <div className="grid grid-cols-3 gap-1.5">
+              {(Object.keys(PAD_LABELS) as SectionPad[]).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setStyle({ pad: p })}
+                  className={`rounded-md border px-1.5 py-1.5 text-[11px] font-medium transition-colors ${
+                    (style.pad ?? "normal") === p ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                  }`}
+                >
+                  {PAD_LABELS[p]}
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          {showAlign && (
+            <Field label="Alineación del texto">
+              <div className="grid grid-cols-2 gap-1.5">
+                {(["left", "center"] as const).map((a) => (
+                  <button
+                    key={a}
+                    type="button"
+                    onClick={() => setStyle({ align: a })}
+                    className={`rounded-md border px-1.5 py-1.5 text-[11px] font-medium transition-colors ${
+                      style.align === a ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                    }`}
+                  >
+                    {a === "left" ? "Izquierda" : "Centrado"}
+                  </button>
+                ))}
+              </div>
+            </Field>
+          )}
+
+          {showOverlay && (
+            <Field label={`Oscurecer la imagen de fondo (${style.overlay ?? 55}%)`}>
+              <input
+                type="range"
+                min={0}
+                max={90}
+                value={style.overlay ?? 55}
+                onChange={(e) => setStyle({ overlay: Number(e.target.value) })}
+                className="w-full accent-primary"
+              />
+            </Field>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SectionEditor({
   section,
   onChange,
@@ -86,12 +204,15 @@ export function SectionEditor({
   }
 
   // Which fields this section type actually uses
-  const usesItems = ["features", "gallery", "testimonials", "menu"].includes(section.type) ||
+  const usesItems = ["features", "gallery", "testimonials", "menu", "faq", "stats", "team", "logos", "columns"].includes(section.type) ||
     (section.type === "about" && section.variant === "stat");
-  const usesMedia = ["hero", "about", "video"].includes(section.type);
-  const usesCta = ["hero", "cta", "contact", "menu"].includes(section.type);
+  const usesMedia = ["hero", "about", "video", "banner"].includes(section.type);
+  const usesCta = ["hero", "cta", "contact", "menu", "banner"].includes(section.type);
   const usesSubheading = section.type === "hero";
-  const usesBody = ["features", "about", "cta", "contact", "video", "gallery", "menu"].includes(section.type);
+  const usesBody = ["features", "about", "cta", "contact", "video", "gallery", "menu", "banner"].includes(section.type);
+  const usesEyebrow = !["cta", "divider", "columns", "banner"].includes(section.type);
+  const usesHeading = section.type !== "divider";
+  const usesStyle = !NO_STYLE_TYPES.has(section.type);
 
   const itemLabels: Record<string, { title: string; body: string }> = {
     features: { title: "Título del servicio", body: "Descripción" },
@@ -99,8 +220,15 @@ export function SectionEditor({
     testimonials: { title: "", body: "Testimonio" },
     menu: { title: "Nombre", body: "Descripción" },
     about: { title: "Cifra (ej. 15+)", body: "Etiqueta (ej. Años de experiencia)" },
+    stats: { title: "Cifra (ej. 10+)", body: "Etiqueta" },
+    team: { title: "Nombre", body: "Cargo o especialidad" },
+    logos: { title: "", body: "" },
+    faq: { title: "Pregunta", body: "Respuesta" },
+    columns: { title: "Título del bloque (opcional)", body: "Texto" },
   };
   const lbl = itemLabels[section.type] ?? { title: "Título", body: "Texto" };
+  const itemNeedsMedia = ["gallery", "features", "menu", "team", "logos"].includes(section.type);
+  const itemMediaOnly = section.type === "logos";
 
   return (
     <div className="flex flex-col gap-3.5">
@@ -125,15 +253,17 @@ export function SectionEditor({
         </Field>
       )}
 
-      {section.type !== "cta" && (
+      {usesEyebrow && (
         <Field label="Etiqueta pequeña (arriba del título)">
           <input className={inputCls} value={section.eyebrow ?? ""} onChange={(e) => set({ eyebrow: e.target.value })} placeholder="Opcional" />
         </Field>
       )}
 
-      <Field label={section.type === "hero" ? "Título principal" : "Título de la sección"}>
-        <input className={inputCls} value={section.heading ?? ""} onChange={(e) => set({ heading: e.target.value })} />
-      </Field>
+      {usesHeading && (
+        <Field label={section.type === "hero" ? "Título principal" : "Título de la sección"}>
+          <input className={inputCls} value={section.heading ?? ""} onChange={(e) => set({ heading: e.target.value })} />
+        </Field>
+      )}
 
       {usesSubheading && (
         <Field label="Frase de apoyo">
@@ -188,7 +318,7 @@ export function SectionEditor({
                 {items.map((it, i) => (
                   <SortableItem key={i} id={String(i)} onRemove={() => setItems(items.filter((_, idx) => idx !== i))}>
                     <div className="flex flex-col gap-2.5">
-                      {lbl.title && (
+                      {!itemMediaOnly && lbl.title && (
                         <input
                           className={inputCls}
                           placeholder={lbl.title}
@@ -196,7 +326,7 @@ export function SectionEditor({
                           onChange={(e) => patchItem(i, { title: e.target.value })}
                         />
                       )}
-                      {lbl.body && (
+                      {!itemMediaOnly && lbl.body && (
                         <textarea
                           rows={2}
                           className={inputCls}
@@ -219,10 +349,10 @@ export function SectionEditor({
                           <input className={inputCls} placeholder="Cargo / empresa" value={it.role ?? ""} onChange={(e) => patchItem(i, { role: e.target.value })} />
                         </div>
                       )}
-                      {["gallery", "features", "menu"].includes(section.type) && (
+                      {itemNeedsMedia && (
                         <MediaPicker
                           compact
-                          label=""
+                          label={itemMediaOnly ? "Logo" : ""}
                           value={it.media}
                           onChange={(m) => patchItem(i, { media: m })}
                         />
@@ -240,6 +370,8 @@ export function SectionEditor({
           </DndContext>
         </div>
       )}
+
+      {usesStyle && <StylePanel section={section} onChange={onChange} />}
     </div>
   );
 }
