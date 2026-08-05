@@ -1,4 +1,4 @@
-import type { DemoConfig, Section, MediaRef } from "./types";
+import type { DemoConfig, Section, MediaRef, SectionWidth, SectionPad } from "./types";
 import { getTemplate } from "./templates";
 import { getFontPair } from "./fonts";
 
@@ -33,6 +33,9 @@ function media(m: MediaRef | undefined, style: string, cls = ""): string {
   return `<img src="${esc(m.url)}" alt="${esc(m.alt)}" style="${style}" class="${cls}" loading="lazy" />`;
 }
 
+const WIDTH_PX: Record<SectionWidth, string> = { narrow: "760px", normal: "1080px", wide: "1320px", full: "100%" };
+const PAD_SCALE: Record<SectionPad, number> = { compact: 0.55, normal: 1, spacious: 1.5 };
+
 export function renderDemo(cfg: DemoConfig): string {
   const t = getTemplate(cfg.template);
   const f = getFontPair(cfg.fontPair);
@@ -49,13 +52,31 @@ export function renderDemo(cfg: DemoConfig): string {
   const onAccent = isDark(accent) ? "#ffffff" : "#111111";
   const upper = f.headingCase === "upper";
 
-  const wrap = (inner: string, extra = "") =>
-    `<div style="max-width:${d.maxWidth};margin:0 auto;padding:0 24px;${extra}">${inner}</div>`;
+  const btnRadius = b.buttonShape === "sharp" ? "0px" : b.buttonShape === "rounded" ? "10px" : "999px";
+  const btnFill = b.buttonFill ?? "solid";
 
-  const eyebrow = (text?: string) => {
+  // Per-section style resolution ─────────────────────────
+  function widthOf(s: Section): string {
+    return s.style?.width ? WIDTH_PX[s.style.width] : d.maxWidth;
+  }
+  function padOf(s: Section): string {
+    const scale = PAD_SCALE[s.style?.pad ?? "normal"];
+    return `calc(${d.sectionPadY} * ${scale})`;
+  }
+  function bgOf(s: Section): string {
+    return s.style?.bg || paper;
+  }
+  function alignOf(s: Section): "left" | "center" {
+    return s.style?.align ?? d.align;
+  }
+
+  const wrap = (inner: string, maxW: string, extra = "") =>
+    `<div style="max-width:${maxW};margin:0 auto;padding:0 24px;${extra}">${inner}</div>`;
+
+  const eyebrow = (text?: string, align: "left" | "center" = d.align) => {
     if (!text || d.eyebrow === "none") return "";
     if (d.eyebrow === "rule") {
-      return `<p class="eyebrow" style="display:flex;align-items:center;gap:12px;font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;color:${accent};font-weight:600;margin:0 0 18px;${d.align === "center" ? "justify-content:center;" : ""}"><span style="width:32px;height:1px;background:${accent};display:inline-block;"></span>${esc(text)}</p>`;
+      return `<p class="eyebrow" style="display:flex;align-items:center;gap:12px;font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;color:${accent};font-weight:600;margin:0 0 18px;${align === "center" ? "justify-content:center;" : ""}"><span style="width:32px;height:1px;background:${accent};display:inline-block;"></span>${esc(text)}</p>`;
     }
     return `<p class="eyebrow" style="font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:${accent};font-weight:600;margin:0 0 14px;">${esc(text)}</p>`;
   };
@@ -65,14 +86,15 @@ export function renderDemo(cfg: DemoConfig): string {
       ? `<h2 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:${d.h2};line-height:1.08;letter-spacing:${f.headingTracking};color:${ink};margin:0 0 18px;${upper ? "text-transform:uppercase;" : ""}">${esc(text)}</h2>`
       : "";
 
-  const lede = (text?: string) =>
-    text ? `<p style="font-size:1.08rem;line-height:1.7;color:${muted};margin:0 0 8px;max-width:62ch;${d.align === "center" ? "margin-left:auto;margin-right:auto;" : ""}">${esc(text)}</p>` : "";
+  const lede = (text?: string, align: "left" | "center" = d.align) =>
+    text ? `<p style="font-size:1.08rem;line-height:1.7;color:${muted};margin:0 0 8px;max-width:62ch;${align === "center" ? "margin-left:auto;margin-right:auto;" : ""}">${esc(text)}</p>` : "";
 
-  const btn = (text?: string, url?: string, variant: "solid" | "ghost" = "solid") => {
+  const btn = (text?: string, url?: string, forceFill?: "solid" | "outline") => {
     if (!text) return "";
-    const base = `display:inline-block;font-family:${f.body};font-weight:600;font-size:.98rem;padding:15px 34px;border-radius:${d.radius === "0px" ? "0px" : d.radius === "2px" ? "2px" : "999px"};text-decoration:none;transition:transform .15s ease,opacity .15s ease;`;
+    const fill = forceFill ?? btnFill;
+    const base = `display:inline-block;font-family:${f.body};font-weight:600;font-size:.98rem;padding:15px 34px;border-radius:${btnRadius};text-decoration:none;transition:transform .15s ease,opacity .15s ease;`;
     const style =
-      variant === "solid"
+      fill === "solid"
         ? `${base}background:${accent};color:${onAccent};`
         : `${base}background:transparent;color:${ink};border:1.5px solid ${mix(ink, paper, 0.7)};`;
     return `<a href="${esc(url || "#contacto")}" class="btn" style="${style}">${esc(text)}</a>`;
@@ -86,122 +108,127 @@ export function renderDemo(cfg: DemoConfig): string {
     return `<div style="padding:${pad} 0;border-top:1px solid ${hairline};">${inner}</div>`;
   };
 
-  const sec = (inner: string, bg?: string, id?: string) =>
-    `<section ${id ? `id="${id}"` : ""} style="padding:${d.sectionPadY} 0;background:${bg || paper};">${inner}</section>`;
+  // sec() now resolves bg/width/padding from the section's own style overrides.
+  function sec(s: Section, inner: string, id?: string): string {
+    return `<section ${id ? `id="${id}"` : ""} style="padding:${padOf(s)} 0;background:${bgOf(s)};">${wrap(inner, widthOf(s))}</section>`;
+  }
 
   // ── HERO ────────────────────────────────────────────────
   function hero(s: Section): string {
     const title = s.heading || b.name || "Tu Negocio";
+    const align = alignOf(s);
     const logo = b.logo?.url
-      ? `<img src="${esc(b.logo.url)}" alt="${esc(b.name)}" style="height:56px;width:auto;object-fit:contain;margin-bottom:28px;display:block;${d.align === "center" || s.variant === "stack" ? "margin-left:auto;margin-right:auto;" : ""}" />`
+      ? `<img src="${esc(b.logo.url)}" alt="${esc(b.name)}" style="height:56px;width:auto;object-fit:contain;margin-bottom:28px;display:block;${align === "center" || s.variant === "stack" ? "margin-left:auto;margin-right:auto;" : ""}" />`
       : "";
     const h1 = `<h1 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:${d.h1};line-height:1.02;letter-spacing:${f.headingTracking};margin:0 0 22px;${upper ? "text-transform:uppercase;" : ""}">${esc(title)}</h1>`;
 
     if (s.variant === "cover") {
       const overlayInk = "#ffffff";
+      const overlay = (s.style?.overlay ?? 55) / 100;
       return `<section id="inicio" style="position:relative;min-height:${d.sectionPadY === "clamp(80px, 12vw, 160px)" ? "88vh" : "78vh"};display:flex;align-items:center;background:${ink};overflow:hidden;">
         ${s.media?.url ? media(s.media, "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.52;") : ""}
-        <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.7));"></div>
-        ${wrap(`<div style="position:relative;color:${overlayInk};max-width:${d.align === "center" ? "760px" : "820px"};${d.align === "center" ? "margin:0 auto;text-align:center;" : ""}">
+        <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,${overlay * 0.5}),rgba(0,0,0,${overlay}));"></div>
+        ${wrap(`<div style="position:relative;color:${overlayInk};max-width:${align === "center" ? "760px" : "820px"};${align === "center" ? "margin:0 auto;text-align:center;" : ""}">
           ${logo}
           ${s.eyebrow ? `<p style="font-size:.75rem;letter-spacing:.18em;text-transform:uppercase;color:${accent};font-weight:600;margin:0 0 16px;">${esc(s.eyebrow)}</p>` : ""}
           ${h1.replace("margin:0 0 22px;", `margin:0 0 22px;color:${overlayInk};`)}
-          ${s.subheading ? `<p style="font-size:clamp(1.05rem,2vw,1.3rem);line-height:1.6;opacity:.9;margin:0 0 34px;max-width:56ch;${d.align === "center" ? "margin-left:auto;margin-right:auto;" : ""}">${esc(s.subheading)}</p>` : ""}
+          ${s.subheading ? `<p style="font-size:clamp(1.05rem,2vw,1.3rem);line-height:1.6;opacity:.9;margin:0 0 34px;max-width:56ch;${align === "center" ? "margin-left:auto;margin-right:auto;" : ""}">${esc(s.subheading)}</p>` : ""}
           ${btn(s.ctaText, s.ctaUrl)}
-        </div>`)}
+        </div>`, widthOf(s))}
       </section>`;
     }
 
     if (s.variant === "stack") {
-      return sec(wrap(`<div style="text-align:center;max-width:780px;margin:0 auto;">
+      return sec(s, `<div style="text-align:center;max-width:780px;margin:0 auto;">
         ${logo}
-        ${eyebrow(s.eyebrow)}
+        ${eyebrow(s.eyebrow, "center")}
         ${h1.replace("margin:0 0 22px;", `margin:0 0 22px;color:${ink};`)}
         ${s.subheading ? `<p style="font-size:clamp(1.05rem,2vw,1.28rem);line-height:1.65;color:${muted};margin:0 auto 36px;max-width:58ch;">${esc(s.subheading)}</p>` : ""}
         ${btn(s.ctaText, s.ctaUrl)}
-      </div>`), paper, "inicio");
+      </div>`, "inicio");
     }
 
     if (s.variant === "offset") {
-      return sec(wrap(`<div>
+      return sec(s, `<div>
         ${logo}
-        ${eyebrow(s.eyebrow)}
+        ${eyebrow(s.eyebrow, align)}
         ${h1.replace("margin:0 0 22px;", `margin:0 0 26px;color:${ink};max-width:16ch;`)}
         <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-end;justify-content:space-between;margin-bottom:44px;">
           ${s.subheading ? `<p style="font-size:1.12rem;line-height:1.65;color:${muted};margin:0;max-width:46ch;flex:1 1 320px;">${esc(s.subheading)}</p>` : "<span></span>"}
           ${btn(s.ctaText, s.ctaUrl)}
         </div>
         ${s.media?.url ? media(s.media, `width:100%;height:clamp(260px,42vw,520px);object-fit:cover;border-radius:${d.imageRadius};display:block;`) : ""}
-      </div>`), paper, "inicio");
+      </div>`, "inicio");
     }
 
     // split (default)
-    return sec(wrap(`<div class="split" style="display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(32px,5vw,72px);align-items:center;">
+    return sec(s, `<div class="split" style="display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(32px,5vw,72px);align-items:center;">
       <div>
         ${logo}
-        ${eyebrow(s.eyebrow)}
+        ${eyebrow(s.eyebrow, align)}
         ${h1.replace("margin:0 0 22px;", `margin:0 0 22px;color:${ink};`)}
         ${s.subheading ? `<p style="font-size:1.12rem;line-height:1.68;color:${muted};margin:0 0 34px;max-width:52ch;">${esc(s.subheading)}</p>` : ""}
         ${btn(s.ctaText, s.ctaUrl)}
       </div>
       ${s.media?.url ? `<div>${media(s.media, `width:100%;height:clamp(300px,40vw,520px);object-fit:cover;border-radius:${d.imageRadius};display:block;`)}</div>` : `<div style="background:${soft};border-radius:${d.imageRadius};min-height:340px;"></div>`}
-    </div>`), paper, "inicio");
+    </div>`, "inicio");
   }
 
   // ── FEATURES ────────────────────────────────────────────
   function features(s: Section): string {
     const items = s.items ?? [];
-    const head = `<div style="${d.align === "center" ? "text-align:center;max-width:660px;margin:0 auto 56px;" : "max-width:640px;margin:0 0 56px;"}">${eyebrow(s.eyebrow)}${h2(s.heading)}${lede(s.body)}</div>`;
+    const align = alignOf(s);
+    const head = `<div style="${align === "center" ? "text-align:center;max-width:660px;margin:0 auto 56px;" : "max-width:640px;margin:0 0 56px;"}">${eyebrow(s.eyebrow, align)}${h2(s.heading)}${lede(s.body, align)}</div>`;
 
     if (s.variant === "rows") {
-      return sec(wrap(head + items.map((it, i) => `
+      return sec(s, head + items.map((it, i) => `
         <div class="split" style="display:grid;grid-template-columns:${i % 2 ? ".95fr 1.05fr" : "1.05fr .95fr"};gap:clamp(28px,4vw,64px);align-items:center;padding:clamp(28px,4vw,52px) 0;${i ? `border-top:1px solid ${hairline};` : ""}">
           <div style="${i % 2 ? "order:2;" : ""}">
             <h3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:clamp(1.3rem,2.4vw,1.9rem);color:${ink};margin:0 0 12px;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}">${esc(it.title)}</h3>
             <p style="color:${muted};line-height:1.7;margin:0;font-size:1.02rem;">${esc(it.body)}</p>
           </div>
           ${it.media?.url ? `<div style="${i % 2 ? "order:1;" : ""}">${media(it.media, `width:100%;height:clamp(200px,26vw,320px);object-fit:cover;border-radius:${d.imageRadius};display:block;`)}</div>` : `<div style="${i % 2 ? "order:1;" : ""}background:${soft};border-radius:${d.imageRadius};min-height:200px;"></div>`}
-        </div>`).join("")), paper, "servicios");
+        </div>`).join(""), "servicios");
     }
 
     if (s.variant === "numbered") {
-      return sec(wrap(head + `<div style="display:grid;gap:0;">` + items.map((it, i) => `
+      return sec(s, head + `<div style="display:grid;gap:0;">` + items.map((it, i) => `
         <div style="display:grid;grid-template-columns:auto 1fr;gap:clamp(20px,3vw,44px);padding:clamp(24px,3.5vw,40px) 0;${i ? `border-top:1px solid ${hairline};` : ""}">
           <span style="font-family:${f.heading};font-size:clamp(1.8rem,3.4vw,2.8rem);font-weight:${f.headingWeight};color:${accent};line-height:1;min-width:2.2ch;">${String(i + 1).padStart(2, "0")}</span>
           <div>
             <h3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:clamp(1.2rem,2.2vw,1.6rem);color:${ink};margin:0 0 10px;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}">${esc(it.title)}</h3>
             <p style="color:${muted};line-height:1.7;margin:0;max-width:60ch;">${esc(it.body)}</p>
           </div>
-        </div>`).join("") + `</div>`), paper, "servicios");
+        </div>`).join("") + `</div>`, "servicios");
     }
 
-    // grid3
-    return sec(wrap(head + `<div class="grid3" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:${d.surface === "card" ? "24px" : "0"};">` +
+    const cols = s.variant === "grid4" ? "minmax(220px,1fr)" : "minmax(260px,1fr)";
+    return sec(s, head + `<div class="grid3" style="display:grid;grid-template-columns:repeat(auto-fit,${cols});gap:${d.surface === "card" ? "24px" : "0"};">` +
       items.map((it) => surfaceCard(`
         ${it.media?.url ? media(it.media, `width:100%;height:180px;object-fit:cover;border-radius:${d.imageRadius};display:block;margin-bottom:22px;`) : ""}
         <h3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.22rem;color:${ink};margin:0 0 11px;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}">${esc(it.title)}</h3>
-        <p style="color:${muted};line-height:1.7;margin:0;font-size:.98rem;">${esc(it.body)}</p>`)).join("") + `</div>`), paper, "servicios");
+        <p style="color:${muted};line-height:1.7;margin:0;font-size:.98rem;">${esc(it.body)}</p>`)).join("") + `</div>`, "servicios");
   }
 
   // ── GALLERY ─────────────────────────────────────────────
   function gallery(s: Section): string {
     const items = (s.items ?? []).filter((i) => i.media?.url);
     if (!items.length) return "";
-    const head = `<div style="${d.align === "center" ? "text-align:center;max-width:620px;margin:0 auto 48px;" : "margin:0 0 48px;"}">${eyebrow(s.eyebrow)}${h2(s.heading)}${lede(s.body)}</div>`;
+    const align = alignOf(s);
+    const head = `<div style="${align === "center" ? "text-align:center;max-width:620px;margin:0 auto 48px;" : "margin:0 0 48px;"}">${eyebrow(s.eyebrow, align)}${h2(s.heading)}${lede(s.body, align)}</div>`;
 
     if (s.variant === "carousel") {
-      return sec(wrap(head) + `<div style="display:flex;gap:16px;overflow-x:auto;padding:0 24px 12px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;">` +
-        items.map((it) => `<div style="flex:0 0 clamp(240px,32vw,380px);scroll-snap-align:start;">${media(it.media, `width:100%;height:clamp(240px,30vw,360px);object-fit:cover;border-radius:${d.imageRadius};display:block;`)}${it.title ? `<p style="margin:12px 0 0;font-weight:600;color:${ink};font-size:.95rem;">${esc(it.title)}</p>` : ""}</div>`).join("") + `</div>`, paper, "galeria");
+      return `<section id="galeria" style="padding:${padOf(s)} 0;background:${bgOf(s)};">${wrap(head, widthOf(s))}<div style="display:flex;gap:16px;overflow-x:auto;padding:0 24px 12px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;">` +
+        items.map((it) => `<div style="flex:0 0 clamp(240px,32vw,380px);scroll-snap-align:start;">${media(it.media, `width:100%;height:clamp(240px,30vw,360px);object-fit:cover;border-radius:${d.imageRadius};display:block;`)}${it.title ? `<p style="margin:12px 0 0;font-weight:600;color:${ink};font-size:.95rem;">${esc(it.title)}</p>` : ""}</div>`).join("") + `</div></section>`;
     }
 
     if (s.variant === "grid2") {
-      return sec(wrap(head + `<div class="grid2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;">` +
-        items.map((it) => `<figure style="margin:0;">${media(it.media, `width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:${d.imageRadius};display:block;`)}${it.title ? `<figcaption style="margin-top:12px;color:${muted};font-size:.92rem;">${esc(it.title)}</figcaption>` : ""}</figure>`).join("") + `</div>`), paper, "galeria");
+      return sec(s, head + `<div class="grid2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;">` +
+        items.map((it) => `<figure style="margin:0;">${media(it.media, `width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:${d.imageRadius};display:block;`)}${it.title ? `<figcaption style="margin-top:12px;color:${muted};font-size:.92rem;">${esc(it.title)}</figcaption>` : ""}</figure>`).join("") + `</div>`, "galeria");
     }
 
-    // masonry
-    return sec(wrap(head + `<div class="masonry" style="columns:3;column-gap:16px;">` +
-      items.map((it) => `<figure style="margin:0 0 16px;break-inside:avoid;">${media(it.media, `width:100%;border-radius:${d.imageRadius};display:block;`)}${it.title ? `<figcaption style="margin-top:10px;color:${muted};font-size:.9rem;">${esc(it.title)}</figcaption>` : ""}</figure>`).join("") + `</div>`), paper, "galeria");
+    return sec(s, head + `<div class="masonry" style="columns:3;column-gap:16px;">` +
+      items.map((it) => `<figure style="margin:0 0 16px;break-inside:avoid;">${media(it.media, `width:100%;border-radius:${d.imageRadius};display:block;`)}${it.title ? `<figcaption style="margin-top:10px;color:${muted};font-size:.9rem;">${esc(it.title)}</figcaption>` : ""}</figure>`).join("") + `</div>`, "galeria");
   }
 
   // ── VIDEO ───────────────────────────────────────────────
@@ -221,116 +248,239 @@ export function renderDemo(cfg: DemoConfig): string {
       : `<video src="${esc(v)}" controls playsinline style="width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:${d.imageRadius};display:block;background:#000;"></video>`;
 
     if (s.variant === "full") {
-      return sec(`<div style="max-width:1400px;margin:0 auto;padding:0 24px;">${player}</div>`, paper, "video");
+      return `<section id="video" style="padding:${padOf(s)} 0;background:${bgOf(s)};"><div style="max-width:1400px;margin:0 auto;padding:0 24px;">${player}</div></section>`;
     }
-    return sec(wrap(`<div style="${d.align === "center" ? "text-align:center;max-width:640px;margin:0 auto 40px;" : "max-width:620px;margin:0 0 40px;"}">${eyebrow(s.eyebrow)}${h2(s.heading)}${lede(s.body)}</div>` + player), paper, "video");
+    const align = alignOf(s);
+    return sec(s, `<div style="${align === "center" ? "text-align:center;max-width:640px;margin:0 auto 40px;" : "max-width:620px;margin:0 0 40px;"}">${eyebrow(s.eyebrow, align)}${h2(s.heading)}${lede(s.body, align)}</div>` + player, "video");
   }
 
   // ── ABOUT ───────────────────────────────────────────────
   function about(s: Section): string {
+    const align = alignOf(s);
+    const aboutBg = s.style?.bg || (dark ? mix(paper, "#ffffff", 0.04) : soft);
+
     if (s.variant === "centered") {
-      return sec(wrap(`<div style="text-align:center;max-width:720px;margin:0 auto;">
-        ${eyebrow(s.eyebrow)}${h2(s.heading)}
+      return `<section id="nosotros" style="padding:${padOf(s)} 0;background:${aboutBg};">${wrap(`<div style="text-align:center;max-width:720px;margin:0 auto;">
+        ${eyebrow(s.eyebrow, "center")}${h2(s.heading)}
         <p style="font-size:1.14rem;line-height:1.85;color:${muted};margin:0;">${esc(s.body)}</p>
-      </div>`), dark ? mix(paper, "#ffffff", 0.04) : soft, "nosotros");
+      </div>`, widthOf(s))}</section>`;
     }
 
     if (s.variant === "stat") {
       const stats = (s.items ?? []).slice(0, 4);
-      return sec(wrap(`<div style="${d.align === "center" ? "text-align:center;max-width:700px;margin:0 auto 52px;" : "max-width:640px;margin:0 0 52px;"}">${eyebrow(s.eyebrow)}${h2(s.heading)}${lede(s.body)}</div>
+      return `<section id="nosotros" style="padding:${padOf(s)} 0;background:${aboutBg};">${wrap(`<div style="${align === "center" ? "text-align:center;max-width:700px;margin:0 auto 52px;" : "max-width:640px;margin:0 0 52px;"}">${eyebrow(s.eyebrow, align)}${h2(s.heading)}${lede(s.body, align)}</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:clamp(20px,3vw,44px);">
-        ${stats.map((st) => `<div style="${d.align === "center" ? "text-align:center;" : ""}">
+        ${stats.map((st) => `<div style="${align === "center" ? "text-align:center;" : ""}">
           <p style="font-family:${f.heading};font-size:clamp(2.2rem,4.5vw,3.4rem);font-weight:${f.headingWeight};color:${accent};margin:0 0 8px;line-height:1;">${esc(st.title)}</p>
           <p style="color:${muted};margin:0;font-size:.95rem;line-height:1.5;">${esc(st.body)}</p>
         </div>`).join("")}
-      </div>`), dark ? mix(paper, "#ffffff", 0.04) : soft, "nosotros");
+      </div>`, widthOf(s))}</section>`;
     }
 
-    // split
-    return sec(wrap(`<div class="split" style="display:grid;grid-template-columns:1fr 1fr;gap:clamp(32px,5vw,72px);align-items:center;">
+    return sec(s, `<div class="split" style="display:grid;grid-template-columns:1fr 1fr;gap:clamp(32px,5vw,72px);align-items:center;">
       ${s.media?.url ? `<div>${media(s.media, `width:100%;height:clamp(280px,36vw,460px);object-fit:cover;border-radius:${d.imageRadius};display:block;`)}</div>` : `<div style="background:${dark ? mix(paper, "#fff", 0.07) : mix(accent, paper, 0.82)};border-radius:${d.imageRadius};min-height:300px;"></div>`}
-      <div>${eyebrow(s.eyebrow)}${h2(s.heading)}
+      <div>${eyebrow(s.eyebrow, align)}${h2(s.heading)}
         <p style="font-size:1.08rem;line-height:1.8;color:${muted};margin:0;">${esc(s.body)}</p>
       </div>
-    </div>`), paper, "nosotros");
+    </div>`, "nosotros");
   }
 
   // ── TESTIMONIALS ────────────────────────────────────────
   function testimonials(s: Section): string {
     const items = s.items ?? [];
     if (!items.length) return "";
+    const testBg = s.style?.bg || (dark ? mix(paper, "#ffffff", 0.04) : soft);
     if (s.variant === "single") {
       const it = items[0];
-      return sec(wrap(`<div style="text-align:center;max-width:800px;margin:0 auto;">
+      return `<section id="testimonios" style="padding:${padOf(s)} 0;background:${testBg};">${wrap(`<div style="text-align:center;max-width:800px;margin:0 auto;">
         <p style="font-family:${f.heading};font-size:clamp(1.4rem,3.2vw,2.3rem);line-height:1.4;color:${ink};margin:0 0 28px;font-weight:${f.headingWeight};letter-spacing:${f.headingTracking};">&ldquo;${esc(it.body)}&rdquo;</p>
         <p style="color:${accent};font-weight:600;margin:0;font-size:.98rem;">${esc(it.author)}${it.role ? `<span style="color:${muted};font-weight:400;"> — ${esc(it.role)}</span>` : ""}</p>
-      </div>`), dark ? mix(paper, "#ffffff", 0.04) : soft, "testimonios");
+      </div>`, widthOf(s))}</section>`;
     }
-    return sec(wrap(`<div style="${d.align === "center" ? "text-align:center;max-width:620px;margin:0 auto 48px;" : "margin:0 0 48px;"}">${eyebrow(s.eyebrow)}${h2(s.heading)}</div>
+    const align = alignOf(s);
+    return sec(s, `<div style="${align === "center" ? "text-align:center;max-width:620px;margin:0 auto 48px;" : "margin:0 0 48px;"}">${eyebrow(s.eyebrow, align)}${h2(s.heading)}</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:${d.surface === "card" ? "24px" : "0"};">
       ${items.map((it) => surfaceCard(`
         <p style="color:${ink};line-height:1.75;margin:0 0 20px;font-size:1.02rem;">&ldquo;${esc(it.body)}&rdquo;</p>
         <p style="color:${accent};font-weight:600;margin:0;font-size:.92rem;">${esc(it.author)}${it.role ? `<span style="color:${muted};font-weight:400;display:block;margin-top:2px;">${esc(it.role)}</span>` : ""}</p>`)).join("")}
-    </div>`), paper, "testimonios");
+    </div>`, "testimonios");
+  }
+
+  // ── STATS ───────────────────────────────────────────────
+  function stats(s: Section): string {
+    const items = s.items ?? [];
+    if (!items.length) return "";
+    const align = alignOf(s);
+    const head = (s.eyebrow || s.heading) ? `<div style="${align === "center" ? "text-align:center;" : ""}margin:0 0 40px;">${eyebrow(s.eyebrow, align)}${h2(s.heading)}</div>` : "";
+    if (s.variant === "cards") {
+      return sec(s, head + `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;">` +
+        items.map((it) => surfaceCard(`<p style="font-family:${f.heading};font-size:clamp(2rem,4vw,2.8rem);font-weight:${f.headingWeight};color:${accent};margin:0 0 6px;line-height:1;">${esc(it.title)}</p><p style="color:${muted};margin:0;font-size:.92rem;">${esc(it.body)}</p>`, "24px")).join("") + `</div>`, "cifras");
+    }
+    return sec(s, head + `<div style="display:flex;flex-wrap:wrap;justify-content:${align === "center" ? "center" : "flex-start"};gap:clamp(28px,6vw,64px);">` +
+      items.map((it) => `<div style="${align === "center" ? "text-align:center;" : ""}min-width:120px;">
+        <p style="font-family:${f.heading};font-size:clamp(2.2rem,4.5vw,3.4rem);font-weight:${f.headingWeight};color:${accent};margin:0 0 6px;line-height:1;">${esc(it.title)}</p>
+        <p style="color:${muted};margin:0;font-size:.92rem;">${esc(it.body)}</p>
+      </div>`).join("") + `</div>`, "cifras");
+  }
+
+  // ── TEAM ────────────────────────────────────────────────
+  function team(s: Section): string {
+    const items = s.items ?? [];
+    if (!items.length) return "";
+    const align = alignOf(s);
+    const head = `<div style="${align === "center" ? "text-align:center;max-width:620px;margin:0 auto 48px;" : "margin:0 0 48px;"}">${eyebrow(s.eyebrow, align)}${h2(s.heading)}${lede(s.body, align)}</div>`;
+    if (s.variant === "rows") {
+      return sec(s, head + `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:28px;">` +
+        items.map((it) => `<div style="display:flex;gap:16px;align-items:center;">
+          ${it.media?.url ? media(it.media, "width:64px;height:64px;object-fit:cover;border-radius:999px;flex-shrink:0;") : `<div style="width:64px;height:64px;border-radius:999px;background:${soft};flex-shrink:0;"></div>`}
+          <div>
+            <p style="font-weight:700;color:${ink};margin:0 0 3px;font-family:${f.heading};letter-spacing:${f.headingTracking};">${esc(it.title)}</p>
+            <p style="color:${muted};margin:0;font-size:.9rem;">${esc(it.body)}</p>
+          </div>
+        </div>`).join("") + `</div>`, "equipo");
+    }
+    return sec(s, head + `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:24px;">` +
+      items.map((it) => `<div style="text-align:center;">
+        ${it.media?.url ? media(it.media, `width:100%;aspect-ratio:1;object-fit:cover;border-radius:${d.imageRadius};display:block;margin-bottom:14px;`) : `<div style="width:100%;aspect-ratio:1;border-radius:${d.imageRadius};background:${soft};margin-bottom:14px;"></div>`}
+        <p style="font-weight:700;color:${ink};margin:0 0 3px;font-family:${f.heading};letter-spacing:${f.headingTracking};">${esc(it.title)}</p>
+        <p style="color:${muted};margin:0;font-size:.9rem;">${esc(it.body)}</p>
+      </div>`).join("") + `</div>`, "equipo");
+  }
+
+  // ── LOGOS ───────────────────────────────────────────────
+  function logos(s: Section): string {
+    const items = (s.items ?? []).filter((i) => i.media?.url);
+    if (!items.length) return "";
+    return sec(s, `${s.eyebrow ? `<p style="text-align:center;font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;color:${muted};font-weight:600;margin:0 0 32px;">${esc(s.eyebrow)}</p>` : ""}
+    <div style="display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:clamp(24px,5vw,56px);">
+      ${items.map((it) => media(it.media, "height:32px;width:auto;object-fit:contain;opacity:.75;filter:" + (dark ? "brightness(2) grayscale(1);" : "grayscale(1);")))
+        .join("")}
+    </div>`, "clientes");
+  }
+
+  // ── FAQ ─────────────────────────────────────────────────
+  function faq(s: Section): string {
+    const items = s.items ?? [];
+    if (!items.length) return "";
+    const align = alignOf(s);
+    const head = `<div style="${align === "center" ? "text-align:center;max-width:620px;margin:0 auto 44px;" : "max-width:620px;margin:0 0 44px;"}">${eyebrow(s.eyebrow, align)}${h2(s.heading)}</div>`;
+    const row = (it: { title?: string; body?: string }) => `<details style="border-top:1px solid ${hairline};padding:18px 0;">
+      <summary style="cursor:pointer;font-weight:600;color:${ink};font-size:1rem;list-style:none;display:flex;justify-content:space-between;gap:16px;">
+        ${esc(it.title)}<span style="color:${accent};">+</span>
+      </summary>
+      <p style="color:${muted};line-height:1.7;margin:12px 0 0;font-size:.95rem;">${esc(it.body)}</p>
+    </details>`;
+    if (s.variant === "twocol") {
+      const half = Math.ceil(items.length / 2);
+      return sec(s, head + `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:0 40px;">
+        <div>${items.slice(0, half).map(row).join("")}</div>
+        <div>${items.slice(half).map(row).join("")}</div>
+      </div>`, "preguntas");
+    }
+    return sec(s, head + `<div style="max-width:720px;${align === "center" ? "margin:0 auto;" : ""}">${items.map(row).join("")}</div>`, "preguntas");
+  }
+
+  // ── BANNER ──────────────────────────────────────────────
+  function banner(s: Section): string {
+    if (s.variant === "image" && s.media?.url) {
+      const overlay = (s.style?.overlay ?? 55) / 100;
+      return `<section style="position:relative;padding:${padOf(s)} 0;overflow:hidden;">
+        ${media(s.media, "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;")}
+        <div style="position:absolute;inset:0;background:rgba(0,0,0,${overlay});"></div>
+        ${wrap(`<div style="position:relative;text-align:center;color:#fff;">
+          <h2 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:${d.h2};margin:0 0 12px;letter-spacing:${f.headingTracking};">${esc(s.heading)}</h2>
+          ${s.body ? `<p style="opacity:.9;margin:0 0 26px;font-size:1.05rem;">${esc(s.body)}</p>` : ""}
+          ${btn(s.ctaText, s.ctaUrl, "solid")}
+        </div>`, widthOf(s))}
+      </section>`;
+    }
+    return `<section style="padding:${padOf(s)} 0;background:${s.style?.bg || accent};">${wrap(`<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:20px;color:${onAccent};">
+      <div>
+        <h3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.3rem;margin:0 0 4px;letter-spacing:${f.headingTracking};">${esc(s.heading)}</h3>
+        ${s.body ? `<p style="margin:0;opacity:.9;font-size:.95rem;">${esc(s.body)}</p>` : ""}
+      </div>
+      ${btn(s.ctaText, s.ctaUrl, isDark(s.style?.bg || accent) ? "outline" : "solid")}
+    </div>`, widthOf(s))}</section>`;
+  }
+
+  // ── DIVIDER ─────────────────────────────────────────────
+  function divider(s: Section): string {
+    if (s.variant === "space") return `<div style="height:${padOf(s)};background:${bgOf(s)};"></div>`;
+    return `<div style="padding:${padOf(s)} 0;background:${bgOf(s)};">${wrap(`<hr style="border:none;border-top:1px solid ${hairline};margin:0;"/>`, widthOf(s))}</div>`;
+  }
+
+  // ── COLUMNS (free text) ─────────────────────────────────
+  function columns(s: Section): string {
+    const items = s.items ?? [];
+    const n = s.variant === "three" ? 3 : s.variant === "single" ? 1 : 2;
+    const head = s.heading ? `<div style="margin:0 0 44px;${alignOf(s) === "center" ? "text-align:center;" : ""}">${h2(s.heading)}</div>` : "";
+    return sec(s, head + `<div style="display:grid;grid-template-columns:repeat(${n},1fr);gap:clamp(28px,4vw,56px);">` +
+      items.slice(0, n).map((it) => `<div>
+        ${it.title ? `<h3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.2rem;color:${ink};margin:0 0 12px;letter-spacing:${f.headingTracking};">${esc(it.title)}</h3>` : ""}
+        <p style="color:${muted};line-height:1.75;margin:0;font-size:1rem;white-space:pre-line;">${esc(it.body)}</p>
+      </div>`).join("") + `</div>`);
   }
 
   // ── MENU / PRICING ──────────────────────────────────────
   function menu(s: Section): string {
     const items = s.items ?? [];
     if (!items.length) return "";
-    const head = `<div style="${d.align === "center" ? "text-align:center;max-width:620px;margin:0 auto 52px;" : "margin:0 0 52px;"}">${eyebrow(s.eyebrow)}${h2(s.heading)}${lede(s.body)}</div>`;
+    const align = alignOf(s);
+    const head = `<div style="${align === "center" ? "text-align:center;max-width:620px;margin:0 auto 52px;" : "margin:0 0 52px;"}">${eyebrow(s.eyebrow, align)}${h2(s.heading)}${lede(s.body, align)}</div>`;
 
     if (s.variant === "cards") {
-      return sec(wrap(head + `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:24px;">` +
+      return sec(s, head + `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:24px;">` +
         items.map((it) => surfaceCard(`
           ${it.media?.url ? media(it.media, `width:100%;height:190px;object-fit:cover;border-radius:${d.imageRadius};display:block;margin-bottom:18px;`) : ""}
           <div style="display:flex;justify-content:space-between;align-items:baseline;gap:14px;margin-bottom:8px;">
             <h3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.12rem;color:${ink};margin:0;${upper ? "text-transform:uppercase;" : ""}">${esc(it.title)}</h3>
             ${it.price ? `<span style="color:${accent};font-weight:700;font-size:1.05rem;white-space:nowrap;">${esc(it.price)}</span>` : ""}
           </div>
-          <p style="color:${muted};line-height:1.65;margin:0;font-size:.94rem;">${esc(it.body)}</p>`, "20px")).join("") + `</div>`), paper, "menu");
+          <p style="color:${muted};line-height:1.65;margin:0;font-size:.94rem;">${esc(it.body)}</p>`, "20px")).join("") + `</div>`, "menu");
     }
 
     if (s.variant === "tiers") {
-      return sec(wrap(head + `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px;align-items:stretch;">` +
+      return sec(s, head + `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px;align-items:stretch;">` +
         items.map((it, i) => `<div style="border:2px solid ${i === 1 ? accent : hairline};border-radius:${d.radius};padding:36px 28px;display:flex;flex-direction:column;${i === 1 ? `background:${soft};` : ""}">
           <h3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.15rem;color:${ink};margin:0 0 10px;${upper ? "text-transform:uppercase;" : ""}">${esc(it.title)}</h3>
           ${it.price ? `<p style="font-family:${f.heading};font-size:clamp(2rem,4vw,2.8rem);font-weight:${f.headingWeight};color:${accent};margin:0 0 18px;line-height:1;">${esc(it.price)}</p>` : ""}
           <p style="color:${muted};line-height:1.7;margin:0 0 26px;font-size:.96rem;flex:1;">${esc(it.body)}</p>
           ${btn(s.ctaText || "Elegir", s.ctaUrl)}
-        </div>`).join("") + `</div>`), paper, "menu");
+        </div>`).join("") + `</div>`, "menu");
     }
 
-    // list
-    return sec(wrap(head + `<div style="max-width:760px;${d.align === "center" ? "margin:0 auto;" : ""}">` +
+    return sec(s, head + `<div style="max-width:760px;${align === "center" ? "margin:0 auto;" : ""}">` +
       items.map((it, i) => `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:20px;padding:20px 0;${i ? `border-top:1px solid ${hairline};` : ""}">
         <div style="text-align:left;">
           <h3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.08rem;color:${ink};margin:0 0 5px;${upper ? "text-transform:uppercase;" : ""}">${esc(it.title)}</h3>
           ${it.body ? `<p style="color:${muted};margin:0;font-size:.94rem;line-height:1.6;">${esc(it.body)}</p>` : ""}
         </div>
         ${it.price ? `<span style="color:${accent};font-weight:700;font-size:1.08rem;white-space:nowrap;">${esc(it.price)}</span>` : ""}
-      </div>`).join("") + `</div>`), paper, "menu");
+      </div>`).join("") + `</div>`, "menu");
   }
 
   // ── CTA ─────────────────────────────────────────────────
   function cta(s: Section): string {
     if (s.variant === "boxed") {
-      return sec(wrap(`<div style="border:2px solid ${accent};border-radius:${d.radius};padding:clamp(36px,6vw,72px);text-align:center;">
+      return sec(s, `<div style="border:2px solid ${accent};border-radius:${d.radius};padding:clamp(36px,6vw,72px);text-align:center;">
         ${h2(s.heading)}${s.body ? `<p style="font-size:1.08rem;color:${muted};line-height:1.7;margin:0 auto 32px;max-width:52ch;">${esc(s.body)}</p>` : ""}
         ${btn(s.ctaText, s.ctaUrl)}
-      </div>`), paper);
+      </div>`);
     }
-    return `<section style="padding:clamp(56px,8vw,100px) 0;background:${accent};">
-      ${wrap(`<div style="text-align:center;color:${onAccent};">
+    const bg = s.style?.bg || accent;
+    const onBg = isDark(bg) ? "#ffffff" : "#111111";
+    return `<section style="padding:${padOf(s)} 0;background:${bg};">
+      ${wrap(`<div style="text-align:center;color:${onBg};">
         <h2 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:${d.h2};line-height:1.1;margin:0 0 16px;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}">${esc(s.heading)}</h2>
         ${s.body ? `<p style="font-size:1.1rem;opacity:.88;line-height:1.7;margin:0 auto 34px;max-width:54ch;">${esc(s.body)}</p>` : ""}
-        <a href="${esc(s.ctaUrl || "#contacto")}" class="btn" style="display:inline-block;background:${onAccent};color:${accent};font-weight:700;font-size:1rem;padding:16px 40px;border-radius:${d.radius === "0px" ? "0px" : d.radius === "2px" ? "2px" : "999px"};text-decoration:none;">${esc(s.ctaText)}</a>
-      </div>`)}
+        <a href="${esc(s.ctaUrl || "#contacto")}" class="btn" style="display:inline-block;background:${onBg};color:${bg};font-weight:700;font-size:1rem;padding:16px 40px;border-radius:${btnRadius};text-decoration:none;">${esc(s.ctaText)}</a>
+      </div>`, widthOf(s))}
     </section>`;
   }
 
   // ── CONTACT ─────────────────────────────────────────────
   function contact(s: Section): string {
+    const align = alignOf(s);
     const rows: { icon: string; label: string; href?: string }[] = [];
     if (b.phone) rows.push({ icon: "M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.8 19.79 19.79 0 010 1.18 2 2 0 012 0h3a2 2 0 012 1.72c.13.96.36 1.9.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0122 16.92z", label: b.phone, href: `tel:${b.phone.replace(/\s/g, "")}` });
     if (b.whatsapp) rows.push({ icon: "M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z", label: "WhatsApp", href: `https://wa.me/${b.whatsapp.replace(/\D/g, "")}` });
@@ -347,29 +497,28 @@ export function renderDemo(cfg: DemoConfig): string {
     }).join("");
 
     if (s.variant === "inline") {
-      return sec(wrap(`<div style="text-align:center;">${eyebrow(s.eyebrow)}${h2(s.heading)}${lede(s.body)}
+      return sec(s, `<div style="text-align:center;">${eyebrow(s.eyebrow, "center")}${h2(s.heading)}${lede(s.body, "center")}
         <div style="display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:34px;">
-          ${rows.map((r) => r.href ? `<a href="${esc(r.href)}" style="display:flex;align-items:center;gap:10px;background:${soft};border-radius:${d.radius === "0px" ? "0" : "999px"};padding:14px 26px;color:${ink};text-decoration:none;font-weight:600;font-size:.96rem;">${icon(r.icon)}${esc(r.label)}</a>` : "").join("")}
+          ${rows.map((r) => r.href ? `<a href="${esc(r.href)}" style="display:flex;align-items:center;gap:10px;background:${soft};border-radius:${btnRadius === "0px" ? "0" : "999px"};padding:14px 26px;color:${ink};text-decoration:none;font-weight:600;font-size:.96rem;">${icon(r.icon)}${esc(r.label)}</a>` : "").join("")}
         </div>
-      </div>`), paper, "contacto");
+      </div>`, "contacto");
     }
 
     if (s.variant === "card") {
-      return sec(wrap(`<div style="max-width:520px;margin:0 auto;text-align:center;">
-        ${eyebrow(s.eyebrow)}${h2(s.heading)}${lede(s.body)}
+      return sec(s, `<div style="max-width:520px;margin:0 auto;text-align:center;">
+        ${eyebrow(s.eyebrow, "center")}${h2(s.heading)}${lede(s.body, "center")}
         <div style="margin-top:32px;text-align:left;">${surfaceCard(list, "8px 28px")}</div>
-      </div>`), paper, "contacto");
+      </div>`, "contacto");
     }
 
-    // split
-    return sec(wrap(`<div class="split" style="display:grid;grid-template-columns:1fr 1fr;gap:clamp(32px,5vw,72px);align-items:start;">
-      <div>${eyebrow(s.eyebrow)}${h2(s.heading)}${lede(s.body)}${btn(s.ctaText, s.ctaUrl) ? `<div style="margin-top:28px;">${btn(s.ctaText, s.ctaUrl)}</div>` : ""}</div>
+    return sec(s, `<div class="split" style="display:grid;grid-template-columns:1fr 1fr;gap:clamp(32px,5vw,72px);align-items:start;">
+      <div>${eyebrow(s.eyebrow, align)}${h2(s.heading)}${lede(s.body, align)}${btn(s.ctaText, s.ctaUrl) ? `<div style="margin-top:28px;">${btn(s.ctaText, s.ctaUrl)}</div>` : ""}</div>
       <div>${list}</div>
-    </div>`), paper, "contacto");
+    </div>`, "contacto");
   }
 
   const renderers: Record<string, (s: Section) => string> = {
-    hero, features, gallery, video, about, testimonials, menu, cta, contact,
+    hero, features, gallery, video, about, testimonials, menu, faq, stats, team, logos, banner, divider, columns, cta, contact,
   };
 
   const body = (cfg.sections ?? [])
@@ -378,12 +527,14 @@ export function renderDemo(cfg: DemoConfig): string {
     .join("\n");
 
   const navLinks = (cfg.sections ?? [])
-    .filter((s) => s.enabled && s.type !== "hero" && s.type !== "cta")
+    .filter((s) => s.enabled && !["hero", "cta", "banner", "divider", "columns"].includes(s.type))
     .map((s) => {
       const map: Record<string, [string, string]> = {
         features: ["servicios", "Servicios"], gallery: ["galeria", "Galería"],
         video: ["video", "Video"], about: ["nosotros", "Nosotros"],
         testimonials: ["testimonios", "Testimonios"], menu: ["menu", "Menú"],
+        faq: ["preguntas", "Preguntas"], stats: ["cifras", "Cifras"],
+        team: ["equipo", "Equipo"], logos: ["clientes", "Clientes"],
         contact: ["contacto", "Contacto"],
       };
       const m = map[s.type];
@@ -407,6 +558,7 @@ body{margin:0;background:${paper};color:${ink};font-family:${f.body};font-weight
 img,video{max-width:100%;}
 .btn:hover{transform:translateY(-1px);opacity:.92;}
 nav a:hover{opacity:1!important;}
+details summary::-webkit-details-marker{display:none;}
 @media(max-width:860px){
   .split{grid-template-columns:1fr!important;}
   .split > div[style*="order:2"]{order:0!important;}
@@ -417,6 +569,7 @@ nav a:hover{opacity:1!important;}
   .masonry{columns:1!important;}
   nav{display:none!important;}
 }
+${cfg.customCss || ""}
 </style>
 </head>
 <body>

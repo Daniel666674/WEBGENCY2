@@ -7,9 +7,10 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   GripVertical, Eye, EyeOff, ChevronDown, Monitor, Smartphone, Tablet,
   Save, ExternalLink, Loader2, Globe, Check, Palette, Type, Layers, Plus,
+  Undo2, Redo2, Code2,
 } from "lucide-react";
-import type { DemoConfig, Section, SectionType } from "@/lib/demo/types";
-import { SECTION_LABELS, newId } from "@/lib/demo/types";
+import type { DemoConfig, Section, SectionType, ButtonShape, ButtonFill } from "@/lib/demo/types";
+import { SECTION_LABELS, SECTION_CATEGORIES, newId } from "@/lib/demo/types";
 import { TEMPLATES, getTemplate } from "@/lib/demo/templates";
 import { FONT_PAIRS } from "@/lib/demo/fonts";
 import { renderDemo } from "@/lib/demo/render";
@@ -19,7 +20,7 @@ import { MediaPicker } from "./MediaPicker";
 const inputCls =
   "w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm outline-none focus:border-primary transition-colors";
 
-type Tab = "design" | "content" | "brand";
+type Tab = "design" | "content" | "brand" | "advanced";
 
 function SortableSection({
   section, open, onToggleOpen, onToggleEnabled, children,
@@ -62,36 +63,100 @@ function SortableSection({
   );
 }
 
+const BUTTON_SHAPES: { id: ButtonShape; label: string }[] = [
+  { id: "pill", label: "Redondeado" },
+  { id: "rounded", label: "Suave" },
+  { id: "sharp", label: "Cuadrado" },
+];
+const BUTTON_FILLS: { id: ButtonFill; label: string }[] = [
+  { id: "solid", label: "Relleno" },
+  { id: "outline", label: "Contorno" },
+];
+
+const MAX_HISTORY = 60;
+
 export function DemoBuilder({
   demoId, initialConfig, initialTitle, initialPublished, slug,
 }: {
   demoId: string; initialConfig: DemoConfig; initialTitle: string;
   initialPublished: boolean; slug: string;
 }) {
-  const [cfg, setCfg] = useState<DemoConfig>(initialConfig);
+  const [cfg, setCfgRaw] = useState<DemoConfig>(initialConfig);
   const [title, setTitle] = useState(initialTitle);
   const [published, setPublished] = useState(initialPublished);
   const [tab, setTab] = useState<Tab>("design");
   const [openSection, setOpenSection] = useState<string | null>(null);
+  const [addPickerOpen, setAddPickerOpen] = useState(false);
   const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const dirty = useRef(false);
 
+  // Undo/redo history — plain snapshot stack, good enough for a config this size.
+  const history = useRef<DemoConfig[]>([initialConfig]);
+  const historyIndex = useRef(0);
+  const [historyTick, setHistoryTick] = useState(0);
+  const suppressHistory = useRef(false);
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
   const html = useMemo(() => renderDemo(cfg), [cfg]);
+
+  const setCfg = useCallback((next: DemoConfig) => {
+    setCfgRaw(next);
+    if (suppressHistory.current) return;
+    const h = history.current.slice(0, historyIndex.current + 1);
+    h.push(next);
+    if (h.length > MAX_HISTORY) h.shift();
+    history.current = h;
+    historyIndex.current = h.length - 1;
+    setHistoryTick((v) => v + 1);
+  }, []);
 
   const update = useCallback((patch: Partial<DemoConfig>) => {
     dirty.current = true;
     setSaved(false);
-    setCfg((c) => ({ ...c, ...patch }));
+    setCfg({ ...cfg, ...patch });
+  }, [cfg, setCfg]);
+
+  const undo = useCallback(() => {
+    if (historyIndex.current <= 0) return;
+    historyIndex.current -= 1;
+    suppressHistory.current = true;
+    dirty.current = true;
+    setCfgRaw(history.current[historyIndex.current]);
+    suppressHistory.current = false;
+    setHistoryTick((v) => v + 1);
   }, []);
+
+  const redo = useCallback(() => {
+    if (historyIndex.current >= history.current.length - 1) return;
+    historyIndex.current += 1;
+    suppressHistory.current = true;
+    dirty.current = true;
+    setCfgRaw(history.current[historyIndex.current]);
+    suppressHistory.current = false;
+    setHistoryTick((v) => v + 1);
+  }, []);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
+      if (e.key === "z" && e.shiftKey) { e.preventDefault(); redo(); }
+      if (e.key === "y") { e.preventDefault(); redo(); }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo]);
 
   const updateBrand = (patch: Partial<DemoConfig["brand"]>) =>
     update({ brand: { ...cfg.brand, ...patch } });
 
   const updateSection = (s: Section) =>
     update({ sections: cfg.sections.map((x) => (x.id === s.id ? s : x)) });
+
+  const removeSection = (id: string) =>
+    update({ sections: cfg.sections.filter((x) => x.id !== id) });
 
   const save = useCallback(async () => {
     setSaving(true);
@@ -132,7 +197,11 @@ export function DemoBuilder({
     update({
       template: id,
       fontPair: t.defaultFontPair,
-      brand: { ...cfg.brand, accent: fresh.brand.accent, ink: fresh.brand.ink, paper: fresh.brand.paper },
+      brand: {
+        ...cfg.brand,
+        accent: fresh.brand.accent, ink: fresh.brand.ink, paper: fresh.brand.paper,
+        buttonShape: fresh.brand.buttonShape, buttonFill: fresh.brand.buttonFill,
+      },
       sections: cfg.sections.map((s) => {
         const match = fresh.sections.find((f) => f.type === s.type);
         return match ? { ...s, variant: match.variant } : s;
@@ -143,14 +212,26 @@ export function DemoBuilder({
   function addSection(type: SectionType) {
     const t = getTemplate(cfg.template);
     const proto = t.defaults().sections.find((s) => s.type === type);
-    if (!proto) return;
-    update({ sections: [...cfg.sections, { ...proto, id: newId(), enabled: true }] });
+    const built: Section = proto
+      ? { ...proto, id: newId(), enabled: true }
+      : { id: newId(), type, variant: "list", enabled: true, heading: "" };
+    update({ sections: [...cfg.sections, built] });
+    setAddPickerOpen(false);
+    setOpenSection(built.id);
   }
 
-  const missingTypes = (Object.keys(SECTION_LABELS) as SectionType[])
-    .filter((t) => !cfg.sections.some((s) => s.type === t));
+  function duplicateSection(s: Section) {
+    const clone: Section = { ...s, id: newId() };
+    const idx = cfg.sections.findIndex((x) => x.id === s.id);
+    const next = [...cfg.sections];
+    next.splice(idx + 1, 0, clone);
+    update({ sections: next });
+  }
 
   const frameW = device === "desktop" ? "100%" : device === "tablet" ? "820px" : "390px";
+  const canUndo = historyIndex.current > 0;
+  const canRedo = historyIndex.current < history.current.length - 1;
+  void historyTick; // re-render trigger for undo/redo button state
 
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col lg:flex-row gap-4 p-4">
@@ -189,6 +270,22 @@ export function DemoBuilder({
               {saved ? "Guardado" : "Guardar"}
             </button>
           </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button" onClick={undo} disabled={!canUndo}
+              className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground disabled:opacity-40"
+              title="Deshacer (Ctrl+Z)"
+            >
+              <Undo2 className="h-3.5 w-3.5" /> Deshacer
+            </button>
+            <button
+              type="button" onClick={redo} disabled={!canRedo}
+              className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground disabled:opacity-40"
+              title="Rehacer (Ctrl+Shift+Z)"
+            >
+              <Redo2 className="h-3.5 w-3.5" /> Rehacer
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -197,6 +294,7 @@ export function DemoBuilder({
             ["design", "Diseño", Palette],
             ["content", "Contenido", Layers],
             ["brand", "Marca", Type],
+            ["advanced", "Avanzado", Code2],
           ] as const).map(([id, label, Icon]) => (
             <button
               key={id} type="button" onClick={() => setTab(id)}
@@ -258,6 +356,34 @@ export function DemoBuilder({
                   ))}
                 </div>
               </div>
+
+              <div>
+                <p className="mb-2 text-xs font-medium text-muted-foreground">Estilo de botones</p>
+                <div className="grid grid-cols-3 gap-1.5 mb-1.5">
+                  {BUTTON_SHAPES.map((s) => (
+                    <button
+                      key={s.id} type="button" onClick={() => updateBrand({ buttonShape: s.id })}
+                      className={`rounded-md border px-2 py-1.5 text-[11px] font-medium transition-colors ${
+                        (cfg.brand.buttonShape ?? "pill") === s.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {BUTTON_FILLS.map((s) => (
+                    <button
+                      key={s.id} type="button" onClick={() => updateBrand({ buttonFill: s.id })}
+                      className={`rounded-md border px-2 py-1.5 text-[11px] font-medium transition-colors ${
+                        (cfg.brand.buttonFill ?? "solid") === s.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
@@ -277,28 +403,57 @@ export function DemoBuilder({
                         onToggleOpen={() => setOpenSection(openSection === s.id ? null : s.id)}
                         onToggleEnabled={() => updateSection({ ...s, enabled: !s.enabled })}
                       >
-                        <SectionEditor section={s} onChange={updateSection} />
+                        <div className="flex flex-col gap-3">
+                          <SectionEditor section={s} onChange={updateSection} />
+                          <div className="flex gap-1.5 border-t border-border pt-3">
+                            <button
+                              type="button" onClick={() => duplicateSection(s)}
+                              className="flex-1 rounded-md border border-border px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:border-primary"
+                            >
+                              Duplicar sección
+                            </button>
+                            <button
+                              type="button" onClick={() => removeSection(s.id)}
+                              className="flex-1 rounded-md border border-border px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:border-red-500 hover:text-red-500"
+                            >
+                              Eliminar sección
+                            </button>
+                          </div>
+                        </div>
                       </SortableSection>
                     ))}
                   </div>
                 </SortableContext>
               </DndContext>
 
-              {missingTypes.length > 0 && (
-                <div className="rounded-xl border border-dashed border-border p-3">
-                  <p className="mb-2 text-xs font-medium text-muted-foreground">Agregar sección</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {missingTypes.map((t) => (
-                      <button
-                        key={t} type="button" onClick={() => addSection(t)}
-                        className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium hover:border-primary"
-                      >
-                        <Plus className="h-3 w-3" /> {SECTION_LABELS[t]}
-                      </button>
+              <div className="rounded-xl border border-dashed border-border">
+                <button
+                  type="button"
+                  onClick={() => setAddPickerOpen((v) => !v)}
+                  className="flex w-full items-center justify-center gap-1.5 p-3 text-xs font-medium text-primary"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Agregar sección
+                </button>
+                {addPickerOpen && (
+                  <div className="flex flex-col gap-3 border-t border-border p-3">
+                    {SECTION_CATEGORIES.map((cat) => (
+                      <div key={cat.label}>
+                        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{cat.label}</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {cat.types.map((t) => (
+                            <button
+                              key={t} type="button" onClick={() => addSection(t)}
+                              className="rounded-md border border-border px-2 py-1 text-[11px] font-medium hover:border-primary hover:text-primary"
+                            >
+                              {SECTION_LABELS[t]}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           )}
 
@@ -348,6 +503,27 @@ export function DemoBuilder({
                   <input className={inputCls} value={cfg.brand[key] ?? ""} onChange={(e) => updateBrand({ [key]: e.target.value })} />
                 </div>
               ))}
+            </div>
+          )}
+
+          {tab === "advanced" && (
+            <div className="flex flex-col gap-3.5">
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  Solo para usuarios con conocimiento de CSS. Este código se agrega al final de los estilos del sitio.
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-muted-foreground">CSS personalizado</label>
+                <textarea
+                  rows={16}
+                  spellCheck={false}
+                  className="w-full rounded-md border border-border bg-background px-2.5 py-2 font-mono text-xs outline-none focus:border-primary"
+                  placeholder={"section { }\n.btn:hover { }"}
+                  value={cfg.customCss ?? ""}
+                  onChange={(e) => update({ customCss: e.target.value })}
+                />
+              </div>
             </div>
           )}
         </div>
