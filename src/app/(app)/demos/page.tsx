@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MonitorSmartphone, Plus, ExternalLink, Trash2, FileEdit, Loader2, X } from "lucide-react";
+import { MonitorSmartphone, Plus, ExternalLink, Trash2, FileEdit, Loader2 } from "lucide-react";
 import { TEMPLATES } from "@/lib/demo/templates";
 
 interface DemoRow {
@@ -17,26 +17,18 @@ interface DemoRow {
   contactName: string | null;
 }
 
-interface ContactRow { id: string; name: string; company: string | null }
 
 export default function DemosPage() {
   const router = useRouter();
   const [demos, setDemos] = useState<DemoRow[]>([]);
-  const [contacts, setContacts] = useState<ContactRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [showNew, setShowNew] = useState(false);
-  const [form, setForm] = useState({ title: "", template: "editorial", contactId: "" });
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [d, c] = await Promise.all([
-        fetch("/api/demo-pages").then((r) => r.json()),
-        fetch("/api/contacts").then((r) => r.json()).catch(() => []),
-      ]);
+      const d = await fetch("/api/demo-pages").then((r) => r.json());
       setDemos(Array.isArray(d) ? d : []);
-      setContacts(Array.isArray(c) ? c : []);
     } finally {
       setLoading(false);
     }
@@ -45,23 +37,21 @@ export default function DemosPage() {
   useEffect(() => { load(); }, [load]);
 
   async function create() {
-    if (!form.title.trim()) return;
+    if (creating) return;
     setCreating(true);
     try {
       const res = await fetch("/api/demo-pages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: form.title,
-          template: form.template,
-          contactId: form.contactId || null,
-        }),
+        body: JSON.stringify({ title: "Nuevo demo", template: "editorial" }),
       });
       if (res.ok) {
         const created = await res.json();
-        router.push(`/demos/${created.id}`);
+        router.push(`/demos/${created.id}?new=1`);
+      } else {
+        setCreating(false);
       }
-    } finally {
+    } catch {
       setCreating(false);
     }
   }
@@ -90,10 +80,11 @@ export default function DemosPage() {
           </div>
         </div>
         <button
-          onClick={() => setShowNew(true)}
-          className="flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground"
+          onClick={create}
+          disabled={creating}
+          className="flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
         >
-          <Plus className="h-4 w-4" /> Nuevo demo
+          {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Nuevo demo
         </button>
       </div>
 
@@ -111,82 +102,6 @@ export default function DemosPage() {
         ))}
       </div>
 
-      {/* New demo modal */}
-      {showNew && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowNew(false)}>
-          <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-5" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold">Nuevo demo</h2>
-              <button onClick={() => setShowNew(false)} className="rounded p-1 text-muted-foreground hover:text-foreground">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-3.5">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Nombre del negocio</label>
-                <input
-                  autoFocus
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  onKeyDown={(e) => e.key === "Enter" && create()}
-                  placeholder="Ej. Panadería La Espiga"
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Cliente (opcional)</label>
-                <select
-                  value={form.contactId}
-                  onChange={(e) => setForm({ ...form, contactId: e.target.value })}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-                >
-                  <option value="">Sin asignar</option>
-                  {contacts.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}{c.company ? ` — ${c.company}` : ""}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Plantilla</label>
-                <div className="grid max-h-56 grid-cols-1 gap-1.5 overflow-y-auto">
-                  {TEMPLATES.map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => setForm({ ...form, template: t.id })}
-                      className={`flex items-center gap-2.5 rounded-lg border p-2.5 text-left transition-colors ${
-                        form.template === t.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
-                      }`}
-                    >
-                      <div className="flex shrink-0 gap-0.5">
-                        {t.swatch.map((c) => (
-                          <span key={c} className="h-5 w-5 rounded-sm border border-black/10" style={{ background: c }} />
-                        ))}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold">{t.name}</p>
-                        <p className="truncate text-[11px] text-muted-foreground">{t.bestFor}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <button
-                onClick={create}
-                disabled={creating || !form.title.trim()}
-                className="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
-              >
-                {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                Crear demo
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* List */}
       {loading ? (

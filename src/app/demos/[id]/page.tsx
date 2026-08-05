@@ -6,8 +6,14 @@ import { DemoBuilder } from "@/components/demos/DemoBuilder";
 import { getTemplate } from "@/lib/demo/templates";
 import type { DemoConfig } from "@/lib/demo/types";
 
-export default async function DemoBuilderPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function DemoBuilderPage({
+  params, searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ new?: string }>;
+}) {
   const { id } = await params;
+  const { new: isNew } = await searchParams;
   const row = await db.select().from(demoPages).where(eq(demoPages.id, id)).get();
   if (!row) notFound();
 
@@ -27,6 +33,7 @@ export default async function DemoBuilderPage({ params }: { params: Promise<{ id
       initialPublished={row.published}
       initialVersion={row.version}
       slug={row.slug}
+      isNew={isNew === "1"}
     />
   );
 }

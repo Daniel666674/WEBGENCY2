@@ -2,7 +2,7 @@ import type { DemoConfig, Section, MediaRef, SectionWidth, SectionPad, NavConfig
 import { getTemplate } from "./templates";
 import { getFontPair } from "./fonts";
 import { defaultNav, defaultFooter, defaultNavLinks, ELEMENT_LABELS } from "./types";
-import { safeUrl, safeColor, safeCss } from "./validate";
+import { safeUrl, safeColor, safeCss, sanitizeRich } from "./validate";
 
 function esc(s: string | undefined): string {
   return (s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -163,6 +163,17 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     return joined ? ` class="${joined}"` : "";
   }
 
+  /**
+   * Marks a node as inline-editable and names the exact config field it
+   * writes back to. Separate from data-el on purpose: data-el is a style
+   * bucket (items.title styles every item title at once) whereas data-text
+   * must address one field, e.g. items.2.title.
+   */
+  function textAttr(field: string, rich = false): string {
+    if (!editMode || !cur) return "";
+    return ` data-text="${cur.id}:${field}"${rich ? ' data-rich="1"' : ""} contenteditable="true" spellcheck="false"`;
+  }
+
   /** The handle the editor uses to map a click back to this element. */
   function elHandle(key: ElementKey): string {
     if (!editMode || !cur) return "";
@@ -174,7 +185,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     if (d.eyebrow === "rule") {
       return `<p${elClass("eyebrow", "eyebrow")}${elHandle("eyebrow")} style="display:flex;align-items:center;gap:12px;font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;color:${accent};font-weight:600;margin:0 0 18px;${align === "center" ? "justify-content:center;" : ""}${elStyle("eyebrow")}"><span style="width:32px;height:1px;background:${accent};display:inline-block;"></span>${esc(text)}</p>`;
     }
-    return `<p${elClass("eyebrow", "eyebrow")}${elHandle("eyebrow")} style="font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:${accent};font-weight:600;margin:0 0 14px;${elStyle("eyebrow")}">${esc(text)}</p>`;
+    return `<p${elClass("eyebrow", "eyebrow")}${elHandle("eyebrow")}${textAttr("eyebrow")} style="font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:${accent};font-weight:600;margin:0 0 14px;${elStyle("eyebrow")}">${esc(text)}</p>`;
   };
 
   // Heading decoration. "bar" sits above the heading as its own element;
@@ -189,11 +200,11 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
 
   const h2 = (text?: string) =>
     text
-      ? `${headingBar}<h2${elClass("heading")}${elHandle("heading")} style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:${d.h2};line-height:1.08;letter-spacing:${f.headingTracking};color:${ink};margin:0 0 18px;${upper ? "text-transform:uppercase;" : ""}${headingDecor}${elStyle("heading")}">${esc(text)}</h2>`
+      ? `${headingBar}<h2${elClass("heading")}${elHandle("heading")} style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:${d.h2};line-height:1.08;letter-spacing:${f.headingTracking};color:${ink};margin:0 0 18px;${upper ? "text-transform:uppercase;" : ""}${headingDecor}${elStyle("heading")}"${textAttr("heading", true)}>${sanitizeRich(text)}</h2>`
       : "";
 
   const lede = (text?: string, align: "left" | "center" = d.align) =>
-    text ? `<p${elClass("body")}${elHandle("body")} style="font-size:1.08rem;line-height:1.7;color:${muted};margin:0 0 8px;max-width:62ch;${align === "center" ? "margin-left:auto;margin-right:auto;" : ""}${elStyle("body")}">${esc(text)}</p>` : "";
+    text ? `<p${elClass("body")}${elHandle("body")} style="font-size:1.08rem;line-height:1.7;color:${muted};margin:0 0 8px;max-width:62ch;${align === "center" ? "margin-left:auto;margin-right:auto;" : ""}${elStyle("body")}"${textAttr("body", true)}>${sanitizeRich(text)}</p>` : "";
 
   const btn = (text?: string, url?: string, forceFill?: "solid" | "outline") => {
     if (!text) return "";
@@ -232,7 +243,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     const logo = b.logo?.url
       ? `<img src="${escUrl(b.logo.url)}" alt="${esc(b.name)}" style="height:56px;width:auto;object-fit:contain;margin-bottom:28px;display:block;${align === "center" || s.variant === "stack" ? "margin-left:auto;margin-right:auto;" : ""}" />`
       : "";
-    const h1 = `<h1${elClass("heading")}${elHandle("heading")} style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:${d.h1};line-height:1.02;letter-spacing:${f.headingTracking};margin:0 0 22px;${upper ? "text-transform:uppercase;" : ""}${elStyle("heading")}">${esc(title)}</h1>`;
+    const h1 = `<h1${elClass("heading")}${elHandle("heading")} style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:${d.h1};line-height:1.02;letter-spacing:${f.headingTracking};margin:0 0 22px;${upper ? "text-transform:uppercase;" : ""}${elStyle("heading")}"${textAttr("heading", true)}>${sanitizeRich(title)}</h1>`;
 
     if (s.variant === "cover") {
       const overlayInk = "#ffffff";
@@ -242,9 +253,9 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
         <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,${overlay * 0.5}),rgba(0,0,0,${overlay}));"></div>
         ${wrap(`<div style="position:relative;color:${overlayInk};max-width:${align === "center" ? "760px" : "820px"};${align === "center" ? "margin:0 auto;text-align:center;" : ""}">
           ${logo}
-          ${s.eyebrow ? `<p${elClass("eyebrow")}${elHandle("eyebrow")} style="font-size:.75rem;letter-spacing:.18em;text-transform:uppercase;color:${accent};font-weight:600;margin:0 0 16px;${elStyle("eyebrow")}">${esc(s.eyebrow)}</p>` : ""}
+          ${s.eyebrow ? `<p${elClass("eyebrow")}${elHandle("eyebrow")} style="font-size:.75rem;letter-spacing:.18em;text-transform:uppercase;color:${accent};font-weight:600;margin:0 0 16px;${elStyle("eyebrow")}"${textAttr("eyebrow")}>${esc(s.eyebrow)}</p>` : ""}
           ${h1.replace("margin:0 0 22px;", `margin:0 0 22px;color:${overlayInk};`)}
-          ${s.subheading ? `<p${elClass("subheading")}${elHandle("subheading")} style="font-size:clamp(1.05rem,2vw,1.3rem);line-height:1.6;opacity:.9;margin:0 0 34px;max-width:56ch;${align === "center" ? "margin-left:auto;margin-right:auto;" : ""}${elStyle("subheading")}">${esc(s.subheading)}</p>` : ""}
+          ${s.subheading ? `<p${elClass("subheading")}${elHandle("subheading")} style="font-size:clamp(1.05rem,2vw,1.3rem);line-height:1.6;opacity:.9;margin:0 0 34px;max-width:56ch;${align === "center" ? "margin-left:auto;margin-right:auto;" : ""}${elStyle("subheading")}"${textAttr("subheading", true)}>${sanitizeRich(s.subheading)}</p>` : ""}
           ${btn(s.ctaText, s.ctaUrl)}
         </div>`, widthOf(s))}
       </section>`;
@@ -255,7 +266,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
         ${logo}
         ${eyebrow(s.eyebrow, "center")}
         ${h1.replace("margin:0 0 22px;", `margin:0 0 22px;color:${ink};`)}
-        ${s.subheading ? `<p${elClass("subheading")}${elHandle("subheading")} style="font-size:clamp(1.05rem,2vw,1.28rem);line-height:1.65;color:${muted};margin:0 auto 36px;max-width:58ch;${elStyle("subheading")}">${esc(s.subheading)}</p>` : ""}
+        ${s.subheading ? `<p${elClass("subheading")}${elHandle("subheading")} style="font-size:clamp(1.05rem,2vw,1.28rem);line-height:1.65;color:${muted};margin:0 auto 36px;max-width:58ch;${elStyle("subheading")}"${textAttr("subheading", true)}>${sanitizeRich(s.subheading)}</p>` : ""}
         ${btn(s.ctaText, s.ctaUrl)}
       </div>`, "inicio");
     }
@@ -266,7 +277,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
         ${eyebrow(s.eyebrow, align)}
         ${h1.replace("margin:0 0 22px;", `margin:0 0 26px;color:${ink};max-width:16ch;`)}
         <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-end;justify-content:space-between;margin-bottom:44px;">
-          ${s.subheading ? `<p${elClass("subheading")}${elHandle("subheading")} style="font-size:1.12rem;line-height:1.65;color:${muted};margin:0;max-width:46ch;flex:1 1 320px;${elStyle("subheading")}">${esc(s.subheading)}</p>` : "<span></span>"}
+          ${s.subheading ? `<p${elClass("subheading")}${elHandle("subheading")} style="font-size:1.12rem;line-height:1.65;color:${muted};margin:0;max-width:46ch;flex:1 1 320px;${elStyle("subheading")}"${textAttr("subheading", true)}>${sanitizeRich(s.subheading)}</p>` : "<span></span>"}
           ${btn(s.ctaText, s.ctaUrl)}
         </div>
         ${s.media?.url ? media(s.media, `width:100%;height:clamp(260px,42vw,520px);object-fit:cover;border-radius:${d.imageRadius};display:block;${elStyle("media")}`, "", elHandle("media")) : ""}
@@ -279,7 +290,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
         ${logo}
         ${eyebrow(s.eyebrow, align)}
         ${h1.replace("margin:0 0 22px;", `margin:0 0 22px;color:${ink};`)}
-        ${s.subheading ? `<p${elClass("subheading")}${elHandle("subheading")} style="font-size:1.12rem;line-height:1.68;color:${muted};margin:0 0 34px;max-width:52ch;${elStyle("subheading")}">${esc(s.subheading)}</p>` : ""}
+        ${s.subheading ? `<p${elClass("subheading")}${elHandle("subheading")} style="font-size:1.12rem;line-height:1.68;color:${muted};margin:0 0 34px;max-width:52ch;${elStyle("subheading")}"${textAttr("subheading", true)}>${sanitizeRich(s.subheading)}</p>` : ""}
         ${btn(s.ctaText, s.ctaUrl)}
       </div>
       ${s.media?.url ? `<div>${media(s.media, `width:100%;height:clamp(300px,40vw,520px);object-fit:cover;border-radius:${d.imageRadius};display:block;${elStyle("media")}`, "", elHandle("media"))}</div>` : `<div style="background:${soft};border-radius:${d.imageRadius};min-height:340px;"></div>`}
@@ -297,8 +308,8 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
       return sec(s, head + items.map((it, i) => `
         <div class="split" style="display:grid;grid-template-columns:${i % 2 ? ".95fr 1.05fr" : "1.05fr .95fr"};gap:clamp(28px,4vw,64px);align-items:center;padding:clamp(28px,4vw,52px) 0;${i ? `border-top:${dividerLine};` : ""}">
           <div style="${i % 2 ? "order:2;" : ""}">
-            <h3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:clamp(1.3rem,2.4vw,1.9rem);color:${ink};margin:0 0 12px;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}">${esc(it.title)}</h3>
-            <p style="color:${muted};line-height:1.7;margin:0;font-size:1.02rem;">${esc(it.body)}</p>
+            <h${elClass("items.title")}${elHandle("items.title")}3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:clamp(1.3rem,2.4vw,1.9rem);color:${ink};margin:0 0 12px;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}${elStyle("items.title")}"${textAttr(`items.${i}.title`, true)}>${sanitizeRich(it.title)}</h3>
+            <p${elClass("items.body")}${elHandle("items.body")} style="color:${muted};line-height:1.7;margin:0;font-size:1.02rem;${elStyle("items.body")}"${textAttr(`items.${i}.body`, true)}>${sanitizeRich(it.body)}</p>
           </div>
           ${it.media?.url ? `<div style="${i % 2 ? "order:1;" : ""}">${media(it.media, `width:100%;height:clamp(200px,26vw,320px);object-fit:cover;border-radius:${d.imageRadius};display:block;`)}</div>` : `<div style="${i % 2 ? "order:1;" : ""}background:${soft};border-radius:${d.imageRadius};min-height:200px;"></div>`}
         </div>`).join(""), "servicios");
@@ -309,18 +320,18 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
         <div style="display:grid;grid-template-columns:auto 1fr;gap:clamp(20px,3vw,44px);padding:clamp(24px,3.5vw,40px) 0;${i ? `border-top:${dividerLine};` : ""}">
           <span style="font-family:${f.heading};font-size:clamp(1.8rem,3.4vw,2.8rem);font-weight:${f.headingWeight};color:${accent};line-height:1;min-width:2.2ch;">${String(i + 1).padStart(2, "0")}</span>
           <div>
-            <h3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:clamp(1.2rem,2.2vw,1.6rem);color:${ink};margin:0 0 10px;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}">${esc(it.title)}</h3>
-            <p style="color:${muted};line-height:1.7;margin:0;max-width:60ch;">${esc(it.body)}</p>
+            <h${elClass("items.title")}${elHandle("items.title")}3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:clamp(1.2rem,2.2vw,1.6rem);color:${ink};margin:0 0 10px;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}${elStyle("items.title")}"${textAttr(`items.${i}.title`, true)}>${sanitizeRich(it.title)}</h3>
+            <p${elClass("items.body")}${elHandle("items.body")} style="color:${muted};line-height:1.7;margin:0;max-width:60ch;${elStyle("items.body")}"${textAttr(`items.${i}.body`, true)}>${sanitizeRich(it.body)}</p>
           </div>
         </div>`).join("") + `</div>`, "servicios");
     }
 
     const cols = s.variant === "grid4" ? "minmax(220px,1fr)" : "minmax(260px,1fr)";
     return sec(s, head + `<div class="grid3" style="display:grid;grid-template-columns:repeat(auto-fit,${cols});gap:${d.surface === "card" ? "24px" : "0"};">` +
-      items.map((it) => surfaceCard(`
+      items.map((it, i) => surfaceCard(`
         ${it.media?.url ? media(it.media, `width:100%;height:180px;object-fit:cover;border-radius:${d.imageRadius};display:block;margin-bottom:22px;`) : ""}
-        <h3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.22rem;color:${ink};margin:0 0 11px;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}">${esc(it.title)}</h3>
-        <p style="color:${muted};line-height:1.7;margin:0;font-size:.98rem;">${esc(it.body)}</p>`)).join("") + `</div>`, "servicios");
+        <h${elClass("items.title")}${elHandle("items.title")}3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.22rem;color:${ink};margin:0 0 11px;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}${elStyle("items.title")}"${textAttr(`items.${i}.title`, true)}>${sanitizeRich(it.title)}</h3>
+        <p${elClass("items.body")}${elHandle("items.body")} style="color:${muted};line-height:1.7;margin:0;font-size:.98rem;${elStyle("items.body")}"${textAttr(`items.${i}.body`, true)}>${sanitizeRich(it.body)}</p>`)).join("") + `</div>`, "servicios");
   }
 
   // ── GALLERY ─────────────────────────────────────────────
@@ -333,16 +344,16 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
 
     if (s.variant === "carousel") {
       return `<section id="galeria" style="padding:${padOf(s)} 0;background:${bgOf(s)};">${wrap(head, widthOf(s))}<div style="display:flex;gap:16px;overflow-x:auto;padding:0 24px 12px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;">` +
-        items.map((it) => `<div style="flex:0 0 clamp(240px,32vw,380px);scroll-snap-align:start;">${media(it.media, `width:100%;height:clamp(240px,30vw,360px);object-fit:cover;border-radius:${d.imageRadius};display:block;`)}${it.title ? `<p style="margin:12px 0 0;font-weight:600;color:${ink};font-size:.95rem;">${esc(it.title)}</p>` : ""}</div>`).join("") + `</div></section>`;
+        items.map((it, i) => `<div style="flex:0 0 clamp(240px,32vw,380px);scroll-snap-align:start;">${media(it.media, `width:100%;height:clamp(240px,30vw,360px);object-fit:cover;border-radius:${d.imageRadius};display:block;`)}${it.title ? `<p${elClass("items.title")}${elHandle("items.title")} style="margin:12px 0 0;font-weight:600;color:${ink};font-size:.95rem;${elStyle("items.title")}"${textAttr(`items.${i}.title`, true)}>${sanitizeRich(it.title)}</p>` : ""}</div>`).join("") + `</div></section>`;
     }
 
     if (s.variant === "grid2") {
       return sec(s, head + `<div class="grid2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;">` +
-        items.map((it) => `<figure style="margin:0;">${media(it.media, `width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:${d.imageRadius};display:block;`)}${it.title ? `<figcaption style="margin-top:12px;color:${muted};font-size:.92rem;">${esc(it.title)}</figcaption>` : ""}</figure>`).join("") + `</div>`, "galeria");
+        items.map((it, i) => `<figure style="margin:0;">${media(it.media, `width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:${d.imageRadius};display:block;`)}${it.title ? `<figcaption${elClass("items.title")}${elHandle("items.title")} style="margin-top:12px;color:${muted};font-size:.92rem;${elStyle("items.title")}"${textAttr(`items.${i}.title`, true)}>${sanitizeRich(it.title)}</figcaption>` : ""}</figure>`).join("") + `</div>`, "galeria");
     }
 
     return sec(s, head + `<div class="masonry" style="columns:3;column-gap:16px;">` +
-      items.map((it) => `<figure style="margin:0 0 16px;break-inside:avoid;">${media(it.media, `width:100%;border-radius:${d.imageRadius};display:block;`)}${it.title ? `<figcaption style="margin-top:10px;color:${muted};font-size:.9rem;">${esc(it.title)}</figcaption>` : ""}</figure>`).join("") + `</div>`, "galeria");
+      items.map((it, i) => `<figure style="margin:0 0 16px;break-inside:avoid;">${media(it.media, `width:100%;border-radius:${d.imageRadius};display:block;`)}${it.title ? `<figcaption${elClass("items.title")}${elHandle("items.title")} style="margin-top:10px;color:${muted};font-size:.9rem;${elStyle("items.title")}"${textAttr(`items.${i}.title`, true)}>${sanitizeRich(it.title)}</figcaption>` : ""}</figure>`).join("") + `</div>`, "galeria");
   }
 
   // ── VIDEO ───────────────────────────────────────────────
@@ -432,12 +443,12 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     const head = (s.eyebrow || s.heading) ? `<div style="${align === "center" ? "text-align:center;" : ""}margin:0 0 40px;">${eyebrow(s.eyebrow, align)}${h2(s.heading)}</div>` : "";
     if (s.variant === "cards") {
       return sec(s, head + `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;">` +
-        items.map((it) => surfaceCard(`<p style="font-family:${f.heading};font-size:clamp(2rem,4vw,2.8rem);font-weight:${f.headingWeight};color:${accent};margin:0 0 6px;line-height:1;">${esc(it.title)}</p><p style="color:${muted};margin:0;font-size:.92rem;">${esc(it.body)}</p>`, "24px")).join("") + `</div>`, "cifras");
+        items.map((it, i) => surfaceCard(`<p${elClass("items.title")}${elHandle("items.title")} style="font-family:${f.heading};font-size:clamp(2rem,4vw,2.8rem);font-weight:${f.headingWeight};color:${accent};margin:0 0 6px;line-height:1;${elStyle("items.title")}"${textAttr(`items.${i}.title`, true)}>${sanitizeRich(it.title)}</p><p${elClass("items.body")}${elHandle("items.body")} style="color:${muted};margin:0;font-size:.92rem;${elStyle("items.body")}"${textAttr(`items.${i}.body`, true)}>${sanitizeRich(it.body)}</p>`, "24px")).join("") + `</div>`, "cifras");
     }
     return sec(s, head + `<div style="display:flex;flex-wrap:wrap;justify-content:${align === "center" ? "center" : "flex-start"};gap:clamp(28px,6vw,64px);">` +
-      items.map((it) => `<div style="${align === "center" ? "text-align:center;" : ""}min-width:120px;">
-        <p style="font-family:${f.heading};font-size:clamp(2.2rem,4.5vw,3.4rem);font-weight:${f.headingWeight};color:${accent};margin:0 0 6px;line-height:1;">${esc(it.title)}</p>
-        <p style="color:${muted};margin:0;font-size:.92rem;">${esc(it.body)}</p>
+      items.map((it, i) => `<div style="${align === "center" ? "text-align:center;" : ""}min-width:120px;">
+        <p${elClass("items.title")}${elHandle("items.title")} style="font-family:${f.heading};font-size:clamp(2.2rem,4.5vw,3.4rem);font-weight:${f.headingWeight};color:${accent};margin:0 0 6px;line-height:1;${elStyle("items.title")}"${textAttr(`items.${i}.title`, true)}>${sanitizeRich(it.title)}</p>
+        <p${elClass("items.body")}${elHandle("items.body")} style="color:${muted};margin:0;font-size:.92rem;${elStyle("items.body")}"${textAttr(`items.${i}.body`, true)}>${sanitizeRich(it.body)}</p>
       </div>`).join("") + `</div>`, "cifras");
   }
 
@@ -450,19 +461,19 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     const head = `<div style="${align === "center" ? "text-align:center;max-width:620px;margin:0 auto 48px;" : "margin:0 0 48px;"}">${eyebrow(s.eyebrow, align)}${h2(s.heading)}${lede(s.body, align)}</div>`;
     if (s.variant === "rows") {
       return sec(s, head + `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:28px;">` +
-        items.map((it) => `<div style="display:flex;gap:16px;align-items:center;">
+        items.map((it, i) => `<div style="display:flex;gap:16px;align-items:center;">
           ${it.media?.url ? media(it.media, "width:64px;height:64px;object-fit:cover;border-radius:999px;flex-shrink:0;") : `<div style="width:64px;height:64px;border-radius:999px;background:${soft};flex-shrink:0;"></div>`}
           <div>
-            <p style="font-weight:700;color:${ink};margin:0 0 3px;font-family:${f.heading};letter-spacing:${f.headingTracking};">${esc(it.title)}</p>
-            <p style="color:${muted};margin:0;font-size:.9rem;">${esc(it.body)}</p>
+            <p${elClass("items.title")}${elHandle("items.title")} style="font-weight:700;color:${ink};margin:0 0 3px;font-family:${f.heading};letter-spacing:${f.headingTracking};${elStyle("items.title")}"${textAttr(`items.${i}.title`, true)}>${sanitizeRich(it.title)}</p>
+            <p${elClass("items.body")}${elHandle("items.body")} style="color:${muted};margin:0;font-size:.9rem;${elStyle("items.body")}"${textAttr(`items.${i}.body`, true)}>${sanitizeRich(it.body)}</p>
           </div>
         </div>`).join("") + `</div>`, "equipo");
     }
     return sec(s, head + `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:24px;">` +
-      items.map((it) => `<div style="text-align:center;">
+      items.map((it, i) => `<div style="text-align:center;">
         ${it.media?.url ? media(it.media, `width:100%;aspect-ratio:1;object-fit:cover;border-radius:${d.imageRadius};display:block;margin-bottom:14px;`) : `<div style="width:100%;aspect-ratio:1;border-radius:${d.imageRadius};background:${soft};margin-bottom:14px;"></div>`}
-        <p style="font-weight:700;color:${ink};margin:0 0 3px;font-family:${f.heading};letter-spacing:${f.headingTracking};">${esc(it.title)}</p>
-        <p style="color:${muted};margin:0;font-size:.9rem;">${esc(it.body)}</p>
+        <p${elClass("items.title")}${elHandle("items.title")} style="font-weight:700;color:${ink};margin:0 0 3px;font-family:${f.heading};letter-spacing:${f.headingTracking};${elStyle("items.title")}"${textAttr(`items.${i}.title`, true)}>${sanitizeRich(it.title)}</p>
+        <p${elClass("items.body")}${elHandle("items.body")} style="color:${muted};margin:0;font-size:.9rem;${elStyle("items.body")}"${textAttr(`items.${i}.body`, true)}>${sanitizeRich(it.body)}</p>
       </div>`).join("") + `</div>`, "equipo");
   }
 
@@ -471,7 +482,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     beginSection(s);
     const items = (s.items ?? []).filter((i) => i.media?.url);
     if (!items.length) return "";
-    return sec(s, `${s.eyebrow ? `<p${elClass("eyebrow")}${elHandle("eyebrow")} style="text-align:center;font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;color:${muted};font-weight:600;margin:0 0 32px;${elStyle("eyebrow")}">${esc(s.eyebrow)}</p>` : ""}
+    return sec(s, `${s.eyebrow ? `<p${elClass("eyebrow")}${elHandle("eyebrow")} style="text-align:center;font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;color:${muted};font-weight:600;margin:0 0 32px;${elStyle("eyebrow")}"${textAttr("eyebrow")}>${esc(s.eyebrow)}</p>` : ""}
     <div style="display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:clamp(24px,5vw,56px);">
       ${items.map((it) => media(it.media, "height:32px;width:auto;object-fit:contain;opacity:.75;filter:" + (dark ? "brightness(2) grayscale(1);" : "grayscale(1);")))
         .join("")}
@@ -485,20 +496,20 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     if (!items.length) return "";
     const align = alignOf(s);
     const head = `<div style="${align === "center" ? "text-align:center;max-width:620px;margin:0 auto 44px;" : "max-width:620px;margin:0 0 44px;"}">${eyebrow(s.eyebrow, align)}${h2(s.heading)}</div>`;
-    const row = (it: { title?: string; body?: string }) => `<details style="border-top:1px solid ${hairline};padding:18px 0;">
+    const row = (it: { title?: string; body?: string }, i: number) => `<details style="border-top:1px solid ${hairline};padding:18px 0;">
       <summary style="cursor:pointer;font-weight:600;color:${ink};font-size:1rem;list-style:none;display:flex;justify-content:space-between;gap:16px;">
         ${esc(it.title)}<span style="color:${accent};">+</span>
       </summary>
-      <p style="color:${muted};line-height:1.7;margin:12px 0 0;font-size:.95rem;">${esc(it.body)}</p>
+      <p${elClass("items.body")}${elHandle("items.body")} style="color:${muted};line-height:1.7;margin:12px 0 0;font-size:.95rem;${elStyle("items.body")}"${textAttr(`items.${i}.body`, true)}>${sanitizeRich(it.body)}</p>
     </details>`;
     if (s.variant === "twocol") {
       const half = Math.ceil(items.length / 2);
       return sec(s, head + `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:0 40px;">
-        <div>${items.slice(0, half).map(row).join("")}</div>
-        <div>${items.slice(half).map(row).join("")}</div>
+        <div>${items.slice(0, half).map((it, i) => row(it, i)).join("")}</div>
+        <div>${items.slice(half).map((it, i) => row(it, half + i)).join("")}</div>
       </div>`, "preguntas");
     }
-    return sec(s, head + `<div style="max-width:720px;${align === "center" ? "margin:0 auto;" : ""}">${items.map(row).join("")}</div>`, "preguntas");
+    return sec(s, head + `<div style="max-width:720px;${align === "center" ? "margin:0 auto;" : ""}">${items.map((it, i) => row(it, i)).join("")}</div>`, "preguntas");
   }
 
   // ── BANNER ──────────────────────────────────────────────
@@ -539,9 +550,9 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     const n = s.variant === "three" ? 3 : s.variant === "single" ? 1 : 2;
     const head = s.heading ? `<div style="margin:0 0 44px;${alignOf(s) === "center" ? "text-align:center;" : ""}">${h2(s.heading)}</div>` : "";
     return sec(s, head + `<div style="display:grid;grid-template-columns:repeat(${n},1fr);gap:clamp(28px,4vw,56px);">` +
-      items.slice(0, n).map((it) => `<div>
-        ${it.title ? `<h3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.2rem;color:${ink};margin:0 0 12px;letter-spacing:${f.headingTracking};">${esc(it.title)}</h3>` : ""}
-        <p style="color:${muted};line-height:1.75;margin:0;font-size:1rem;white-space:pre-line;">${esc(it.body)}</p>
+      items.slice(0, n).map((it, i) => `<div>
+        ${it.title ? `<h${elClass("items.title")}${elHandle("items.title")}3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.2rem;color:${ink};margin:0 0 12px;letter-spacing:${f.headingTracking};${elStyle("items.title")}"${textAttr(`items.${i}.title`, true)}>${sanitizeRich(it.title)}</h3>` : ""}
+        <p${elClass("items.body")}${elHandle("items.body")} style="color:${muted};line-height:1.75;margin:0;font-size:1rem;white-space:pre-line;${elStyle("items.body")}"${textAttr(`items.${i}.body`, true)}>${sanitizeRich(it.body)}</p>
       </div>`).join("") + `</div>`);
   }
 
@@ -555,21 +566,21 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
 
     if (s.variant === "cards") {
       return sec(s, head + `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:24px;">` +
-        items.map((it) => surfaceCard(`
+        items.map((it, i) => surfaceCard(`
           ${it.media?.url ? media(it.media, `width:100%;height:190px;object-fit:cover;border-radius:${d.imageRadius};display:block;margin-bottom:18px;`) : ""}
           <div style="display:flex;justify-content:space-between;align-items:baseline;gap:14px;margin-bottom:8px;">
-            <h3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.12rem;color:${ink};margin:0;${upper ? "text-transform:uppercase;" : ""}">${esc(it.title)}</h3>
-            ${it.price ? `<span style="color:${accent};font-weight:700;font-size:1.05rem;white-space:nowrap;">${esc(it.price)}</span>` : ""}
+            <h${elClass("items.title")}${elHandle("items.title")}3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.12rem;color:${ink};margin:0;${upper ? "text-transform:uppercase;" : ""}${elStyle("items.title")}"${textAttr(`items.${i}.title`, true)}>${sanitizeRich(it.title)}</h3>
+            ${it.price ? `<span${elClass("items.price")}${elHandle("items.price")} style="color:${accent};font-weight:700;font-size:1.05rem;white-space:nowrap;${elStyle("items.price")}"${textAttr(`items.${i}.price`)}>${esc(it.price)}</span>` : ""}
           </div>
-          <p style="color:${muted};line-height:1.65;margin:0;font-size:.94rem;">${esc(it.body)}</p>`, "20px")).join("") + `</div>`, "menu");
+          <p${elClass("items.body")}${elHandle("items.body")} style="color:${muted};line-height:1.65;margin:0;font-size:.94rem;${elStyle("items.body")}"${textAttr(`items.${i}.body`, true)}>${sanitizeRich(it.body)}</p>`, "20px")).join("") + `</div>`, "menu");
     }
 
     if (s.variant === "tiers") {
       return sec(s, head + `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px;align-items:stretch;">` +
         items.map((it, i) => `<div style="border:2px solid ${i === 1 ? accent : hairline};border-radius:${d.radius};padding:36px 28px;display:flex;flex-direction:column;${i === 1 ? `background:${soft};` : ""}">
-          <h3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.15rem;color:${ink};margin:0 0 10px;${upper ? "text-transform:uppercase;" : ""}">${esc(it.title)}</h3>
-          ${it.price ? `<p style="font-family:${f.heading};font-size:clamp(2rem,4vw,2.8rem);font-weight:${f.headingWeight};color:${accent};margin:0 0 18px;line-height:1;">${esc(it.price)}</p>` : ""}
-          <p style="color:${muted};line-height:1.7;margin:0 0 26px;font-size:.96rem;flex:1;">${esc(it.body)}</p>
+          <h${elClass("items.title")}${elHandle("items.title")}3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.15rem;color:${ink};margin:0 0 10px;${upper ? "text-transform:uppercase;" : ""}${elStyle("items.title")}"${textAttr(`items.${i}.title`, true)}>${sanitizeRich(it.title)}</h3>
+          ${it.price ? `<p${elClass("items.price")}${elHandle("items.price")} style="font-family:${f.heading};font-size:clamp(2rem,4vw,2.8rem);font-weight:${f.headingWeight};color:${accent};margin:0 0 18px;line-height:1;${elStyle("items.price")}"${textAttr(`items.${i}.price`)}>${esc(it.price)}</p>` : ""}
+          <p${elClass("items.body")}${elHandle("items.body")} style="color:${muted};line-height:1.7;margin:0 0 26px;font-size:.96rem;flex:1;${elStyle("items.body")}"${textAttr(`items.${i}.body`, true)}>${sanitizeRich(it.body)}</p>
           ${btn(s.ctaText || "Elegir", s.ctaUrl)}
         </div>`).join("") + `</div>`, "menu");
     }
@@ -577,10 +588,10 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     return sec(s, head + `<div style="max-width:760px;${align === "center" ? "margin:0 auto;" : ""}">` +
       items.map((it, i) => `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:20px;padding:20px 0;${i ? `border-top:${dividerLine};` : ""}">
         <div style="text-align:left;">
-          <h3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.08rem;color:${ink};margin:0 0 5px;${upper ? "text-transform:uppercase;" : ""}">${esc(it.title)}</h3>
-          ${it.body ? `<p style="color:${muted};margin:0;font-size:.94rem;line-height:1.6;">${esc(it.body)}</p>` : ""}
+          <h${elClass("items.title")}${elHandle("items.title")}3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.08rem;color:${ink};margin:0 0 5px;${upper ? "text-transform:uppercase;" : ""}${elStyle("items.title")}"${textAttr(`items.${i}.title`, true)}>${sanitizeRich(it.title)}</h3>
+          ${it.body ? `<p${elClass("items.body")}${elHandle("items.body")} style="color:${muted};margin:0;font-size:.94rem;line-height:1.6;${elStyle("items.body")}"${textAttr(`items.${i}.body`, true)}>${sanitizeRich(it.body)}</p>` : ""}
         </div>
-        ${it.price ? `<span style="color:${accent};font-weight:700;font-size:1.08rem;white-space:nowrap;">${esc(it.price)}</span>` : ""}
+        ${it.price ? `<span${elClass("items.price")}${elHandle("items.price")} style="color:${accent};font-weight:700;font-size:1.08rem;white-space:nowrap;${elStyle("items.price")}"${textAttr(`items.${i}.price`)}>${esc(it.price)}</span>` : ""}
       </div>`).join("") + `</div>`, "menu");
   }
 
@@ -814,6 +825,12 @@ ${editMode ? `
 [data-demo-section-id][data-sel="1"]{outline:2px solid rgba(99,102,241,.45);outline-offset:-2px;}
 .el[data-sel="1"]::after{content:attr(data-el-label);position:absolute;transform:translateY(-100%);margin-top:-6px;background:#6366f1;color:#fff;font:600 10px/1.6 system-ui,sans-serif;padding:1px 6px;border-radius:4px;white-space:nowrap;pointer-events:none;z-index:99;}
 .el[data-sel="1"]{position:relative;}
+[data-text]{outline-offset:3px;}
+[data-text]:focus{outline:2px solid #6366f1;outline-offset:3px;border-radius:2px;}
+#oliwan-tb{position:absolute;z-index:2147483000;display:none;gap:2px;background:#18181b;border-radius:8px;padding:4px;box-shadow:0 8px 24px -6px rgba(0,0,0,.5);font-family:system-ui,sans-serif;}
+#oliwan-tb button{all:unset;cursor:pointer;color:#e4e4e7;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:5px;font-size:12px;line-height:1;}
+#oliwan-tb button:hover{background:#3f3f46;}
+#oliwan-tb .sep{width:1px;background:#3f3f46;margin:3px 2px;}
 ` : ""}
 @media(max-width:860px){
   .split{grid-template-columns:1fr!important;}
@@ -878,6 +895,89 @@ ${editMode ? `<script>
 
   // The sidebar can drive selection too, so the highlight stays in sync
   // whichever side the user is working from.
+  // ── Inline text editing ────────────────────────────────
+  var tb = document.createElement('div');
+  tb.id = 'oliwan-tb';
+  tb.innerHTML =
+    '<button data-cmd="bold" title="Negrita"><b>B</b></button>' +
+    '<button data-cmd="italic" title="Cursiva"><i>I</i></button>' +
+    '<button data-cmd="underline" title="Subrayado"><u>U</u></button>' +
+    '<span class="sep"></span>' +
+    '<button data-cmd="createLink" title="Enlace">🔗</button>' +
+    '<button data-cmd="unlink" title="Quitar enlace">⛓️‍💥</button>';
+  document.body.appendChild(tb);
+
+  var activeField = null;
+
+  function hideTb(){ tb.style.display = 'none'; }
+
+  function showTbFor(node){
+    var r = node.getBoundingClientRect();
+    tb.style.display = 'flex';
+    tb.style.left = Math.max(8, r.left + window.scrollX) + 'px';
+    tb.style.top = Math.max(8, r.top + window.scrollY - 38) + 'px';
+  }
+
+  // Formatting must not steal focus from the text being edited.
+  tb.addEventListener('mousedown', function(e){ e.preventDefault(); });
+  tb.addEventListener('click', function(e){
+    var btn = e.target && e.target.closest ? e.target.closest('button') : null;
+    if (!btn || !activeField) return;
+    var cmd = btn.getAttribute('data-cmd');
+    if (cmd === 'createLink') {
+      var url = prompt('Enlace (https://… o #seccion)');
+      if (!url) return;
+      document.execCommand('createLink', false, url);
+    } else {
+      document.execCommand(cmd, false, undefined);
+    }
+    commit(activeField, true);
+  });
+
+  function commit(node, immediate){
+    var parts = String(node.getAttribute('data-text')).split(':');
+    var rich = node.getAttribute('data-rich') === '1';
+    var value = rich ? node.innerHTML : node.innerText;
+    send({ type:'text-change', id: parts[0], field: parts.slice(1).join(':'), value: value, immediate: !!immediate });
+  }
+
+  var timer = null;
+  document.addEventListener('input', function(e){
+    var node = e.target && e.target.closest ? e.target.closest('[data-text]') : null;
+    if (!node) return;
+    clearTimeout(timer);
+    timer = setTimeout(function(){ commit(node, false); }, 400);
+  });
+
+  document.addEventListener('focusin', function(e){
+    var node = e.target && e.target.closest ? e.target.closest('[data-text]') : null;
+    if (!node) { return; }
+    activeField = node;
+    if (node.getAttribute('data-rich') === '1') showTbFor(node); else hideTb();
+  });
+
+  document.addEventListener('focusout', function(e){
+    var node = e.target && e.target.closest ? e.target.closest('[data-text]') : null;
+    if (!node) return;
+    clearTimeout(timer);
+    commit(node, true);
+    setTimeout(function(){
+      if (!document.activeElement || !document.activeElement.closest || !document.activeElement.closest('[data-text]')) {
+        hideTb(); activeField = null;
+      }
+    }, 60);
+  });
+
+  // Enter should end the edit, not insert a newline into a heading.
+  document.addEventListener('keydown', function(e){
+    var node = e.target && e.target.closest ? e.target.closest('[data-text]') : null;
+    if (!node) return;
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); node.blur(); }
+    if (e.key === 'Escape') { node.blur(); }
+  });
+
+  window.addEventListener('scroll', function(){ if (activeField) showTbFor(activeField); }, true);
+
   window.addEventListener('message', function(e){
     var d = e.data;
     if (!d || d.source !== 'oliwan-editor') return;
