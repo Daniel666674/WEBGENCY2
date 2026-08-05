@@ -53,25 +53,31 @@ export async function POST(request: NextRequest) {
   const config = tpl.defaults();
   config.brand.name = title || "Nuevo Demo";
 
-  // Unique slug — append a short suffix if the base is taken.
+  // Generated up front so it can back the deterministic slug fallback below.
+  const id = crypto.randomUUID();
+
+  // Unique slug — random suffixes first (they stay readable), then fall back
+  // to the row id, which cannot collide.
   const baseSlug = slugify(title);
   let slug = baseSlug;
   for (let i = 0; i < 6; i++) {
     const clash = await db.select({ id: demoPages.id }).from(demoPages).where(eq(demoPages.slug, slug)).get();
     if (!clash) break;
-    slug = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`;
+    slug = i === 5 ? `${baseSlug}-${id.slice(0, 8)}` : `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`;
   }
 
   const now = new Date();
   const result = await db
     .insert(demoPages)
     .values({
+      id,
       contactId: contactId || null,
       title: title || "Nuevo Demo",
       slug,
       template: tpl.id,
       config: JSON.stringify(config),
       published: false,
+      version: 0,
       createdAt: now,
       updatedAt: now,
     })

@@ -356,8 +356,18 @@ export const demoPages = sqliteTable("demo_pages", {
   template: text("template").notNull().default("editorial"),
   // Full builder state (brand, fonts, ordered sections with content + media).
   // JSON-serialized, same convention as proposals.features.
+  // `config` is the working draft the builder reads and autosaves into.
+  // `publishedConfig` is the frozen snapshot /demo/[slug] serves, so editing
+  // a live demo never mutates what the client is looking at — Publish is an
+  // explicit copy from one to the other.
   config: text("config").notNull().default("{}"),
+  publishedConfig: text("published_config"),
   published: integer("published", { mode: "boolean" }).notNull().default(false),
+  publishedAt: integer("published_at", { mode: "timestamp" }),
+  // Bumped on every accepted write. The builder sends the version it loaded;
+  // a mismatch means another tab (or an out-of-order autosave) already wrote,
+  // so the stale request is rejected instead of silently clobbering.
+  version: integer("version").notNull().default(0),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),

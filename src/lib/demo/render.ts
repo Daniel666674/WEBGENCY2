@@ -1,10 +1,16 @@
-import type { DemoConfig, Section, MediaRef, SectionWidth, SectionPad, NavConfig, FooterConfig, NavLink, NavSize, FooterSize } from "./types";
+import type { DemoConfig, Section, MediaRef, SectionWidth, SectionPad, NavConfig, FooterConfig, NavLink, NavSize, FooterSize, ElementKey } from "./types";
 import { getTemplate } from "./templates";
 import { getFontPair } from "./fonts";
-import { defaultNav, defaultFooter, defaultNavLinks } from "./types";
+import { defaultNav, defaultFooter, defaultNavLinks, ELEMENT_LABELS } from "./types";
+import { safeUrl, safeColor, safeCss } from "./validate";
 
 function esc(s: string | undefined): string {
   return (s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/** esc() for URL contexts: strips unsafe schemes before HTML-escaping. */
+function escUrl(u: string | undefined): string {
+  return esc(safeUrl(u));
 }
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -26,26 +32,33 @@ function isDark(hex: string): boolean {
   return (r * 299 + g * 587 + b * 114) / 1000 < 140;
 }
 
-function media(m: MediaRef | undefined, style: string, cls = ""): string {
+function media(m: MediaRef | undefined, style: string, cls = "", attrs = ""): string {
   if (!m?.url) return "";
   if (m.kind === "video") {
-    return `<video src="${esc(m.url)}" style="${style}" class="${cls}" autoplay muted loop playsinline></video>`;
+    return `<video src="${escUrl(m.url)}" style="${style}" class="${cls}"${attrs} autoplay muted loop playsinline></video>`;
   }
-  return `<img src="${esc(m.url)}" alt="${esc(m.alt)}" style="${style}" class="${cls}" loading="lazy" />`;
+  return `<img src="${escUrl(m.url)}" alt="${esc(m.alt)}" style="${style}" class="${cls}"${attrs} loading="lazy" />`;
 }
 
 const WIDTH_PX: Record<SectionWidth, string> = { narrow: "760px", normal: "1080px", wide: "1320px", full: "100%" };
 const PAD_SCALE: Record<SectionPad, number> = { compact: 0.55, normal: 1, spacious: 1.5 };
 
-export function renderDemo(cfg: DemoConfig): string {
+export interface RenderOptions {
+  /** "edit" adds selection handles, outlines and the editor bridge.
+   *  "publish" (default) emits clean HTML with zero editor chrome. */
+  mode?: "edit" | "publish";
+}
+
+export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
+  const editMode = opts.mode === "edit";
   const t = getTemplate(cfg.template);
   const f = getFontPair(cfg.fontPair);
   const d = t.dna;
   const b = cfg.brand;
 
-  const accent = b.accent || "#6366f1";
-  const ink = b.ink || "#111827";
-  const paper = b.paper || "#ffffff";
+  const accent = safeColor(b.accent, "#6366f1");
+  const ink = safeColor(b.ink, "#111827");
+  const paper = safeColor(b.paper, "#ffffff");
   const dark = isDark(paper);
   const muted = mix(ink, paper, 0.42);
   const hairline = mix(ink, paper, 0.86);
@@ -79,7 +92,7 @@ export function renderDemo(cfg: DemoConfig): string {
   }
   const dividerLine = d.divider === "none" ? "none" : d.divider === "thick" ? `2px solid ${ink}` : `1px solid ${hairline}`;
   function bgOf(s: Section): string {
-    if (s.style?.bg) return s.style.bg;
+    if (s.style?.bg) return safeColor(s.style.bg, paper);
     // Let the body's background texture show through when the template has
     // one and the user hasn't pinned this section to an explicit color.
     return d.texture === "none" ? paper : "transparent";
@@ -91,21 +104,73 @@ export function renderDemo(cfg: DemoConfig): string {
   const wrap = (inner: string, maxW: string, extra = "") =>
     `<div style="max-width:${maxW};margin:0 auto;padding:0 24px;${extra}">${inner}</div>`;
 
+  // ── Per-element overrides ───────────────────────────────
+  //
+  // The text helpers below (eyebrow/h2/lede/btn/…) are shared by all 16
+  // section renderers and get called from deep inside their template
+  // literals. Rather than thread the section through ~50 call sites, each
+  // renderer announces which section it is currently drawing and the helpers
+  // read that to attach the right overrides and edit handle.
+  //
+  // Safe because rendering is synchronous and renderers never nest — but it
+  // does mean every renderer MUST call beginSection(s) as its first
+  // statement, and nav/footer must call beginSection(null).
+  let cur: Section | null = null;
+  const beginSection = (s: Section | null) => { cur = s; };
+
+  /** Override declarations, appended after the base style so they win. */
+  function elStyle(key: ElementKey): string {
+    const e = cur?.elements?.[key];
+    if (!e) return "";
+    const out: string[] = [];
+    if (e.fontFamily) out.push(`font-family:${e.fontFamily === "heading" ? f.heading : f.body};`);
+    if (e.fontSize !== undefined) out.push(`font-size:${e.fontSize}px;`);
+    if (e.fontWeight) out.push(`font-weight:${e.fontWeight};`);
+    if (e.lineHeight !== undefined) out.push(`line-height:${e.lineHeight};`);
+    if (e.letterSpacing !== undefined) out.push(`letter-spacing:${e.letterSpacing}em;`);
+    if (e.color) out.push(`color:${safeColor(e.color)};`);
+    if (e.align) out.push(`text-align:${e.align};`);
+    if (e.textTransform) out.push(`text-transform:${e.textTransform};`);
+    if (e.marginTop !== undefined) out.push(`margin-top:${e.marginTop}px;`);
+    if (e.marginBottom !== undefined) out.push(`margin-bottom:${e.marginBottom}px;`);
+    if (e.bg) out.push(`background:${safeColor(e.bg)};`);
+    if (e.radius !== undefined) out.push(`border-radius:${e.radius}px;`);
+    return out.join("");
+  }
+
+  /** Visibility classes; also carries the selection outline hook in edit mode. */
+  function elClass(key: ElementKey, extra = ""): string {
+    const e = cur?.elements?.[key];
+    const cls = [extra];
+    if (e?.hideDesktop) cls.push("hide-d");
+    if (e?.hideTablet) cls.push("hide-t");
+    if (e?.hideMobile) cls.push("hide-m");
+    if (editMode) cls.push("el");
+    const joined = cls.filter(Boolean).join(" ");
+    return joined ? ` class="${joined}"` : "";
+  }
+
+  /** The handle the editor uses to map a click back to this element. */
+  function elHandle(key: ElementKey): string {
+    if (!editMode || !cur) return "";
+    return ` data-el="${cur.id}:${key}" data-el-label="${esc(ELEMENT_LABELS[key])}"`;
+  }
+
   const eyebrow = (text?: string, align: "left" | "center" = d.align) => {
     if (!text || d.eyebrow === "none") return "";
     if (d.eyebrow === "rule") {
-      return `<p class="eyebrow" style="display:flex;align-items:center;gap:12px;font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;color:${accent};font-weight:600;margin:0 0 18px;${align === "center" ? "justify-content:center;" : ""}"><span style="width:32px;height:1px;background:${accent};display:inline-block;"></span>${esc(text)}</p>`;
+      return `<p${elClass("eyebrow", "eyebrow")}${elHandle("eyebrow")} style="display:flex;align-items:center;gap:12px;font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;color:${accent};font-weight:600;margin:0 0 18px;${align === "center" ? "justify-content:center;" : ""}${elStyle("eyebrow")}"><span style="width:32px;height:1px;background:${accent};display:inline-block;"></span>${esc(text)}</p>`;
     }
-    return `<p class="eyebrow" style="font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:${accent};font-weight:600;margin:0 0 14px;">${esc(text)}</p>`;
+    return `<p${elClass("eyebrow", "eyebrow")}${elHandle("eyebrow")} style="font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:${accent};font-weight:600;margin:0 0 14px;${elStyle("eyebrow")}">${esc(text)}</p>`;
   };
 
   const h2 = (text?: string) =>
     text
-      ? `<h2 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:${d.h2};line-height:1.08;letter-spacing:${f.headingTracking};color:${ink};margin:0 0 18px;${upper ? "text-transform:uppercase;" : ""}">${esc(text)}</h2>`
+      ? `<h2${elClass("heading")}${elHandle("heading")} style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:${d.h2};line-height:1.08;letter-spacing:${f.headingTracking};color:${ink};margin:0 0 18px;${upper ? "text-transform:uppercase;" : ""}${elStyle("heading")}">${esc(text)}</h2>`
       : "";
 
   const lede = (text?: string, align: "left" | "center" = d.align) =>
-    text ? `<p style="font-size:1.08rem;line-height:1.7;color:${muted};margin:0 0 8px;max-width:62ch;${align === "center" ? "margin-left:auto;margin-right:auto;" : ""}">${esc(text)}</p>` : "";
+    text ? `<p${elClass("body")}${elHandle("body")} style="font-size:1.08rem;line-height:1.7;color:${muted};margin:0 0 8px;max-width:62ch;${align === "center" ? "margin-left:auto;margin-right:auto;" : ""}${elStyle("body")}">${esc(text)}</p>` : "";
 
   const btn = (text?: string, url?: string, forceFill?: "solid" | "outline") => {
     if (!text) return "";
@@ -115,7 +180,7 @@ export function renderDemo(cfg: DemoConfig): string {
       fill === "solid"
         ? `${base}background:${accent};color:${onAccent};`
         : `${base}background:transparent;color:${ink};border:1.5px solid ${mix(ink, paper, 0.7)};`;
-    return `<a href="${esc(url || "#contacto")}" class="btn" style="${style}">${esc(text)}</a>`;
+    return `<a href="${escUrl(url || "#contacto")}"${elClass("cta", "btn")}${elHandle("cta")} style="${style}${elStyle("cta")}">${esc(text)}</a>`;
   };
 
   const surfaceCard = (inner: string, pad = "32px") => {
@@ -133,24 +198,25 @@ export function renderDemo(cfg: DemoConfig): string {
 
   // ── HERO ────────────────────────────────────────────────
   function hero(s: Section): string {
+    beginSection(s);
     const title = s.heading || b.name || "Tu Negocio";
     const align = alignOf(s);
     const logo = b.logo?.url
-      ? `<img src="${esc(b.logo.url)}" alt="${esc(b.name)}" style="height:56px;width:auto;object-fit:contain;margin-bottom:28px;display:block;${align === "center" || s.variant === "stack" ? "margin-left:auto;margin-right:auto;" : ""}" />`
+      ? `<img src="${escUrl(b.logo.url)}" alt="${esc(b.name)}" style="height:56px;width:auto;object-fit:contain;margin-bottom:28px;display:block;${align === "center" || s.variant === "stack" ? "margin-left:auto;margin-right:auto;" : ""}" />`
       : "";
-    const h1 = `<h1 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:${d.h1};line-height:1.02;letter-spacing:${f.headingTracking};margin:0 0 22px;${upper ? "text-transform:uppercase;" : ""}">${esc(title)}</h1>`;
+    const h1 = `<h1${elClass("heading")}${elHandle("heading")} style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:${d.h1};line-height:1.02;letter-spacing:${f.headingTracking};margin:0 0 22px;${upper ? "text-transform:uppercase;" : ""}${elStyle("heading")}">${esc(title)}</h1>`;
 
     if (s.variant === "cover") {
       const overlayInk = "#ffffff";
       const overlay = (s.style?.overlay ?? 55) / 100;
       return `<section id="inicio" style="position:relative;min-height:${d.sectionPadY === "clamp(80px, 12vw, 160px)" ? "88vh" : "78vh"};display:flex;align-items:center;background:${ink};overflow:hidden;">
-        ${s.media?.url ? media(s.media, "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.52;") : ""}
+        ${s.media?.url ? media(s.media, "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.52;" + elStyle("media"), "", elHandle("media")) : ""}
         <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,${overlay * 0.5}),rgba(0,0,0,${overlay}));"></div>
         ${wrap(`<div style="position:relative;color:${overlayInk};max-width:${align === "center" ? "760px" : "820px"};${align === "center" ? "margin:0 auto;text-align:center;" : ""}">
           ${logo}
-          ${s.eyebrow ? `<p style="font-size:.75rem;letter-spacing:.18em;text-transform:uppercase;color:${accent};font-weight:600;margin:0 0 16px;">${esc(s.eyebrow)}</p>` : ""}
+          ${s.eyebrow ? `<p${elClass("eyebrow")}${elHandle("eyebrow")} style="font-size:.75rem;letter-spacing:.18em;text-transform:uppercase;color:${accent};font-weight:600;margin:0 0 16px;${elStyle("eyebrow")}">${esc(s.eyebrow)}</p>` : ""}
           ${h1.replace("margin:0 0 22px;", `margin:0 0 22px;color:${overlayInk};`)}
-          ${s.subheading ? `<p style="font-size:clamp(1.05rem,2vw,1.3rem);line-height:1.6;opacity:.9;margin:0 0 34px;max-width:56ch;${align === "center" ? "margin-left:auto;margin-right:auto;" : ""}">${esc(s.subheading)}</p>` : ""}
+          ${s.subheading ? `<p${elClass("subheading")}${elHandle("subheading")} style="font-size:clamp(1.05rem,2vw,1.3rem);line-height:1.6;opacity:.9;margin:0 0 34px;max-width:56ch;${align === "center" ? "margin-left:auto;margin-right:auto;" : ""}${elStyle("subheading")}">${esc(s.subheading)}</p>` : ""}
           ${btn(s.ctaText, s.ctaUrl)}
         </div>`, widthOf(s))}
       </section>`;
@@ -161,7 +227,7 @@ export function renderDemo(cfg: DemoConfig): string {
         ${logo}
         ${eyebrow(s.eyebrow, "center")}
         ${h1.replace("margin:0 0 22px;", `margin:0 0 22px;color:${ink};`)}
-        ${s.subheading ? `<p style="font-size:clamp(1.05rem,2vw,1.28rem);line-height:1.65;color:${muted};margin:0 auto 36px;max-width:58ch;">${esc(s.subheading)}</p>` : ""}
+        ${s.subheading ? `<p${elClass("subheading")}${elHandle("subheading")} style="font-size:clamp(1.05rem,2vw,1.28rem);line-height:1.65;color:${muted};margin:0 auto 36px;max-width:58ch;${elStyle("subheading")}">${esc(s.subheading)}</p>` : ""}
         ${btn(s.ctaText, s.ctaUrl)}
       </div>`, "inicio");
     }
@@ -172,10 +238,10 @@ export function renderDemo(cfg: DemoConfig): string {
         ${eyebrow(s.eyebrow, align)}
         ${h1.replace("margin:0 0 22px;", `margin:0 0 26px;color:${ink};max-width:16ch;`)}
         <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-end;justify-content:space-between;margin-bottom:44px;">
-          ${s.subheading ? `<p style="font-size:1.12rem;line-height:1.65;color:${muted};margin:0;max-width:46ch;flex:1 1 320px;">${esc(s.subheading)}</p>` : "<span></span>"}
+          ${s.subheading ? `<p${elClass("subheading")}${elHandle("subheading")} style="font-size:1.12rem;line-height:1.65;color:${muted};margin:0;max-width:46ch;flex:1 1 320px;${elStyle("subheading")}">${esc(s.subheading)}</p>` : "<span></span>"}
           ${btn(s.ctaText, s.ctaUrl)}
         </div>
-        ${s.media?.url ? media(s.media, `width:100%;height:clamp(260px,42vw,520px);object-fit:cover;border-radius:${d.imageRadius};display:block;`) : ""}
+        ${s.media?.url ? media(s.media, `width:100%;height:clamp(260px,42vw,520px);object-fit:cover;border-radius:${d.imageRadius};display:block;${elStyle("media")}`, "", elHandle("media")) : ""}
       </div>`, "inicio");
     }
 
@@ -185,15 +251,16 @@ export function renderDemo(cfg: DemoConfig): string {
         ${logo}
         ${eyebrow(s.eyebrow, align)}
         ${h1.replace("margin:0 0 22px;", `margin:0 0 22px;color:${ink};`)}
-        ${s.subheading ? `<p style="font-size:1.12rem;line-height:1.68;color:${muted};margin:0 0 34px;max-width:52ch;">${esc(s.subheading)}</p>` : ""}
+        ${s.subheading ? `<p${elClass("subheading")}${elHandle("subheading")} style="font-size:1.12rem;line-height:1.68;color:${muted};margin:0 0 34px;max-width:52ch;${elStyle("subheading")}">${esc(s.subheading)}</p>` : ""}
         ${btn(s.ctaText, s.ctaUrl)}
       </div>
-      ${s.media?.url ? `<div>${media(s.media, `width:100%;height:clamp(300px,40vw,520px);object-fit:cover;border-radius:${d.imageRadius};display:block;`)}</div>` : `<div style="background:${soft};border-radius:${d.imageRadius};min-height:340px;"></div>`}
+      ${s.media?.url ? `<div>${media(s.media, `width:100%;height:clamp(300px,40vw,520px);object-fit:cover;border-radius:${d.imageRadius};display:block;${elStyle("media")}`, "", elHandle("media"))}</div>` : `<div style="background:${soft};border-radius:${d.imageRadius};min-height:340px;"></div>`}
     </div>`, "inicio");
   }
 
   // ── FEATURES ────────────────────────────────────────────
   function features(s: Section): string {
+    beginSection(s);
     const items = s.items ?? [];
     const align = alignOf(s);
     const head = `<div style="${align === "center" ? "text-align:center;max-width:660px;margin:0 auto 56px;" : "max-width:640px;margin:0 0 56px;"}">${eyebrow(s.eyebrow, align)}${h2(s.heading)}${lede(s.body, align)}</div>`;
@@ -230,6 +297,7 @@ export function renderDemo(cfg: DemoConfig): string {
 
   // ── GALLERY ─────────────────────────────────────────────
   function gallery(s: Section): string {
+    beginSection(s);
     const items = (s.items ?? []).filter((i) => i.media?.url);
     if (!items.length) return "";
     const align = alignOf(s);
@@ -251,6 +319,7 @@ export function renderDemo(cfg: DemoConfig): string {
 
   // ── VIDEO ───────────────────────────────────────────────
   function video(s: Section): string {
+    beginSection(s);
     if (!s.media?.url) return "";
     const v = s.media.url;
     const isEmbed = /youtube|youtu\.be|vimeo/.test(v);
@@ -262,8 +331,8 @@ export function renderDemo(cfg: DemoConfig): string {
       ? `https://player.vimeo.com/video/${v.split("vimeo.com/")[1]?.split(/[?&]/)[0]}`
       : v;
     const player = isEmbed
-      ? `<iframe src="${esc(embedUrl)}" style="width:100%;aspect-ratio:16/9;border:0;border-radius:${d.imageRadius};display:block;" allowfullscreen allow="autoplay; encrypted-media"></iframe>`
-      : `<video src="${esc(v)}" controls playsinline style="width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:${d.imageRadius};display:block;background:#000;"></video>`;
+      ? `<iframe src="${escUrl(embedUrl)}" style="width:100%;aspect-ratio:16/9;border:0;border-radius:${d.imageRadius};display:block;" allowfullscreen allow="autoplay; encrypted-media"></iframe>`
+      : `<video src="${escUrl(v)}" controls playsinline style="width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:${d.imageRadius};display:block;background:#000;"></video>`;
 
     if (s.variant === "full") {
       return `<section id="video" style="padding:${padOf(s)} 0;background:${bgOf(s)};"><div style="max-width:1400px;margin:0 auto;padding:0 24px;">${player}</div></section>`;
@@ -274,6 +343,7 @@ export function renderDemo(cfg: DemoConfig): string {
 
   // ── ABOUT ───────────────────────────────────────────────
   function about(s: Section): string {
+    beginSection(s);
     const align = alignOf(s);
     const aboutBg = s.style?.bg || (dark ? mix(paper, "#ffffff", 0.04) : soft);
 
@@ -296,7 +366,7 @@ export function renderDemo(cfg: DemoConfig): string {
     }
 
     return sec(s, `<div class="split" style="display:grid;grid-template-columns:1fr 1fr;gap:clamp(32px,5vw,72px);align-items:center;">
-      ${s.media?.url ? `<div>${media(s.media, `width:100%;height:clamp(280px,36vw,460px);object-fit:cover;border-radius:${d.imageRadius};display:block;`)}</div>` : `<div style="background:${dark ? mix(paper, "#fff", 0.07) : mix(accent, paper, 0.82)};border-radius:${d.imageRadius};min-height:300px;"></div>`}
+      ${s.media?.url ? `<div>${media(s.media, `width:100%;height:clamp(280px,36vw,460px);object-fit:cover;border-radius:${d.imageRadius};display:block;${elStyle("media")}`, "", elHandle("media"))}</div>` : `<div style="background:${dark ? mix(paper, "#fff", 0.07) : mix(accent, paper, 0.82)};border-radius:${d.imageRadius};min-height:300px;"></div>`}
       <div>${eyebrow(s.eyebrow, align)}${h2(s.heading)}
         <p style="font-size:1.08rem;line-height:1.8;color:${muted};margin:0;">${esc(s.body)}</p>
       </div>
@@ -305,6 +375,7 @@ export function renderDemo(cfg: DemoConfig): string {
 
   // ── TESTIMONIALS ────────────────────────────────────────
   function testimonials(s: Section): string {
+    beginSection(s);
     const items = s.items ?? [];
     if (!items.length) return "";
     const testBg = s.style?.bg || (dark ? mix(paper, "#ffffff", 0.04) : soft);
@@ -326,6 +397,7 @@ export function renderDemo(cfg: DemoConfig): string {
 
   // ── STATS ───────────────────────────────────────────────
   function stats(s: Section): string {
+    beginSection(s);
     const items = s.items ?? [];
     if (!items.length) return "";
     const align = alignOf(s);
@@ -343,6 +415,7 @@ export function renderDemo(cfg: DemoConfig): string {
 
   // ── TEAM ────────────────────────────────────────────────
   function team(s: Section): string {
+    beginSection(s);
     const items = s.items ?? [];
     if (!items.length) return "";
     const align = alignOf(s);
@@ -367,9 +440,10 @@ export function renderDemo(cfg: DemoConfig): string {
 
   // ── LOGOS ───────────────────────────────────────────────
   function logos(s: Section): string {
+    beginSection(s);
     const items = (s.items ?? []).filter((i) => i.media?.url);
     if (!items.length) return "";
-    return sec(s, `${s.eyebrow ? `<p style="text-align:center;font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;color:${muted};font-weight:600;margin:0 0 32px;">${esc(s.eyebrow)}</p>` : ""}
+    return sec(s, `${s.eyebrow ? `<p${elClass("eyebrow")}${elHandle("eyebrow")} style="text-align:center;font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;color:${muted};font-weight:600;margin:0 0 32px;${elStyle("eyebrow")}">${esc(s.eyebrow)}</p>` : ""}
     <div style="display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:clamp(24px,5vw,56px);">
       ${items.map((it) => media(it.media, "height:32px;width:auto;object-fit:contain;opacity:.75;filter:" + (dark ? "brightness(2) grayscale(1);" : "grayscale(1);")))
         .join("")}
@@ -378,6 +452,7 @@ export function renderDemo(cfg: DemoConfig): string {
 
   // ── FAQ ─────────────────────────────────────────────────
   function faq(s: Section): string {
+    beginSection(s);
     const items = s.items ?? [];
     if (!items.length) return "";
     const align = alignOf(s);
@@ -400,6 +475,7 @@ export function renderDemo(cfg: DemoConfig): string {
 
   // ── BANNER ──────────────────────────────────────────────
   function banner(s: Section): string {
+    beginSection(s);
     if (s.variant === "image" && s.media?.url) {
       const overlay = (s.style?.overlay ?? 55) / 100;
       return `<section style="position:relative;padding:${padOf(s)} 0;overflow:hidden;">
@@ -423,12 +499,14 @@ export function renderDemo(cfg: DemoConfig): string {
 
   // ── DIVIDER ─────────────────────────────────────────────
   function divider(s: Section): string {
+    beginSection(s);
     if (s.variant === "space") return `<div style="height:${padOf(s)};background:${bgOf(s)};"></div>`;
     return `<div style="padding:${padOf(s)} 0;background:${bgOf(s)};">${wrap(`<hr style="border:none;border-top:1px solid ${hairline};margin:0;"/>`, widthOf(s))}</div>`;
   }
 
   // ── COLUMNS (free text) ─────────────────────────────────
   function columns(s: Section): string {
+    beginSection(s);
     const items = s.items ?? [];
     const n = s.variant === "three" ? 3 : s.variant === "single" ? 1 : 2;
     const head = s.heading ? `<div style="margin:0 0 44px;${alignOf(s) === "center" ? "text-align:center;" : ""}">${h2(s.heading)}</div>` : "";
@@ -441,6 +519,7 @@ export function renderDemo(cfg: DemoConfig): string {
 
   // ── MENU / PRICING ──────────────────────────────────────
   function menu(s: Section): string {
+    beginSection(s);
     const items = s.items ?? [];
     if (!items.length) return "";
     const align = alignOf(s);
@@ -479,6 +558,7 @@ export function renderDemo(cfg: DemoConfig): string {
 
   // ── CTA ─────────────────────────────────────────────────
   function cta(s: Section): string {
+    beginSection(s);
     if (s.variant === "boxed") {
       return sec(s, `<div style="border:2px solid ${accent};border-radius:${d.radius};padding:clamp(36px,6vw,72px);text-align:center;">
         ${h2(s.heading)}${s.body ? `<p style="font-size:1.08rem;color:${muted};line-height:1.7;margin:0 auto 32px;max-width:52ch;">${esc(s.body)}</p>` : ""}
@@ -491,13 +571,14 @@ export function renderDemo(cfg: DemoConfig): string {
       ${wrap(`<div style="text-align:center;color:${onBg};">
         <h2 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:${d.h2};line-height:1.1;margin:0 0 16px;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}">${esc(s.heading)}</h2>
         ${s.body ? `<p style="font-size:1.1rem;opacity:.88;line-height:1.7;margin:0 auto 34px;max-width:54ch;">${esc(s.body)}</p>` : ""}
-        <a href="${esc(s.ctaUrl || "#contacto")}" class="btn" style="display:inline-block;background:${onBg};color:${bg};font-weight:700;font-size:1rem;padding:16px 40px;border-radius:${btnRadius};text-decoration:none;">${esc(s.ctaText)}</a>
+        <a href="${escUrl(s.ctaUrl || "#contacto")}" class="btn" style="display:inline-block;background:${onBg};color:${bg};font-weight:700;font-size:1rem;padding:16px 40px;border-radius:${btnRadius};text-decoration:none;">${esc(s.ctaText)}</a>
       </div>`, widthOf(s))}
     </section>`;
   }
 
   // ── CONTACT ─────────────────────────────────────────────
   function contact(s: Section): string {
+    beginSection(s);
     const align = alignOf(s);
     const rows: { icon: string; label: string; href?: string }[] = [];
     if (b.phone) rows.push({ icon: "M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.8 19.79 19.79 0 010 1.18 2 2 0 012 0h3a2 2 0 012 1.72c.13.96.36 1.9.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0122 16.92z", label: b.phone, href: `tel:${b.phone.replace(/\s/g, "")}` });
@@ -511,13 +592,13 @@ export function renderDemo(cfg: DemoConfig): string {
     const list = rows.map((r) => {
       const inner = `${icon(r.icon)}<span>${esc(r.label)}</span>`;
       const st = `display:flex;align-items:center;gap:13px;padding:15px 0;color:${ink};text-decoration:none;font-size:1rem;border-bottom:1px solid ${hairline};`;
-      return r.href ? `<a href="${esc(r.href)}" style="${st}">${inner}</a>` : `<div style="${st}">${inner}</div>`;
+      return r.href ? `<a href="${escUrl(r.href)}" style="${st}">${inner}</a>` : `<div style="${st}">${inner}</div>`;
     }).join("");
 
     if (s.variant === "inline") {
       return sec(s, `<div style="text-align:center;">${eyebrow(s.eyebrow, "center")}${h2(s.heading)}${lede(s.body, "center")}
         <div style="display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:34px;">
-          ${rows.map((r) => r.href ? `<a href="${esc(r.href)}" style="display:flex;align-items:center;gap:10px;background:${soft};border-radius:${btnRadius === "0px" ? "0" : "999px"};padding:14px 26px;color:${ink};text-decoration:none;font-weight:600;font-size:.96rem;">${icon(r.icon)}${esc(r.label)}</a>` : "").join("")}
+          ${rows.map((r) => r.href ? `<a href="${escUrl(r.href)}" style="display:flex;align-items:center;gap:10px;background:${soft};border-radius:${btnRadius === "0px" ? "0" : "999px"};padding:14px 26px;color:${ink};text-decoration:none;font-weight:600;font-size:.96rem;">${icon(r.icon)}${esc(r.label)}</a>` : "").join("")}
         </div>
       </div>`, "contacto");
     }
@@ -546,7 +627,8 @@ export function renderDemo(cfg: DemoConfig): string {
     .filter((s) => s.enabled)
     .map((s) => {
       const html = renderers[s.type]?.(s) ?? "";
-      return html ? `<div data-demo-section-id="${s.id}">${html}</div>` : "";
+      if (!html) return "";
+      return editMode ? `<div data-demo-section-id="${s.id}">${html}</div>` : html;
     })
     .join("\n");
 
@@ -560,33 +642,34 @@ export function renderDemo(cfg: DemoConfig): string {
     const hasChildren = !!l.children?.length;
     if (mobile) {
       const child = hasChildren
-        ? `<div style="display:flex;flex-direction:column;gap:10px;padding:8px 0 4px 16px;">${l.children!.map((c) => `<a href="${esc(c.url)}" style="color:${ink};opacity:.72;text-decoration:none;font-size:.94rem;">${esc(c.label)}</a>`).join("")}</div>`
+        ? `<div style="display:flex;flex-direction:column;gap:10px;padding:8px 0 4px 16px;">${l.children!.map((c) => `<a href="${escUrl(c.url)}" style="color:${ink};opacity:.72;text-decoration:none;font-size:.94rem;">${esc(c.label)}</a>`).join("")}</div>`
         : "";
-      return `<div><a href="${esc(l.url)}" style="color:${ink};text-decoration:none;font-size:1.05rem;font-weight:600;">${esc(l.label)}</a>${child}</div>`;
+      return `<div><a href="${escUrl(l.url)}" style="color:${ink};text-decoration:none;font-size:1.05rem;font-weight:600;">${esc(l.label)}</a>${child}</div>`;
     }
     if (!hasChildren) {
-      return `<a href="${esc(l.url)}" style="color:${ink};text-decoration:none;font-size:.92rem;opacity:.75;">${esc(l.label)}</a>`;
+      return `<a href="${escUrl(l.url)}" style="color:${ink};text-decoration:none;font-size:.92rem;opacity:.75;">${esc(l.label)}</a>`;
     }
     return `<div class="nav-item" style="position:relative;">
-      <a href="${esc(l.url)}" style="color:${ink};text-decoration:none;font-size:.92rem;opacity:.75;display:flex;align-items:center;gap:4px;">${esc(l.label)}<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></a>
+      <a href="${escUrl(l.url)}" style="color:${ink};text-decoration:none;font-size:.92rem;opacity:.75;display:flex;align-items:center;gap:4px;">${esc(l.label)}<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></a>
       <div class="nav-submenu" style="display:none;position:absolute;top:100%;left:0;margin-top:8px;background:${paper};border:1px solid ${hairline};border-radius:10px;padding:8px;min-width:180px;box-shadow:0 8px 24px -8px rgba(0,0,0,.2);">
-        ${l.children!.map((c) => `<a href="${esc(c.url)}" style="display:block;padding:8px 10px;border-radius:6px;color:${ink};text-decoration:none;font-size:.88rem;">${esc(c.label)}</a>`).join("")}
+        ${l.children!.map((c) => `<a href="${escUrl(c.url)}" style="display:block;padding:8px 10px;border-radius:6px;color:${ink};text-decoration:none;font-size:.88rem;">${esc(c.label)}</a>`).join("")}
       </div>
     </div>`;
   }
 
   function renderNav(): string {
+    beginSection(null);
     if (!nav.links.length && !nav.ctaText) return "";
     const logo = nav.showLogo
       ? (b.logo?.url
-          ? `<img src="${esc(b.logo.url)}" alt="${esc(b.name)}" style="height:${NAV_LOGO_H[nav.size]};width:auto;object-fit:contain;"/>`
+          ? `<img src="${escUrl(b.logo.url)}" alt="${esc(b.name)}" style="height:${NAV_LOGO_H[nav.size]};width:auto;object-fit:contain;"/>`
           : `<span style="font-family:${f.heading};font-weight:${f.headingWeight};color:${ink};font-size:1.05rem;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}">${esc(b.name)}</span>`)
       : "";
     const navCta = nav.ctaText ? btn(nav.ctaText, nav.ctaUrl) : "";
     const desktopLinks = nav.links.map((l) => navLinkHtml(l, false)).join("");
     const mobileLinks = nav.links.map((l) => navLinkHtml(l, true)).join("");
 
-    return `<nav data-demo-section-id="__nav__" style="${nav.sticky ? "position:sticky;top:0;" : ""}z-index:50;background:${paper}e8;backdrop-filter:blur(12px);border-bottom:1px solid ${hairline};max-width:100%;">
+    return `<nav${editMode ? ' data-demo-section-id="__nav__"' : ""} style="${nav.sticky ? "position:sticky;top:0;" : ""}z-index:50;background:${paper}e8;backdrop-filter:blur(12px);border-bottom:1px solid ${hairline};max-width:100%;">
       <input type="checkbox" id="oliwan-burger" class="burger-toggle" style="display:none;"/>
       <div style="padding:${NAV_SIZE_PAD[nav.size]};display:flex;align-items:center;${nav.layout === "center" ? "flex-direction:column;gap:14px;" : "justify-content:space-between;gap:24px;"}">
         <a href="#inicio" style="text-decoration:none;display:flex;align-items:center;">${logo || `<span></span>`}</a>
@@ -612,6 +695,7 @@ export function renderDemo(cfg: DemoConfig): string {
   const FOOTER_PAD: Record<FooterSize, string> = { compact: "32px 24px", normal: "52px 24px", spacious: "80px 24px" };
 
   function renderFooter(): string {
+    beginSection(null);
     const footerBg = dark ? mix(paper, "#000", 0.4) : mix(ink, paper, 0.05);
     const footerInk = dark ? ink : paper;
     const footerMuted = dark ? mix(ink, footerBg, 0.5) : mix(paper, footerBg, 0.35);
@@ -622,7 +706,7 @@ export function renderDemo(cfg: DemoConfig): string {
 
     const logoBlock = footer.showLogo
       ? (b.logo?.url
-          ? `<img src="${esc(b.logo.url)}" alt="${esc(b.name)}" style="height:36px;width:auto;object-fit:contain;margin-bottom:12px;"/>`
+          ? `<img src="${escUrl(b.logo.url)}" alt="${esc(b.name)}" style="height:36px;width:auto;object-fit:contain;margin-bottom:12px;"/>`
           : `<p style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.15rem;color:${footerInk};margin:0 0 10px;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}">${esc(b.name)}</p>`)
       : "";
 
@@ -631,13 +715,13 @@ export function renderDemo(cfg: DemoConfig): string {
       : "";
 
     const socialLine = footer.showSocial && socialRows.length
-      ? `<div style="display:flex;gap:16px;margin-top:12px;">${socialRows.map((s) => `<a href="${esc(s.url)}" style="color:${footerMuted};text-decoration:none;font-size:.84rem;">${esc(s.label)}</a>`).join("")}</div>`
+      ? `<div style="display:flex;gap:16px;margin-top:12px;">${socialRows.map((s) => `<a href="${escUrl(s.url)}" style="color:${footerMuted};text-decoration:none;font-size:.84rem;">${esc(s.label)}</a>`).join("")}</div>`
       : "";
 
     const copyright = `<p style="margin:0;opacity:.6;font-size:.82rem;color:${footerInk};">© ${new Date().getFullYear()} ${esc(b.name)} · Todos los derechos reservados${footer.copyrightExtra ? ` · ${esc(footer.copyrightExtra)}` : ""}</p>`;
 
     if (footer.variant === "simple") {
-      return `<footer data-demo-section-id="__footer__" style="background:${footerBg};color:${footerInk};padding:${FOOTER_PAD[footer.size]};text-align:center;">
+      return `<footer${editMode ? ' data-demo-section-id="__footer__"' : ""} style="background:${footerBg};color:${footerInk};padding:${FOOTER_PAD[footer.size]};text-align:center;">
         ${logoBlock}
         ${footer.tagline ? `<p style="margin:0 0 14px;font-size:.92rem;color:${footerMuted};max-width:420px;margin-left:auto;margin-right:auto;">${esc(footer.tagline)}</p>` : ""}
         ${contactLines}
@@ -646,7 +730,7 @@ export function renderDemo(cfg: DemoConfig): string {
       </footer>`;
     }
 
-    return `<footer data-demo-section-id="__footer__" style="background:${footerBg};color:${footerInk};padding:${FOOTER_PAD[footer.size]};">
+    return `<footer${editMode ? ' data-demo-section-id="__footer__"' : ""} style="background:${footerBg};color:${footerInk};padding:${FOOTER_PAD[footer.size]};">
       ${wrap(`<div style="display:grid;grid-template-columns:1.4fr repeat(${Math.max(footer.columns.length, 1)},1fr);gap:clamp(24px,4vw,56px);margin-bottom:36px;">
         <div>
           ${logoBlock}
@@ -657,7 +741,7 @@ export function renderDemo(cfg: DemoConfig): string {
         ${footer.columns.map((col) => `<div>
           <p style="font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:${footerMuted};font-weight:600;margin:0 0 14px;">${esc(col.title)}</p>
           <div style="display:flex;flex-direction:column;gap:10px;">
-            ${col.links.map((l) => `<a href="${esc(l.url)}" style="color:${footerInk};opacity:.75;text-decoration:none;font-size:.88rem;">${esc(l.label)}</a>`).join("")}
+            ${col.links.map((l) => `<a href="${escUrl(l.url)}" style="color:${footerInk};opacity:.75;text-decoration:none;font-size:.88rem;">${esc(l.label)}</a>`).join("")}
           </div>
         </div>`).join("")}
       </div>
@@ -685,7 +769,21 @@ img,video{max-width:100%;}
 .nav-submenu a:hover{background:${hairline};}
 .nav-mobile-panel{display:none;}
 details summary::-webkit-details-marker{display:none;}
+/* Per-element visibility. Breakpoints match the layout ones below, so what
+   the device switcher shows is what a real device gets. */
+@media(min-width:861px){.hide-d{display:none!important;}}
+@media(min-width:561px) and (max-width:860px){.hide-t{display:none!important;}}
+@media(max-width:560px){.hide-m{display:none!important;}}
+${editMode ? `
+/* Editor chrome — only ever emitted in edit mode, never on a published page. */
 [data-demo-section-id]{cursor:pointer;}
+.el{outline:1px dashed transparent;outline-offset:3px;transition:outline-color .12s ease;}
+.el:hover{outline-color:rgba(99,102,241,.6);cursor:pointer;}
+.el[data-sel="1"]{outline:2px solid #6366f1;outline-offset:3px;}
+[data-demo-section-id][data-sel="1"]{outline:2px solid rgba(99,102,241,.45);outline-offset:-2px;}
+.el[data-sel="1"]::after{content:attr(data-el-label);position:absolute;transform:translateY(-100%);margin-top:-6px;background:#6366f1;color:#fff;font:600 10px/1.6 system-ui,sans-serif;padding:1px 6px;border-radius:4px;white-space:nowrap;pointer-events:none;z-index:99;}
+.el[data-sel="1"]{position:relative;}
+` : ""}
 @media(max-width:860px){
   .split{grid-template-columns:1fr!important;}
   .split > div[style*="order:2"]{order:0!important;}
@@ -698,20 +796,74 @@ details summary::-webkit-details-marker{display:none;}
 @media(max-width:560px){
   .masonry{columns:1!important;}
 }
-${cfg.customCss || ""}
+${safeCss(cfg.customCss)}
 </style>
 </head>
 <body>
 ${renderNav()}
 ${body}
 ${renderFooter()}
-<script>
-document.addEventListener('click', function(e){
-  var el = e.target && e.target.closest ? e.target.closest('[data-demo-section-id]') : null;
-  if (!el) return;
-  try { parent.postMessage({ source: 'oliwan-demo', type: 'select', id: el.getAttribute('data-demo-section-id') }, '*'); } catch (err) {}
-});
-</script>
+${editMode ? `<script>
+(function(){
+  var selected = null;
+  function clear(){
+    if (selected) selected.removeAttribute('data-sel');
+    selected = null;
+  }
+  function mark(node){
+    clear();
+    if (!node) return;
+    node.setAttribute('data-sel','1');
+    selected = node;
+  }
+  function send(msg){
+    try { parent.postMessage(Object.assign({ source:'oliwan-demo' }, msg), '*'); } catch (err) {}
+  }
+
+  document.addEventListener('click', function(e){
+    var t = e.target;
+    if (!t || !t.closest) return;
+    // While editing, a click means "select this" — never "follow this link".
+    var link = t.closest('a');
+    if (link) e.preventDefault();
+
+    var el = t.closest('[data-el]');
+    if (el) {
+      e.stopPropagation();
+      mark(el);
+      var parts = String(el.getAttribute('data-el')).split(':');
+      send({ type:'select-element', id: parts[0], key: parts.slice(1).join(':') });
+      return;
+    }
+    var sec = t.closest('[data-demo-section-id]');
+    if (sec) {
+      mark(sec);
+      send({ type:'select', id: sec.getAttribute('data-demo-section-id') });
+    } else {
+      clear();
+      send({ type:'deselect' });
+    }
+  }, true);
+
+  // The sidebar can drive selection too, so the highlight stays in sync
+  // whichever side the user is working from.
+  window.addEventListener('message', function(e){
+    var d = e.data;
+    if (!d || d.source !== 'oliwan-editor') return;
+    if (d.type === 'select-element' && d.id && d.key) {
+      var el = document.querySelector('[data-el="' + d.id + ':' + d.key + '"]');
+      mark(el);
+      if (el && el.scrollIntoView) el.scrollIntoView({ behavior:'smooth', block:'center' });
+    } else if (d.type === 'select' && d.id) {
+      var sec = document.querySelector('[data-demo-section-id="' + d.id + '"]');
+      mark(sec);
+      if (sec && sec.scrollIntoView) sec.scrollIntoView({ behavior:'smooth', block:'start' });
+    } else if (d.type === 'deselect') {
+      clear();
+    }
+  });
+})();
+</script>` : ""}
 </body>
 </html>`;
 }

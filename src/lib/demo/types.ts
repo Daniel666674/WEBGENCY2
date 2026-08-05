@@ -43,11 +43,82 @@ export interface SectionStyle {
   overlay?: number; // 0-100, darkens a background image (hero/banner)
 }
 
+/**
+ * Per-element style overrides. Every addressable piece of a section (its
+ * heading, its lede, its button, its image) can carry one of these; the
+ * renderer composes template DNA → section style → element override, so an
+ * override only has to specify what it actually changes.
+ *
+ * A superset across all element kinds — the inspector shows only the
+ * controls that apply to the selected element (see ELEMENT_KIND).
+ */
+export interface ElementStyle {
+  // Typography (text + button elements)
+  fontFamily?: "heading" | "body";
+  fontSize?: number;        // px
+  fontWeight?: string;
+  lineHeight?: number;      // unitless multiplier
+  letterSpacing?: number;   // em
+  color?: string;
+  align?: "left" | "center" | "right";
+  textTransform?: "none" | "uppercase";
+  // Box
+  marginTop?: number;       // px
+  marginBottom?: number;    // px
+  // Button / media
+  bg?: string;
+  radius?: number;          // px
+  // Per-breakpoint visibility
+  hideDesktop?: boolean;
+  hideTablet?: boolean;
+  hideMobile?: boolean;
+}
+
+/** Stable, finite set of addressable elements within a section. */
+export type ElementKey =
+  | "eyebrow"
+  | "heading"
+  | "subheading"
+  | "body"
+  | "cta"
+  | "media"
+  | "items.title"
+  | "items.body"
+  | "items.price";
+
+export type ElementKind = "text" | "button" | "media";
+
+export const ELEMENT_KIND: Record<ElementKey, ElementKind> = {
+  eyebrow: "text",
+  heading: "text",
+  subheading: "text",
+  body: "text",
+  cta: "button",
+  media: "media",
+  "items.title": "text",
+  "items.body": "text",
+  "items.price": "text",
+};
+
+export const ELEMENT_LABELS: Record<ElementKey, string> = {
+  eyebrow: "Etiqueta",
+  heading: "Título",
+  subheading: "Frase de apoyo",
+  body: "Texto",
+  cta: "Botón",
+  media: "Imagen",
+  "items.title": "Título de los elementos",
+  "items.body": "Texto de los elementos",
+  "items.price": "Precio de los elementos",
+};
+
 export interface Section {
   id: string;
   type: SectionType;
   variant: string;
   enabled: boolean;
+  /** Keyed by ElementKey. Absent = render exactly as the template dictates. */
+  elements?: Partial<Record<ElementKey, ElementStyle>>;
   eyebrow?: string;
   heading?: string;
   subheading?: string;
