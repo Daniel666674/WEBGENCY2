@@ -2,9 +2,15 @@ import type { DemoConfig, Section, MediaRef, SectionWidth, SectionPad, NavConfig
 import { getTemplate } from "./templates";
 import { getFontPair } from "./fonts";
 import { defaultNav, defaultFooter, defaultNavLinks } from "./types";
+import { safeUrl, safeColor, safeCss } from "./validate";
 
 function esc(s: string | undefined): string {
   return (s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/** esc() for URL contexts: strips unsafe schemes before HTML-escaping. */
+function escUrl(u: string | undefined): string {
+  return esc(safeUrl(u));
 }
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -29,9 +35,9 @@ function isDark(hex: string): boolean {
 function media(m: MediaRef | undefined, style: string, cls = ""): string {
   if (!m?.url) return "";
   if (m.kind === "video") {
-    return `<video src="${esc(m.url)}" style="${style}" class="${cls}" autoplay muted loop playsinline></video>`;
+    return `<video src="${escUrl(m.url)}" style="${style}" class="${cls}" autoplay muted loop playsinline></video>`;
   }
-  return `<img src="${esc(m.url)}" alt="${esc(m.alt)}" style="${style}" class="${cls}" loading="lazy" />`;
+  return `<img src="${escUrl(m.url)}" alt="${esc(m.alt)}" style="${style}" class="${cls}" loading="lazy" />`;
 }
 
 const WIDTH_PX: Record<SectionWidth, string> = { narrow: "760px", normal: "1080px", wide: "1320px", full: "100%" };
@@ -43,9 +49,9 @@ export function renderDemo(cfg: DemoConfig): string {
   const d = t.dna;
   const b = cfg.brand;
 
-  const accent = b.accent || "#6366f1";
-  const ink = b.ink || "#111827";
-  const paper = b.paper || "#ffffff";
+  const accent = safeColor(b.accent, "#6366f1");
+  const ink = safeColor(b.ink, "#111827");
+  const paper = safeColor(b.paper, "#ffffff");
   const dark = isDark(paper);
   const muted = mix(ink, paper, 0.42);
   const hairline = mix(ink, paper, 0.86);
@@ -79,7 +85,7 @@ export function renderDemo(cfg: DemoConfig): string {
   }
   const dividerLine = d.divider === "none" ? "none" : d.divider === "thick" ? `2px solid ${ink}` : `1px solid ${hairline}`;
   function bgOf(s: Section): string {
-    if (s.style?.bg) return s.style.bg;
+    if (s.style?.bg) return safeColor(s.style.bg, paper);
     // Let the body's background texture show through when the template has
     // one and the user hasn't pinned this section to an explicit color.
     return d.texture === "none" ? paper : "transparent";
@@ -115,7 +121,7 @@ export function renderDemo(cfg: DemoConfig): string {
       fill === "solid"
         ? `${base}background:${accent};color:${onAccent};`
         : `${base}background:transparent;color:${ink};border:1.5px solid ${mix(ink, paper, 0.7)};`;
-    return `<a href="${esc(url || "#contacto")}" class="btn" style="${style}">${esc(text)}</a>`;
+    return `<a href="${escUrl(url || "#contacto")}" class="btn" style="${style}">${esc(text)}</a>`;
   };
 
   const surfaceCard = (inner: string, pad = "32px") => {
@@ -136,7 +142,7 @@ export function renderDemo(cfg: DemoConfig): string {
     const title = s.heading || b.name || "Tu Negocio";
     const align = alignOf(s);
     const logo = b.logo?.url
-      ? `<img src="${esc(b.logo.url)}" alt="${esc(b.name)}" style="height:56px;width:auto;object-fit:contain;margin-bottom:28px;display:block;${align === "center" || s.variant === "stack" ? "margin-left:auto;margin-right:auto;" : ""}" />`
+      ? `<img src="${escUrl(b.logo.url)}" alt="${esc(b.name)}" style="height:56px;width:auto;object-fit:contain;margin-bottom:28px;display:block;${align === "center" || s.variant === "stack" ? "margin-left:auto;margin-right:auto;" : ""}" />`
       : "";
     const h1 = `<h1 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:${d.h1};line-height:1.02;letter-spacing:${f.headingTracking};margin:0 0 22px;${upper ? "text-transform:uppercase;" : ""}">${esc(title)}</h1>`;
 
@@ -262,8 +268,8 @@ export function renderDemo(cfg: DemoConfig): string {
       ? `https://player.vimeo.com/video/${v.split("vimeo.com/")[1]?.split(/[?&]/)[0]}`
       : v;
     const player = isEmbed
-      ? `<iframe src="${esc(embedUrl)}" style="width:100%;aspect-ratio:16/9;border:0;border-radius:${d.imageRadius};display:block;" allowfullscreen allow="autoplay; encrypted-media"></iframe>`
-      : `<video src="${esc(v)}" controls playsinline style="width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:${d.imageRadius};display:block;background:#000;"></video>`;
+      ? `<iframe src="${escUrl(embedUrl)}" style="width:100%;aspect-ratio:16/9;border:0;border-radius:${d.imageRadius};display:block;" allowfullscreen allow="autoplay; encrypted-media"></iframe>`
+      : `<video src="${escUrl(v)}" controls playsinline style="width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:${d.imageRadius};display:block;background:#000;"></video>`;
 
     if (s.variant === "full") {
       return `<section id="video" style="padding:${padOf(s)} 0;background:${bgOf(s)};"><div style="max-width:1400px;margin:0 auto;padding:0 24px;">${player}</div></section>`;
@@ -491,7 +497,7 @@ export function renderDemo(cfg: DemoConfig): string {
       ${wrap(`<div style="text-align:center;color:${onBg};">
         <h2 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:${d.h2};line-height:1.1;margin:0 0 16px;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}">${esc(s.heading)}</h2>
         ${s.body ? `<p style="font-size:1.1rem;opacity:.88;line-height:1.7;margin:0 auto 34px;max-width:54ch;">${esc(s.body)}</p>` : ""}
-        <a href="${esc(s.ctaUrl || "#contacto")}" class="btn" style="display:inline-block;background:${onBg};color:${bg};font-weight:700;font-size:1rem;padding:16px 40px;border-radius:${btnRadius};text-decoration:none;">${esc(s.ctaText)}</a>
+        <a href="${escUrl(s.ctaUrl || "#contacto")}" class="btn" style="display:inline-block;background:${onBg};color:${bg};font-weight:700;font-size:1rem;padding:16px 40px;border-radius:${btnRadius};text-decoration:none;">${esc(s.ctaText)}</a>
       </div>`, widthOf(s))}
     </section>`;
   }
@@ -511,13 +517,13 @@ export function renderDemo(cfg: DemoConfig): string {
     const list = rows.map((r) => {
       const inner = `${icon(r.icon)}<span>${esc(r.label)}</span>`;
       const st = `display:flex;align-items:center;gap:13px;padding:15px 0;color:${ink};text-decoration:none;font-size:1rem;border-bottom:1px solid ${hairline};`;
-      return r.href ? `<a href="${esc(r.href)}" style="${st}">${inner}</a>` : `<div style="${st}">${inner}</div>`;
+      return r.href ? `<a href="${escUrl(r.href)}" style="${st}">${inner}</a>` : `<div style="${st}">${inner}</div>`;
     }).join("");
 
     if (s.variant === "inline") {
       return sec(s, `<div style="text-align:center;">${eyebrow(s.eyebrow, "center")}${h2(s.heading)}${lede(s.body, "center")}
         <div style="display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:34px;">
-          ${rows.map((r) => r.href ? `<a href="${esc(r.href)}" style="display:flex;align-items:center;gap:10px;background:${soft};border-radius:${btnRadius === "0px" ? "0" : "999px"};padding:14px 26px;color:${ink};text-decoration:none;font-weight:600;font-size:.96rem;">${icon(r.icon)}${esc(r.label)}</a>` : "").join("")}
+          ${rows.map((r) => r.href ? `<a href="${escUrl(r.href)}" style="display:flex;align-items:center;gap:10px;background:${soft};border-radius:${btnRadius === "0px" ? "0" : "999px"};padding:14px 26px;color:${ink};text-decoration:none;font-weight:600;font-size:.96rem;">${icon(r.icon)}${esc(r.label)}</a>` : "").join("")}
         </div>
       </div>`, "contacto");
     }
@@ -560,17 +566,17 @@ export function renderDemo(cfg: DemoConfig): string {
     const hasChildren = !!l.children?.length;
     if (mobile) {
       const child = hasChildren
-        ? `<div style="display:flex;flex-direction:column;gap:10px;padding:8px 0 4px 16px;">${l.children!.map((c) => `<a href="${esc(c.url)}" style="color:${ink};opacity:.72;text-decoration:none;font-size:.94rem;">${esc(c.label)}</a>`).join("")}</div>`
+        ? `<div style="display:flex;flex-direction:column;gap:10px;padding:8px 0 4px 16px;">${l.children!.map((c) => `<a href="${escUrl(c.url)}" style="color:${ink};opacity:.72;text-decoration:none;font-size:.94rem;">${esc(c.label)}</a>`).join("")}</div>`
         : "";
-      return `<div><a href="${esc(l.url)}" style="color:${ink};text-decoration:none;font-size:1.05rem;font-weight:600;">${esc(l.label)}</a>${child}</div>`;
+      return `<div><a href="${escUrl(l.url)}" style="color:${ink};text-decoration:none;font-size:1.05rem;font-weight:600;">${esc(l.label)}</a>${child}</div>`;
     }
     if (!hasChildren) {
-      return `<a href="${esc(l.url)}" style="color:${ink};text-decoration:none;font-size:.92rem;opacity:.75;">${esc(l.label)}</a>`;
+      return `<a href="${escUrl(l.url)}" style="color:${ink};text-decoration:none;font-size:.92rem;opacity:.75;">${esc(l.label)}</a>`;
     }
     return `<div class="nav-item" style="position:relative;">
-      <a href="${esc(l.url)}" style="color:${ink};text-decoration:none;font-size:.92rem;opacity:.75;display:flex;align-items:center;gap:4px;">${esc(l.label)}<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></a>
+      <a href="${escUrl(l.url)}" style="color:${ink};text-decoration:none;font-size:.92rem;opacity:.75;display:flex;align-items:center;gap:4px;">${esc(l.label)}<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></a>
       <div class="nav-submenu" style="display:none;position:absolute;top:100%;left:0;margin-top:8px;background:${paper};border:1px solid ${hairline};border-radius:10px;padding:8px;min-width:180px;box-shadow:0 8px 24px -8px rgba(0,0,0,.2);">
-        ${l.children!.map((c) => `<a href="${esc(c.url)}" style="display:block;padding:8px 10px;border-radius:6px;color:${ink};text-decoration:none;font-size:.88rem;">${esc(c.label)}</a>`).join("")}
+        ${l.children!.map((c) => `<a href="${escUrl(c.url)}" style="display:block;padding:8px 10px;border-radius:6px;color:${ink};text-decoration:none;font-size:.88rem;">${esc(c.label)}</a>`).join("")}
       </div>
     </div>`;
   }
@@ -579,7 +585,7 @@ export function renderDemo(cfg: DemoConfig): string {
     if (!nav.links.length && !nav.ctaText) return "";
     const logo = nav.showLogo
       ? (b.logo?.url
-          ? `<img src="${esc(b.logo.url)}" alt="${esc(b.name)}" style="height:${NAV_LOGO_H[nav.size]};width:auto;object-fit:contain;"/>`
+          ? `<img src="${escUrl(b.logo.url)}" alt="${esc(b.name)}" style="height:${NAV_LOGO_H[nav.size]};width:auto;object-fit:contain;"/>`
           : `<span style="font-family:${f.heading};font-weight:${f.headingWeight};color:${ink};font-size:1.05rem;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}">${esc(b.name)}</span>`)
       : "";
     const navCta = nav.ctaText ? btn(nav.ctaText, nav.ctaUrl) : "";
@@ -622,7 +628,7 @@ export function renderDemo(cfg: DemoConfig): string {
 
     const logoBlock = footer.showLogo
       ? (b.logo?.url
-          ? `<img src="${esc(b.logo.url)}" alt="${esc(b.name)}" style="height:36px;width:auto;object-fit:contain;margin-bottom:12px;"/>`
+          ? `<img src="${escUrl(b.logo.url)}" alt="${esc(b.name)}" style="height:36px;width:auto;object-fit:contain;margin-bottom:12px;"/>`
           : `<p style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.15rem;color:${footerInk};margin:0 0 10px;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}">${esc(b.name)}</p>`)
       : "";
 
@@ -631,7 +637,7 @@ export function renderDemo(cfg: DemoConfig): string {
       : "";
 
     const socialLine = footer.showSocial && socialRows.length
-      ? `<div style="display:flex;gap:16px;margin-top:12px;">${socialRows.map((s) => `<a href="${esc(s.url)}" style="color:${footerMuted};text-decoration:none;font-size:.84rem;">${esc(s.label)}</a>`).join("")}</div>`
+      ? `<div style="display:flex;gap:16px;margin-top:12px;">${socialRows.map((s) => `<a href="${escUrl(s.url)}" style="color:${footerMuted};text-decoration:none;font-size:.84rem;">${esc(s.label)}</a>`).join("")}</div>`
       : "";
 
     const copyright = `<p style="margin:0;opacity:.6;font-size:.82rem;color:${footerInk};">© ${new Date().getFullYear()} ${esc(b.name)} · Todos los derechos reservados${footer.copyrightExtra ? ` · ${esc(footer.copyrightExtra)}` : ""}</p>`;
@@ -657,7 +663,7 @@ export function renderDemo(cfg: DemoConfig): string {
         ${footer.columns.map((col) => `<div>
           <p style="font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:${footerMuted};font-weight:600;margin:0 0 14px;">${esc(col.title)}</p>
           <div style="display:flex;flex-direction:column;gap:10px;">
-            ${col.links.map((l) => `<a href="${esc(l.url)}" style="color:${footerInk};opacity:.75;text-decoration:none;font-size:.88rem;">${esc(l.label)}</a>`).join("")}
+            ${col.links.map((l) => `<a href="${escUrl(l.url)}" style="color:${footerInk};opacity:.75;text-decoration:none;font-size:.88rem;">${esc(l.label)}</a>`).join("")}
           </div>
         </div>`).join("")}
       </div>
@@ -698,7 +704,7 @@ details summary::-webkit-details-marker{display:none;}
 @media(max-width:560px){
   .masonry{columns:1!important;}
 }
-${cfg.customCss || ""}
+${safeCss(cfg.customCss)}
 </style>
 </head>
 <body>

@@ -78,10 +78,10 @@ const BUTTON_FILLS: { id: ButtonFill; label: string }[] = [
 const MAX_HISTORY = 60;
 
 export function DemoBuilder({
-  demoId, initialConfig, initialTitle, initialPublished, slug,
+  demoId, initialConfig, initialTitle, initialPublished, initialVersion, slug,
 }: {
   demoId: string; initialConfig: DemoConfig; initialTitle: string;
-  initialPublished: boolean; slug: string;
+  initialPublished: boolean; initialVersion: number; slug: string;
 }) {
   const [cfg, setCfgRaw] = useState<DemoConfig>(() => ({
     ...initialConfig,
@@ -96,7 +96,16 @@ export function DemoBuilder({
   const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [conflict, setConflict] = useState(false);
+  // Drafts autosave continuously, but the public page only moves when the
+  // user publishes. Without this hint, editing a live demo and then checking
+  // its URL looks broken.
+  const [unpublishedChanges, setUnpublishedChanges] = useState(false);
   const dirty = useRef(false);
+  // Server row version, round-tripped on every write so a second tab (or an
+  // out-of-order autosave) is rejected instead of silently overwriting.
+  const version = useRef(initialVersion);
 
   // Undo/redo history — plain snapshot stack, good enough for a config this size.
   const history = useRef<DemoConfig[]>([initialConfig]);
@@ -121,6 +130,7 @@ export function DemoBuilder({
   const update = useCallback((patch: Partial<DemoConfig>) => {
     dirty.current = true;
     setSaved(false);
+    setUnpublishedChanges(true);
     setCfg({ ...cfg, ...patch });
   }, [cfg, setCfg]);
 
@@ -188,28 +198,66 @@ export function DemoBuilder({
   const removeSection = (id: string) =>
     update({ sections: cfg.sections.filter((x) => x.id !== id) });
 
-  const save = useCallback(async () => {
+  // Single writer for every PUT. `publish` is only sent when the user
+  // explicitly acts on it — an ordinary autosave must never touch the
+  // snapshot the client is looking at.
+  const write = useCallback(async (extra: Record<string, unknown> = {}) => {
+    if (conflict) return false; // stop writing once we know we're stale
     setSaving(true);
+    setSaveError(null);
     try {
-      await fetch(`/api/demo-pages/${demoId}`, {
+      const res = await fetch(`/api/demo-pages/${demoId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, config: cfg, template: cfg.template, published }),
+        body: JSON.stringify({
+          title,
+          config: cfg,
+          template: cfg.template,
+          version: version.current,
+          ...extra,
+        }),
       });
+
+      if (res.status === 409) {
+        setConflict(true);
+        return false;
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setSaveError(data.error || "No se pudo guardar. Revisa tu conexión.");
+        return false;
+      }
+
+      const saved_ = await res.json();
+      version.current = saved_.version ?? version.current + 1;
       dirty.current = false;
       setSaved(true);
       setTimeout(() => setSaved(false), 2200);
+      return true;
+    } catch {
+      setSaveError("No se pudo guardar. Revisa tu conexión.");
+      return false;
     } finally {
       setSaving(false);
     }
-  }, [demoId, title, cfg, published]);
+  }, [demoId, title, cfg, conflict]);
+
+  const save = useCallback(() => write(), [write]);
+
+  const setPublishState = useCallback(async (next: boolean) => {
+    const ok = await write({ publish: next });
+    if (ok) {
+      setPublished(next);
+      if (next) setUnpublishedChanges(false);
+    }
+  }, [write]);
 
   // Autosave 1.5s after the last edit
   useEffect(() => {
-    if (!dirty.current) return;
+    if (!dirty.current || conflict) return;
     const t = setTimeout(() => { save(); }, 1500);
     return () => clearTimeout(t);
-  }, [cfg, title, published, save]);
+  }, [cfg, title, save, conflict]);
 
   function onSectionDragEnd(e: DragEndEvent) {
     const { active, over } = e;
@@ -278,13 +326,15 @@ export function DemoBuilder({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => { dirty.current = true; setPublished((p) => !p); }}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+              onClick={() => setPublishState(!published)}
+              disabled={saving}
+              title={published ? "Dejar de publicar" : "Publicar los cambios actuales"}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors disabled:opacity-60 ${
                 published ? "bg-green-500/15 text-green-600 dark:text-green-400" : "bg-muted text-muted-foreground"
               }`}
             >
               <Globe className="h-3.5 w-3.5" />
-              {published ? "Publicado" : "Borrador"}
+              {published ? (unpublishedChanges ? "Republicar" : "Publicado") : "Publicar"}
             </button>
             <a
               href={`/demo/${slug}`} target="_blank" rel="noopener noreferrer"
@@ -317,6 +367,39 @@ export function DemoBuilder({
             </button>
           </div>
         </div>
+
+        {/* Save status — a stale tab must stop autosaving and say so, rather
+            than quietly losing whatever the other tab wrote. */}
+        {conflict && (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
+            <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+              Este demo se modificó en otra pestaña
+            </p>
+            <p className="mt-1 text-[11px] text-amber-700/80 dark:text-amber-400/80">
+              Se detuvo el guardado automático para no borrar esos cambios.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-2 rounded-md bg-amber-500 px-2.5 py-1 text-[11px] font-semibold text-white"
+            >
+              Recargar
+            </button>
+          </div>
+        )}
+        {!conflict && saveError && (
+          <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3">
+            <p className="text-xs text-red-600 dark:text-red-400">{saveError}</p>
+          </div>
+        )}
+        {!conflict && !saveError && published && unpublishedChanges && (
+          <div className="rounded-lg border border-border bg-muted/60 px-3 py-2">
+            <p className="text-[11px] text-muted-foreground">
+              Tus cambios están guardados pero el sitio público todavía muestra la última versión publicada.
+              Presiona <span className="font-semibold text-foreground">Republicar</span> para actualizarlo.
+            </p>
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="grid grid-cols-5 gap-1 rounded-lg bg-muted p-1">

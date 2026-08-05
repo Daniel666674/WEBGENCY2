@@ -25,6 +25,7 @@ export default async function DemoBuilderPage({ params }: { params: Promise<{ id
       initialConfig={config}
       initialTitle={row.title}
       initialPublished={row.published}
+      initialVersion={row.version}
       slug={row.slug}
     />
   );

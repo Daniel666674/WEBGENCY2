@@ -25,7 +25,7 @@ const TABLES = [
   "CREATE TABLE IF NOT EXISTS analytics_properties (\n  id TEXT PRIMARY KEY,\n  contact_id TEXT NOT NULL UNIQUE REFERENCES contacts(id) ON DELETE CASCADE,\n  ga4_property_id TEXT,\n  ga4_measurement_id TEXT,\n  gsc_site_url TEXT,\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL\n);",
   "CREATE TABLE IF NOT EXISTS \"attachments\" (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`contact_id` text,\n\t`proposal_id` text,\n\t`project_id` text,\n\t`name` text NOT NULL,\n\t`type` text DEFAULT 'link' NOT NULL,\n\t`url` text,\n\t`file_data` text,\n\t`mime_type` text,\n\t`size` integer,\n\t`created_at` integer NOT NULL,\n\tFOREIGN KEY (`contact_id`) REFERENCES `contacts`(`id`) ON UPDATE no action ON DELETE no action,\n\tFOREIGN KEY (`proposal_id`) REFERENCES `proposals`(`id`) ON UPDATE no action ON DELETE no action,\n\tFOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE no action\n);",
   "CREATE TABLE IF NOT EXISTS audit_logs (\n    id TEXT PRIMARY KEY,\n    user_id TEXT REFERENCES users(id),\n    action TEXT NOT NULL,\n    resource_type TEXT NOT NULL,\n    resource_id TEXT NOT NULL,\n    meta TEXT,\n    created_at INTEGER NOT NULL\n  );",
-  "CREATE TABLE IF NOT EXISTS demo_pages (\n    id TEXT PRIMARY KEY,\n    contact_id TEXT REFERENCES contacts(id) ON DELETE CASCADE,\n    title TEXT NOT NULL DEFAULT 'Demo',\n    slug TEXT NOT NULL UNIQUE,\n    template TEXT NOT NULL DEFAULT 'editorial',\n    config TEXT NOT NULL DEFAULT '{}',\n    published INTEGER NOT NULL DEFAULT 0,\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL\n  );",
+  "CREATE TABLE IF NOT EXISTS demo_pages (\n    id TEXT PRIMARY KEY,\n    contact_id TEXT REFERENCES contacts(id) ON DELETE CASCADE,\n    title TEXT NOT NULL DEFAULT 'Demo',\n    slug TEXT NOT NULL UNIQUE,\n    template TEXT NOT NULL DEFAULT 'editorial',\n    config TEXT NOT NULL DEFAULT '{}',\n    published_config TEXT,\n    published INTEGER NOT NULL DEFAULT 0,\n    published_at INTEGER,\n    version INTEGER NOT NULL DEFAULT 0,\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL\n  );",
   "CREATE TABLE IF NOT EXISTS \"authenticators\" (\n\t`credentialID` text NOT NULL,\n\t`userId` text NOT NULL,\n\t`providerAccountId` text NOT NULL,\n\t`credentialPublicKey` text NOT NULL,\n\t`counter` integer NOT NULL,\n\t`credentialDeviceType` text NOT NULL,\n\t`credentialBackedUp` integer NOT NULL,\n\t`transports` text,\n\tPRIMARY KEY(`userId`, `credentialID`),\n\tFOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade\n);",
   "CREATE TABLE IF NOT EXISTS \"contacts\" (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`name` text NOT NULL,\n\t`email` text,\n\t`phone` text,\n\t`company` text,\n\t`source` text DEFAULT 'otro' NOT NULL,\n\t`temperature` text DEFAULT 'cold' NOT NULL,\n\t`score` integer DEFAULT 0 NOT NULL,\n\t`notes` text,\n\t`mockup_url` text,\n\t`site_url` text,\n\t`signed_date` integer,\n\t`monthly_payment` integer,\n\t`client_status` text DEFAULT 'prospect' NOT NULL,\n\t`next_payment_date` integer,\n\t`created_at` integer NOT NULL,\n\t`updated_at` integer NOT NULL\n, automations_suspended INTEGER NOT NULL DEFAULT 0, last_payment_ref TEXT, infra_data TEXT, seo_data TEXT, security_data TEXT, decision_log TEXT NOT NULL DEFAULT '[]', account_health TEXT, inventory_health TEXT, sales_data_notes TEXT, funnel_tracking TEXT);",
   "CREATE TABLE IF NOT EXISTS \"crm_settings\" (\n\t`key` text PRIMARY KEY NOT NULL,\n\t`value` text NOT NULL\n);",
@@ -57,6 +57,20 @@ const COLUMN_MIGRATIONS = [
   "ALTER TABLE project_tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'media'",
   "ALTER TABLE project_tasks ADD COLUMN reminder_at INTEGER",
   "ALTER TABLE project_tasks ADD COLUMN activity_log TEXT NOT NULL DEFAULT '[]'",
+  // demo_pages gained a draft/published split and optimistic concurrency
+  // after the table already shipped.
+  "ALTER TABLE demo_pages ADD COLUMN published_config TEXT",
+  "ALTER TABLE demo_pages ADD COLUMN published_at INTEGER",
+  "ALTER TABLE demo_pages ADD COLUMN version INTEGER NOT NULL DEFAULT 0",
+];
+
+// Backfills that must run after COLUMN_MIGRATIONS. Idempotent by
+// construction — each only touches rows still holding the pre-migration
+// value, so re-running on an already-migrated database is a no-op.
+const DATA_MIGRATIONS = [
+  // Demos published before the split have no snapshot; seed it from the
+  // working config so their public URL keeps serving the same page.
+  "UPDATE demo_pages SET published_config = config WHERE published = 1 AND published_config IS NULL",
 ];
 
 export async function ensureSchema(): Promise<void> {
@@ -74,6 +88,14 @@ export async function ensureSchema(): Promise<void> {
       await client.execute(sql);
     } catch {
       // Column already exists — safe to continue.
+    }
+  }
+
+  for (const sql of DATA_MIGRATIONS) {
+    try {
+      await client.execute(sql);
+    } catch {
+      // Target column may not exist yet on a partially-migrated database.
     }
   }
 
