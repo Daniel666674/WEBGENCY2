@@ -7,20 +7,21 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   GripVertical, Eye, EyeOff, ChevronDown, Monitor, Smartphone, Tablet,
   Save, ExternalLink, Loader2, Globe, Check, Palette, Type, Layers, Plus,
-  Undo2, Redo2, Code2,
+  Undo2, Redo2, Code2, Menu,
 } from "lucide-react";
 import type { DemoConfig, Section, SectionType, ButtonShape, ButtonFill } from "@/lib/demo/types";
-import { SECTION_LABELS, SECTION_CATEGORIES, newId } from "@/lib/demo/types";
+import { SECTION_LABELS, SECTION_CATEGORIES, newId, defaultNav, defaultFooter, defaultNavLinks } from "@/lib/demo/types";
 import { TEMPLATES, getTemplate } from "@/lib/demo/templates";
 import { FONT_PAIRS } from "@/lib/demo/fonts";
 import { renderDemo } from "@/lib/demo/render";
 import { SectionEditor } from "./SectionEditor";
 import { MediaPicker } from "./MediaPicker";
+import { NavEditor, FooterEditor } from "./NavFooterEditor";
 
 const inputCls =
   "w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm outline-none focus:border-primary transition-colors";
 
-type Tab = "design" | "content" | "brand" | "advanced";
+type Tab = "design" | "content" | "navfooter" | "brand" | "advanced";
 
 function SortableSection({
   section, open, onToggleOpen, onToggleEnabled, children,
@@ -32,6 +33,7 @@ function SortableSection({
   return (
     <div
       ref={setNodeRef}
+      id={`demo-section-row-${section.id}`}
       style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
       className="rounded-xl border border-border bg-card overflow-hidden"
     >
@@ -81,7 +83,11 @@ export function DemoBuilder({
   demoId: string; initialConfig: DemoConfig; initialTitle: string;
   initialPublished: boolean; slug: string;
 }) {
-  const [cfg, setCfgRaw] = useState<DemoConfig>(initialConfig);
+  const [cfg, setCfgRaw] = useState<DemoConfig>(() => ({
+    ...initialConfig,
+    nav: initialConfig.nav ?? { ...defaultNav(), links: defaultNavLinks(initialConfig.sections) },
+    footer: initialConfig.footer ?? { ...defaultFooter(), columns: [{ id: newId(), title: "Enlaces", links: defaultNavLinks(initialConfig.sections) }] },
+  }));
   const [title, setTitle] = useState(initialTitle);
   const [published, setPublished] = useState(initialPublished);
   const [tab, setTab] = useState<Tab>("design");
@@ -149,8 +155,32 @@ export function DemoBuilder({
     return () => window.removeEventListener("keydown", onKey);
   }, [undo, redo]);
 
+  // Click-to-select: the rendered preview posts the id of whatever the
+  // user clicked (a section, __nav__, or __footer__) so the sidebar can
+  // jump straight to its editor instead of making them hunt for it.
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      const data = e.data as { source?: string; type?: string; id?: string } | undefined;
+      if (!data || data.source !== "oliwan-demo" || data.type !== "select" || !data.id) return;
+      if (data.id === "__nav__" || data.id === "__footer__") {
+        setTab("navfooter");
+      } else {
+        setTab("content");
+        setOpenSection(data.id);
+        requestAnimationFrame(() => {
+          document.getElementById(`demo-section-row-${data.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+
   const updateBrand = (patch: Partial<DemoConfig["brand"]>) =>
     update({ brand: { ...cfg.brand, ...patch } });
+
+  const updateNav = (n: NonNullable<DemoConfig["nav"]>) => update({ nav: n });
+  const updateFooter = (f: NonNullable<DemoConfig["footer"]>) => update({ footer: f });
 
   const updateSection = (s: Section) =>
     update({ sections: cfg.sections.map((x) => (x.id === s.id ? s : x)) });
@@ -289,10 +319,11 @@ export function DemoBuilder({
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 rounded-lg bg-muted p-1">
+        <div className="grid grid-cols-5 gap-1 rounded-lg bg-muted p-1">
           {([
             ["design", "Diseño", Palette],
             ["content", "Contenido", Layers],
+            ["navfooter", "Menú", Menu],
             ["brand", "Marca", Type],
             ["advanced", "Avanzado", Code2],
           ] as const).map(([id, label, Icon]) => (
@@ -453,6 +484,19 @@ export function DemoBuilder({
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {tab === "navfooter" && cfg.nav && cfg.footer && (
+            <div className="flex flex-col gap-6">
+              <div>
+                <p className="mb-3 text-sm font-semibold">Menú de navegación</p>
+                <NavEditor nav={cfg.nav} onChange={updateNav} />
+              </div>
+              <div className="border-t border-border pt-5">
+                <p className="mb-3 text-sm font-semibold">Pie de página</p>
+                <FooterEditor footer={cfg.footer} onChange={updateFooter} />
               </div>
             </div>
           )}

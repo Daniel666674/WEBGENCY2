@@ -1,5 +1,13 @@
 import type { DemoConfig, Section } from "./types";
-import { newId } from "./types";
+import { newId, defaultNav, defaultFooter, defaultNavLinks } from "./types";
+
+function navFooterFor(sections: Section[]): Pick<DemoConfig, "nav" | "footer"> {
+  const links = defaultNavLinks(sections);
+  return {
+    nav: { ...defaultNav(), links },
+    footer: { ...defaultFooter(), columns: [{ id: newId(), title: "Enlaces", links }] },
+  };
+}
 
 export interface Template {
   id: string;
@@ -150,13 +158,17 @@ export const TEMPLATES: Template[] = [
       align: "left",
       imageRadius: "2px",
     },
-    defaults: () => ({
-      template: "editorial",
-      fontPair: "editorial",
-      brand: { name: "", accent: "#b45309", ink: "#1c1917", paper: "#faf9f7", buttonShape: "pill", buttonFill: "solid" },
-      customCss: "",
-      sections: baseSections(),
-    }),
+    defaults: () => {
+      const sections = baseSections();
+      return {
+        template: "editorial",
+        fontPair: "editorial",
+        brand: { name: "", accent: "#b45309", ink: "#1c1917", paper: "#faf9f7", buttonShape: "pill", buttonFill: "solid" },
+        customCss: "",
+        sections,
+        ...navFooterFor(sections),
+      };
+    },
   },
   {
     id: "studio",
@@ -176,13 +188,17 @@ export const TEMPLATES: Template[] = [
       align: "left",
       imageRadius: "0px",
     },
-    defaults: () => ({
-      template: "studio",
-      fontPair: "modern",
-      brand: { name: "", accent: "#22d3ee", ink: "#fafafa", paper: "#0a0a0a", buttonShape: "sharp", buttonFill: "solid" },
-      customCss: "",
-      sections: baseSections({ hero: { variant: "cover" }, gallery: { enabled: true, variant: "masonry" } }),
-    }),
+    defaults: () => {
+      const sections = baseSections({ hero: { variant: "cover" }, gallery: { enabled: true, variant: "masonry" } });
+      return {
+        template: "studio",
+        fontPair: "modern",
+        brand: { name: "", accent: "#22d3ee", ink: "#fafafa", paper: "#0a0a0a", buttonShape: "sharp", buttonFill: "solid" },
+        customCss: "",
+        sections,
+        ...navFooterFor(sections),
+      };
+    },
   },
   {
     id: "boutique",
@@ -202,13 +218,17 @@ export const TEMPLATES: Template[] = [
       align: "center",
       imageRadius: "0px",
     },
-    defaults: () => ({
-      template: "boutique",
-      fontPair: "refined",
-      brand: { name: "", accent: "#8a7358", ink: "#44403c", paper: "#faf7f2", buttonShape: "sharp", buttonFill: "outline" },
-      customCss: "",
-      sections: baseSections({ hero: { variant: "stack" }, gallery: { enabled: true, variant: "grid2" } }),
-    }),
+    defaults: () => {
+      const sections = baseSections({ hero: { variant: "stack" }, gallery: { enabled: true, variant: "grid2" } });
+      return {
+        template: "boutique",
+        fontPair: "refined",
+        brand: { name: "", accent: "#8a7358", ink: "#44403c", paper: "#faf7f2", buttonShape: "sharp", buttonFill: "outline" },
+        customCss: "",
+        sections,
+        ...navFooterFor(sections),
+      };
+    },
   },
   {
     id: "mercado",
@@ -228,17 +248,21 @@ export const TEMPLATES: Template[] = [
       align: "center",
       imageRadius: "16px",
     },
-    defaults: () => ({
-      template: "mercado",
-      fontPair: "warm",
-      brand: { name: "", accent: "#ea580c", ink: "#431407", paper: "#fffbf5", buttonShape: "pill", buttonFill: "solid" },
-      customCss: "",
-      sections: baseSections({
+    defaults: () => {
+      const sections = baseSections({
         hero: { variant: "cover" },
         menu: { enabled: true, variant: "cards" },
         gallery: { enabled: true, variant: "carousel" },
-      }),
-    }),
+      });
+      return {
+        template: "mercado",
+        fontPair: "warm",
+        brand: { name: "", accent: "#ea580c", ink: "#431407", paper: "#fffbf5", buttonShape: "pill", buttonFill: "solid" },
+        customCss: "",
+        sections,
+        ...navFooterFor(sections),
+      };
+    },
   },
   {
     id: "impulso",
@@ -258,13 +282,17 @@ export const TEMPLATES: Template[] = [
       align: "left",
       imageRadius: "4px",
     },
-    defaults: () => ({
-      template: "impulso",
-      fontPair: "bold",
-      brand: { name: "", accent: "#84cc16", ink: "#18181b", paper: "#fafafa", buttonShape: "sharp", buttonFill: "solid" },
-      customCss: "",
-      sections: baseSections({ hero: { variant: "offset" }, menu: { enabled: true, variant: "tiers" } }),
-    }),
+    defaults: () => {
+      const sections = baseSections({ hero: { variant: "offset" }, menu: { enabled: true, variant: "tiers" } });
+      return {
+        template: "impulso",
+        fontPair: "bold",
+        brand: { name: "", accent: "#84cc16", ink: "#18181b", paper: "#fafafa", buttonShape: "sharp", buttonFill: "solid" },
+        customCss: "",
+        sections,
+        ...navFooterFor(sections),
+      };
+    },
   },
   {
     id: "clinica",
@@ -284,13 +312,17 @@ export const TEMPLATES: Template[] = [
       align: "center",
       imageRadius: "12px",
     },
-    defaults: () => ({
-      template: "clinica",
-      fontPair: "friendly",
-      brand: { name: "", accent: "#0284c7", ink: "#0f172a", paper: "#f8fafc", buttonShape: "rounded", buttonFill: "solid" },
-      customCss: "",
-      sections: baseSections({ hero: { variant: "split" }, testimonials: { enabled: true } }),
-    }),
+    defaults: () => {
+      const sections = baseSections({ hero: { variant: "split" }, testimonials: { enabled: true } });
+      return {
+        template: "clinica",
+        fontPair: "friendly",
+        brand: { name: "", accent: "#0284c7", ink: "#0f172a", paper: "#f8fafc", buttonShape: "rounded", buttonFill: "solid" },
+        customCss: "",
+        sections,
+        ...navFooterFor(sections),
+      };
+    },
   },
 ];
 

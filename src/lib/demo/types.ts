@@ -77,16 +77,76 @@ export interface Brand {
   buttonFill?: ButtonFill;
 }
 
+export interface NavLink {
+  id: string;
+  label: string;
+  url: string;
+  children?: NavLink[]; // submenu / dropdown items
+}
+
+export type NavSize = "compact" | "normal" | "large";
+export type NavLayout = "left" | "center";
+export type MobileNavStyle = "drawer" | "dropdown";
+
+export interface NavConfig {
+  showLogo: boolean;
+  sticky: boolean;
+  size: NavSize;
+  layout: NavLayout;
+  links: NavLink[];
+  ctaText?: string;
+  ctaUrl?: string;
+  mobileStyle: MobileNavStyle;
+}
+
+export interface FooterColumn {
+  id: string;
+  title: string;
+  links: NavLink[];
+}
+
+export type FooterSize = "compact" | "normal" | "spacious";
+
+export interface FooterConfig {
+  variant: "simple" | "columns";
+  size: FooterSize;
+  showLogo: boolean;
+  tagline?: string;
+  columns: FooterColumn[];
+  showContact: boolean;
+  showSocial: boolean;
+  copyrightExtra?: string;
+}
+
 export interface DemoConfig {
   template: string;
   fontPair: string;
   brand: Brand;
   sections: Section[];
   customCss?: string;
+  nav?: NavConfig;
+  footer?: FooterConfig;
 }
 
 export function newId(): string {
   return Math.random().toString(36).slice(2, 10);
+}
+
+export function defaultNav(): NavConfig {
+  return { showLogo: true, sticky: true, size: "normal", layout: "left", links: [], ctaText: "", ctaUrl: "", mobileStyle: "drawer" };
+}
+
+export function defaultFooter(): FooterConfig {
+  return {
+    variant: "columns",
+    size: "normal",
+    showLogo: true,
+    tagline: "",
+    columns: [{ id: newId(), title: "Enlaces", links: [] }],
+    showContact: true,
+    showSocial: true,
+    copyrightExtra: "",
+  };
 }
 
 export const SECTION_LABELS: Record<SectionType, string> = {
@@ -192,6 +252,31 @@ export const SECTION_VARIANTS: Record<SectionType, { id: string; label: string }
     { id: "card", label: "Tarjeta centrada" },
   ],
 };
+
+// Shared between the renderer (building href="#id") and the nav/footer
+// default builders (seeding link labels from whatever sections exist).
+export const SECTION_ANCHORS: Partial<Record<SectionType, [string, string]>> = {
+  features: ["servicios", "Servicios"],
+  gallery: ["galeria", "Galería"],
+  video: ["video", "Video"],
+  about: ["nosotros", "Nosotros"],
+  testimonials: ["testimonios", "Testimonios"],
+  menu: ["menu", "Menú"],
+  faq: ["preguntas", "Preguntas"],
+  stats: ["cifras", "Cifras"],
+  team: ["equipo", "Equipo"],
+  logos: ["clientes", "Clientes"],
+  contact: ["contacto", "Contacto"],
+};
+
+export function defaultNavLinks(sections: Section[]): NavLink[] {
+  return sections
+    .filter((s) => s.enabled && SECTION_ANCHORS[s.type])
+    .map((s) => {
+      const [anchor, label] = SECTION_ANCHORS[s.type]!;
+      return { id: newId(), label, url: `#${anchor}` };
+    });
+}
 
 export const WIDTH_LABELS: Record<SectionWidth, string> = {
   narrow: "Angosto", normal: "Normal", wide: "Ancho", full: "Completo",
