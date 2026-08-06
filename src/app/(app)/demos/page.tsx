@@ -56,7 +56,8 @@ export default function DemosPage() {
     }
   }
 
-  async function remove(id: string) {
+  async function remove(id: string, title: string) {
+    if (!confirm(`¿Eliminar el demo "${title}"? Esta acción no se puede deshacer.`)) return;
     setDemos((d) => d.filter((x) => x.id !== id));
     await fetch(`/api/demo-pages/${id}`, { method: "DELETE" });
   }
@@ -181,7 +182,7 @@ export default function DemosPage() {
                       {duplicating === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Copy className="h-3.5 w-3.5" />}
                     </button>
                     <button
-                      onClick={() => remove(d.id)}
+                      onClick={() => remove(d.id, d.title)}
                       className="flex items-center justify-center rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:border-red-500 hover:text-red-500"
                       title="Eliminar"
                     >

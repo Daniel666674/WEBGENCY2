@@ -4,6 +4,7 @@ import { demoPages } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { DemoBuilder } from "@/components/demos/DemoBuilder";
 import { getTemplate } from "@/lib/demo/templates";
+import { validateDemoConfig } from "@/lib/demo/validate";
 import type { DemoConfig } from "@/lib/demo/types";
 
 export default async function DemoBuilderPage({
@@ -17,10 +18,16 @@ export default async function DemoBuilderPage({
   const row = await db.select().from(demoPages).where(eq(demoPages.id, id)).get();
   if (!row) notFound();
 
+  // A demo with every section removed from its home page is a real, valid
+  // state (the user is mid-rebuild) — it must load as-is, not be mistaken
+  // for "no config was ever saved" and replaced wholesale. Only fall back to
+  // fresh template defaults when the stored JSON is genuinely missing or
+  // fails structural validation (corrupt row, pre-validation legacy data).
   let config: DemoConfig;
   try {
     const parsed = JSON.parse(row.config || "{}");
-    config = parsed?.sections?.length ? parsed : getTemplate(row.template).defaults();
+    const result = validateDemoConfig(parsed);
+    config = result.ok ? result.config : getTemplate(row.template).defaults();
   } catch {
     config = getTemplate(row.template).defaults();
   }
