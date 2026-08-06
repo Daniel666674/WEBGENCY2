@@ -228,7 +228,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
       fill === "solid"
         ? `${base}background:${accent};color:${onAccent};`
         : `${base}background:transparent;color:${ink};border:1.5px solid ${mix(ink, paper, 0.7)};`;
-    return `<a href="${escUrl(url || "#contacto")}"${elClass("cta", "btn")}${elHandle("cta")} style="${style}${elStyle("cta")}">${esc(text)}</a>`;
+    return `<a href="${escUrl(url || "#contacto")}"${elClass("cta", "btn")}${elHandle("cta")} style="${style}${elStyle("cta")}"${textAttr("ctaText")}>${esc(text)}</a>`;
   };
 
   const cardShadow =
@@ -403,7 +403,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     if (s.variant === "centered") {
       return `<section id="nosotros" style="padding:${padOf(s)} 0;background:${aboutBg};">${wrap(`<div style="text-align:center;max-width:720px;margin:0 auto;">
         ${eyebrow(s.eyebrow, "center")}${h2(s.heading)}
-        <p style="font-size:1.14rem;line-height:1.85;color:${muted};margin:0;">${esc(s.body)}</p>
+        <p${elClass("body")}${elHandle("body")} style="font-size:1.14rem;line-height:1.85;color:${muted};margin:0;${elStyle("body")}"${textAttr("body", true)}>${sanitizeRich(s.body)}</p>
       </div>`, widthOf(s))}</section>`;
     }
 
@@ -412,8 +412,8 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
       return `<section id="nosotros" style="padding:${padOf(s)} 0;background:${aboutBg};">${wrap(`<div style="${align === "center" ? "text-align:center;max-width:700px;margin:0 auto 52px;" : "max-width:640px;margin:0 0 52px;"}">${eyebrow(s.eyebrow, align)}${h2(s.heading)}${lede(s.body, align)}</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:clamp(20px,3vw,44px);">
         ${stats.map((st) => `<div style="${align === "center" ? "text-align:center;" : ""}">
-          <p style="font-family:${f.heading};font-size:clamp(2.2rem,4.5vw,3.4rem);font-weight:${f.headingWeight};color:${accent};margin:0 0 8px;line-height:1;">${esc(st.title)}</p>
-          <p style="color:${muted};margin:0;font-size:.95rem;line-height:1.5;">${esc(st.body)}</p>
+          <p style="font-family:${f.heading};font-size:clamp(2.2rem,4.5vw,3.4rem);font-weight:${f.headingWeight};color:${accent};margin:0 0 8px;line-height:1;">${sanitizeRich(st.title)}</p>
+          <p style="color:${muted};margin:0;font-size:.95rem;line-height:1.5;">${sanitizeRich(st.body)}</p>
         </div>`).join("")}
       </div>`, widthOf(s))}</section>`;
     }
@@ -421,7 +421,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     return sec(s, `<div class="split" style="display:grid;grid-template-columns:1fr 1fr;gap:clamp(32px,5vw,72px);align-items:center;">
       ${s.media?.url ? `<div>${media(s.media, `width:100%;height:clamp(280px,36vw,460px);object-fit:cover;border-radius:${d.imageRadius};display:block;${elStyle("media")}`, "", elHandle("media"))}</div>` : `<div style="background:${dark ? mix(paper, "#fff", 0.07) : mix(accent, paper, 0.82)};border-radius:${d.imageRadius};min-height:300px;"></div>`}
       <div>${eyebrow(s.eyebrow, align)}${h2(s.heading)}
-        <p style="font-size:1.08rem;line-height:1.8;color:${muted};margin:0;">${esc(s.body)}</p>
+        <p${elClass("body")}${elHandle("body")} style="font-size:1.08rem;line-height:1.8;color:${muted};margin:0;${elStyle("body")}"${textAttr("body", true)}>${sanitizeRich(s.body)}</p>
       </div>
     </div>`, "nosotros");
   }
@@ -435,7 +435,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     if (s.variant === "single") {
       const it = items[0];
       return `<section id="testimonios" style="padding:${padOf(s)} 0;background:${testBg};">${wrap(`<div style="text-align:center;max-width:800px;margin:0 auto;">
-        <p style="font-family:${f.heading};font-size:clamp(1.4rem,3.2vw,2.3rem);line-height:1.4;color:${ink};margin:0 0 28px;font-weight:${f.headingWeight};letter-spacing:${f.headingTracking};">&ldquo;${esc(it.body)}&rdquo;</p>
+        <p style="font-family:${f.heading};font-size:clamp(1.4rem,3.2vw,2.3rem);line-height:1.4;color:${ink};margin:0 0 28px;font-weight:${f.headingWeight};letter-spacing:${f.headingTracking};">&ldquo;${sanitizeRich(it.body)}&rdquo;</p>
         <p style="color:${accent};font-weight:600;margin:0;font-size:.98rem;">${esc(it.author)}${it.role ? `<span style="color:${muted};font-weight:400;"> — ${esc(it.role)}</span>` : ""}</p>
       </div>`, widthOf(s))}</section>`;
     }
@@ -443,7 +443,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     return sec(s, `<div style="${align === "center" ? "text-align:center;max-width:620px;margin:0 auto 48px;" : "margin:0 0 48px;"}">${eyebrow(s.eyebrow, align)}${h2(s.heading)}</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:${d.surface === "card" ? "24px" : "0"};">
       ${items.map((it) => surfaceCard(`
-        <p style="color:${ink};line-height:1.75;margin:0 0 20px;font-size:1.02rem;">&ldquo;${esc(it.body)}&rdquo;</p>
+        <p style="color:${ink};line-height:1.75;margin:0 0 20px;font-size:1.02rem;">&ldquo;${sanitizeRich(it.body)}&rdquo;</p>
         <p style="color:${accent};font-weight:600;margin:0;font-size:.92rem;">${esc(it.author)}${it.role ? `<span style="color:${muted};font-weight:400;display:block;margin-top:2px;">${esc(it.role)}</span>` : ""}</p>`)).join("")}
     </div>`, "testimonios");
   }
@@ -535,16 +535,16 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
         ${media(s.media, "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;")}
         <div style="position:absolute;inset:0;background:rgba(0,0,0,${overlay});"></div>
         ${wrap(`<div style="position:relative;text-align:center;color:#fff;">
-          <h2 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:${d.h2};margin:0 0 12px;letter-spacing:${f.headingTracking};">${esc(s.heading)}</h2>
-          ${s.body ? `<p style="opacity:.9;margin:0 0 26px;font-size:1.05rem;">${esc(s.body)}</p>` : ""}
+          <h2 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:${d.h2};margin:0 0 12px;letter-spacing:${f.headingTracking};">${sanitizeRich(s.heading)}</h2>
+          ${s.body ? `<p style="opacity:.9;margin:0 0 26px;font-size:1.05rem;">${sanitizeRich(s.body)}</p>` : ""}
           ${btn(s.ctaText, s.ctaUrl, "solid")}
         </div>`, widthOf(s))}
       </section>`;
     }
     return `<section style="padding:${padOf(s)} 0;background:${s.style?.bg || accent};">${wrap(`<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:20px;color:${onAccent};">
       <div>
-        <h3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.3rem;margin:0 0 4px;letter-spacing:${f.headingTracking};">${esc(s.heading)}</h3>
-        ${s.body ? `<p style="margin:0;opacity:.9;font-size:.95rem;">${esc(s.body)}</p>` : ""}
+        <h3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.3rem;margin:0 0 4px;letter-spacing:${f.headingTracking};">${sanitizeRich(s.heading)}</h3>
+        ${s.body ? `<p style="margin:0;opacity:.9;font-size:.95rem;">${sanitizeRich(s.body)}</p>` : ""}
       </div>
       ${btn(s.ctaText, s.ctaUrl, isDark(s.style?.bg || accent) ? "outline" : "solid")}
     </div>`, widthOf(s))}</section>`;
@@ -614,7 +614,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     beginSection(s);
     if (s.variant === "boxed") {
       return sec(s, `<div style="border:2px solid ${accent};border-radius:${d.radius};padding:clamp(36px,6vw,72px);text-align:center;">
-        ${h2(s.heading)}${s.body ? `<p style="font-size:1.08rem;color:${muted};line-height:1.7;margin:0 auto 32px;max-width:52ch;">${esc(s.body)}</p>` : ""}
+        ${h2(s.heading)}${s.body ? `<p style="font-size:1.08rem;color:${muted};line-height:1.7;margin:0 auto 32px;max-width:52ch;">${sanitizeRich(s.body)}</p>` : ""}
         ${btn(s.ctaText, s.ctaUrl)}
       </div>`);
     }
@@ -622,9 +622,9 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     const onBg = isDark(bg) ? "#ffffff" : "#111111";
     return `<section style="padding:${padOf(s)} 0;background:${bg};">
       ${wrap(`<div style="text-align:center;color:${onBg};">
-        <h2 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:${d.h2};line-height:1.1;margin:0 0 16px;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}">${esc(s.heading)}</h2>
-        ${s.body ? `<p style="font-size:1.1rem;opacity:.88;line-height:1.7;margin:0 auto 34px;max-width:54ch;">${esc(s.body)}</p>` : ""}
-        <a href="${escUrl(s.ctaUrl || "#contacto")}" class="btn" style="display:inline-block;background:${onBg};color:${bg};font-weight:700;font-size:1rem;padding:16px 40px;border-radius:${btnRadius};text-decoration:none;">${esc(s.ctaText)}</a>
+        <h2 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:${d.h2};line-height:1.1;margin:0 0 16px;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}">${sanitizeRich(s.heading)}</h2>
+        ${s.body ? `<p style="font-size:1.1rem;opacity:.88;line-height:1.7;margin:0 auto 34px;max-width:54ch;">${sanitizeRich(s.body)}</p>` : ""}
+        <a href="${escUrl(s.ctaUrl || "#contacto")}"${elClass("cta", "btn")}${elHandle("cta")} style="display:inline-block;background:${onBg};color:${bg};font-weight:700;font-size:1rem;padding:16px 40px;border-radius:${btnRadius};text-decoration:none;${elStyle("cta")}"${textAttr("ctaText")}>${esc(s.ctaText)}</a>
       </div>`, widthOf(s))}
     </section>`;
   }

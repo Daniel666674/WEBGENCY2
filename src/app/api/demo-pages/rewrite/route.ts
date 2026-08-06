@@ -31,6 +31,18 @@ export async function POST(request: NextRequest) {
   // The model is asked to return plain text; sanitizing rich results
   // defensively still closes the gap since this lands in a field that
   // renders on a public page.
-  const out = await rewriteCopy(text, tone);
-  return NextResponse.json({ text: rich ? sanitizeRich(out) : out });
+  try {
+    const out = await rewriteCopy(text, tone);
+    return NextResponse.json({ text: rich ? sanitizeRich(out) : out });
+  } catch (err) {
+    // Anthropic's SDK throws on network failure, rate limits, and auth
+    // errors alike — none of that should surface as a raw 500 to a builder
+    // that's just trying to reword a sentence.
+    const status = err instanceof Error && "status" in err ? Number((err as { status?: number }).status) : undefined;
+    const message =
+      status === 429 ? "Demasiadas solicitudes de IA por ahora. Intenta en un momento."
+      : status === 401 ? "La clave de Anthropic no es válida."
+      : "No se pudo reescribir el texto.";
+    return NextResponse.json({ error: message }, { status: 502 });
+  }
 }

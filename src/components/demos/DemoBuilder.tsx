@@ -11,7 +11,7 @@ import {
   Undo2, Redo2, Code2, Menu, ChevronRight, Copy, Trash2, PanelsTopLeft, Files,
   AlertTriangle, Lightbulb,
 } from "lucide-react";
-import type { DemoConfig, DemoPage, Section, SectionType, ButtonShape, ButtonFill, ElementKey } from "@/lib/demo/types";
+import type { DemoConfig, DemoPage, Section, SectionType, ButtonShape, ButtonFill, ElementKey, NavLink } from "@/lib/demo/types";
 import { SECTION_LABELS, SECTION_CATEGORIES, newId, defaultNav, defaultFooter, defaultNavLinks, defaultPages } from "@/lib/demo/types";
 import { TEMPLATES, getTemplate } from "@/lib/demo/templates";
 import { FONT_PAIRS } from "@/lib/demo/fonts";
@@ -242,9 +242,28 @@ export function DemoBuilder({
   }
 
   function removePage(id: string) {
-    if (pages.length <= 1) return; // always at least the home page
+    // The home page (pages[0]) is permanent — its slug is always "" and the
+    // UI locks that field precisely because it can't become anything else.
+    // Deleting it would either need to promote another page to home (which
+    // the slug lock then makes un-fixable) or leave `sections` — the
+    // top-level mirror everything else still reads — pointed at a page that
+    // no longer exists. Simplest correct rule: it just can't be removed.
+    if (pages.length <= 1 || id === pages[0].id) return;
     const next = pages.filter((p) => p.id !== id);
-    update({ pages: next });
+    // Clear any nav/footer link that pointed at the page being deleted,
+    // everywhere it could appear — otherwise it silently becomes a dead "#"
+    // link that never surfaces as broken until a client clicks it.
+    const scrub = (links: NavLink[]): NavLink[] =>
+      links.map((l) => ({
+        ...l,
+        page: l.page === id ? undefined : l.page,
+        children: l.children ? scrub(l.children) : l.children,
+      }));
+    const nav = cfg.nav ? { ...cfg.nav, links: scrub(cfg.nav.links) } : cfg.nav;
+    const footer = cfg.footer
+      ? { ...cfg.footer, columns: cfg.footer.columns.map((c) => ({ ...c, links: scrub(c.links) })) }
+      : cfg.footer;
+    update({ pages: next, nav, footer });
     if (activePageId === id) setActivePageId(next[0].id);
   }
 
@@ -677,7 +696,7 @@ export function DemoBuilder({
                     <Files className="h-3 w-3 shrink-0" />
                     <span className="truncate">{p.title || "(sin nombre)"}</span>
                   </button>
-                  {p.id === activePage.id && pages.length > 1 && (
+                  {p.id === activePage.id && p.id !== pages[0].id && (
                     <button
                       type="button"
                       onClick={() => removePage(p.id)}
