@@ -1,16 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useUser, type AppUser } from "@/context/UserContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Users, Pencil, Link2, Copy, Check, Trash2, RefreshCw } from "lucide-react";
 import { SettingsHeader } from "@/components/settings/SettingsHeader";
 import { EditUserDialog } from "@/components/settings/EditUserDialog";
+import { UsuariosAllowlist } from "@/components/settings/UsuariosAllowlist";
 import { toast } from "sonner";
 
 export default function UsuariosPage() {
   const { users, activeUser, loading, refetchUsers } = useUser();
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
+  const [authEnabled, setAuthEnabled] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((d) => setAuthEnabled(!!d.authEnabled))
+      .catch(() => setAuthEnabled(false));
+  }, []);
 
   const [generating, setGenerating] = useState(false);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
@@ -54,6 +63,19 @@ export default function UsuariosPage() {
   }
 
   const isOwner = activeUser && !activeUser.isHers;
+
+  if (authEnabled) {
+    return (
+      <div className="space-y-6 max-w-2xl mx-auto">
+        <SettingsHeader
+          icon={Users}
+          title="Usuarios"
+          description="Invita usuarios con su cuenta de Google y asigna que secciones puede ver cada uno."
+        />
+        <UsuariosAllowlist />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
