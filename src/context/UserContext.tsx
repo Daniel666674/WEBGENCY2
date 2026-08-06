@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { parsePermissions } from "@/lib/permissions";
 
 export interface AppUser {
   id: string;
@@ -9,6 +10,8 @@ export interface AppUser {
   isHers: boolean;
   avatar: string | null;
   image: string | null;
+  role: string;
+  permissions: string[];
 }
 
 interface UserContextValue {
@@ -54,7 +57,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     // If Google Auth is enabled, identity comes from the server session.
     const meRes = await fetch("/api/me").then((r) => r.json()).catch(() => ({ authEnabled: false }));
     if (meRes.authEnabled && meRes.user) {
-      const u = meRes.user as AppUser & { email?: string; role?: string };
+      const u = meRes.user as AppUser & { email?: string };
       const appUser: AppUser = {
         id: u.id,
         name: u.name,
@@ -62,6 +65,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         isHers: u.isHers ?? false,
         avatar: u.avatar ?? null,
         image: u.image ?? null,
+        role: u.role ?? "member",
+        permissions: Array.isArray(u.permissions) ? u.permissions : [],
       };
       setUsers([appUser]);
       setActiveUser(appUser);
@@ -70,7 +75,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       return [appUser];
     }
 
-    const data: AppUser[] = await fetch("/api/users").then((r) => r.json());
+    // Credentials-mode rows come straight from the DB — `permissions` is
+    // still the raw JSON string column there, unlike /api/me which already
+    // parses it.
+    const raw: (AppUser & { permissions: unknown })[] = await fetch("/api/users").then((r) => r.json());
+    const data: AppUser[] = raw.map((u) => ({
+      ...u,
+      role: u.role ?? "member",
+      permissions: typeof u.permissions === "string" ? parsePermissions(u.permissions) : [],
+    }));
     setUsers(data);
     setActiveUser((current) => {
       // A fresh login hint (whoever just signed in) takes priority once, then

@@ -39,7 +39,8 @@ const TABLES = [
   "CREATE TABLE IF NOT EXISTS projects (\n    id TEXT PRIMARY KEY,\n    client_id TEXT REFERENCES contacts(id),\n    name TEXT NOT NULL,\n    status TEXT NOT NULL DEFAULT 'discovery',\n    budget_cents INTEGER NOT NULL DEFAULT 0,\n    start_date INTEGER,\n    deadline INTEGER,\n    mockup_url TEXT,\n    notes TEXT,\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL\n  );",
   "CREATE TABLE IF NOT EXISTS \"proposals\" (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`contact_id` text NOT NULL,\n\t`plan_name` text DEFAULT 'Custom' NOT NULL,\n\t`one_time_fee` integer DEFAULT 0 NOT NULL,\n\t`monthly_fee` integer DEFAULT 0 NOT NULL,\n\t`features` text DEFAULT '[]' NOT NULL,\n\t`add_ons` text DEFAULT '[]' NOT NULL,\n\t`automations` text DEFAULT '[]' NOT NULL,\n\t`deliverables` text DEFAULT '[]' NOT NULL,\n\t`notes` text,\n\t`share_token` text,\n\t`viewed_at` integer,\n\t`created_at` integer NOT NULL,\n\t`updated_at` integer NOT NULL, pricing_meta TEXT NOT NULL DEFAULT '{}', valid_until INTEGER,\n\tFOREIGN KEY (`contact_id`) REFERENCES `contacts`(`id`) ON UPDATE no action ON DELETE no action\n);",
   "CREATE TABLE IF NOT EXISTS `sessions` (\n\t`sessionToken` text PRIMARY KEY NOT NULL,\n\t`userId` text NOT NULL,\n\t`expires` integer NOT NULL,\n\tFOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade\n);",
-  "CREATE TABLE IF NOT EXISTS users (\n    id TEXT PRIMARY KEY,\n    name TEXT NOT NULL,\n    color TEXT NOT NULL DEFAULT '#0d9a8a',\n    is_hers INTEGER NOT NULL DEFAULT 0,\n    avatar TEXT,\n    created_at INTEGER NOT NULL\n  , email text, email_verified integer, image text, role text NOT NULL DEFAULT 'member');",
+  "CREATE TABLE IF NOT EXISTS users (\n    id TEXT PRIMARY KEY,\n    name TEXT NOT NULL,\n    color TEXT NOT NULL DEFAULT '#0d9a8a',\n    is_hers INTEGER NOT NULL DEFAULT 0,\n    avatar TEXT,\n    created_at INTEGER NOT NULL\n  , email text, email_verified integer, image text, role text NOT NULL DEFAULT 'member', permissions text NOT NULL DEFAULT '[]');",
+  "CREATE TABLE IF NOT EXISTS allowed_emails (\n    id TEXT PRIMARY KEY,\n    email TEXT NOT NULL UNIQUE,\n    role TEXT NOT NULL DEFAULT 'member',\n    permissions TEXT NOT NULL DEFAULT '[]',\n    invited_by_user_id TEXT REFERENCES users(id),\n    created_at INTEGER NOT NULL\n  );",
   "CREATE TABLE IF NOT EXISTS `verificationTokens` (\n\t`identifier` text NOT NULL,\n\t`token` text NOT NULL,\n\t`expires` integer NOT NULL,\n\tPRIMARY KEY(`identifier`, `token`)\n);",
 ];
 /**
@@ -63,6 +64,8 @@ const COLUMN_MIGRATIONS = [
   "ALTER TABLE demo_pages ADD COLUMN published_config TEXT",
   "ALTER TABLE demo_pages ADD COLUMN published_at INTEGER",
   "ALTER TABLE demo_pages ADD COLUMN version INTEGER NOT NULL DEFAULT 0",
+  // users predates the permissions model.
+  "ALTER TABLE users ADD COLUMN permissions TEXT NOT NULL DEFAULT '[]'",
 ];
 
 // Backfills that must run after COLUMN_MIGRATIONS. Idempotent by
@@ -72,6 +75,13 @@ const DATA_MIGRATIONS = [
   // Demos published before the split have no snapshot; seed it from the
   // working config so their public URL keeps serving the same page.
   "UPDATE demo_pages SET published_config = config WHERE published = 1 AND published_config IS NULL",
+  // Every user created before the permissions model existed had unrestricted
+  // access by default (there was nothing to restrict). Backfill them to full
+  // access rather than silently locking them out the moment the new
+  // permissions column defaults to '[]'. Safe to run forever: after first
+  // boot no row holds exactly '[]' unless deliberately revoked down to
+  // nothing, and new invitees start from DEFAULT_NEW_USER_PERMISSIONS, not '[]'.
+  "UPDATE users SET permissions = '[\"principal\",\"revenue\",\"cuentas\",\"negocios\",\"arsenal\",\"config\"]' WHERE permissions = '[]'",
 ];
 
 export async function ensureSchema(): Promise<void> {
@@ -98,6 +108,41 @@ export async function ensureSchema(): Promise<void> {
     } catch {
       // Target column may not exist yet on a partially-migrated database.
     }
+  }
+
+  // One-time bootstrap of the DB-backed allowlist from the legacy env vars
+  // (ALLOWED_EMAILS / OWNER_EMAIL / HER_EMAIL), so an existing deployment
+  // upgrading to the permissions model doesn't lock its own owner out —
+  // the row that would have been positionally assigned "owner" before
+  // becomes the real owner row here. No-ops once any row exists, so it's
+  // safe to leave in permanently rather than a real migration script.
+  try {
+    const { rows: allowedRows } = await client.execute("SELECT COUNT(*) as count FROM allowed_emails");
+    if (Number(allowedRows[0]?.count ?? 0) === 0) {
+      const legacyList = (process.env.ALLOWED_EMAILS ?? "")
+        .split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+      const ownerEmail = (process.env.OWNER_EMAIL ?? legacyList[0] ?? "").toLowerCase();
+      const herEmail = (process.env.HER_EMAIL ?? legacyList[1] ?? "").toLowerCase();
+      const allSections = ["principal", "revenue", "cuentas", "negocios", "arsenal", "config"];
+      // Every pre-existing user had unrestricted access (there was no
+      // gating at all before this feature) — bootstrap preserves that so
+      // upgrading never silently takes tabs away from someone who already
+      // had them. Restricting access is something the owner does
+      // afterward, deliberately, from Settings > Usuarios.
+      for (const email of legacyList) {
+        if (!email) continue;
+        const isOwner = email === ownerEmail;
+        void herEmail; // isHers no longer drives role/permissions — legacy positional hack retired
+        await client.execute({
+          sql: "INSERT OR IGNORE INTO allowed_emails (id, email, role, permissions, created_at) VALUES (?, ?, ?, ?, ?)",
+          args: [crypto.randomUUID(), email, isOwner ? "owner" : "member", JSON.stringify(allSections), Date.now()],
+        });
+      }
+    }
+  } catch {
+    // allowed_emails may not exist yet on a partially-migrated database —
+    // the COLUMN_MIGRATIONS/TABLES passes above already tolerate that same
+    // race, so this bootstrap simply retries on the next boot.
   }
 
   const { rows } = await client.execute("SELECT COUNT(*) as count FROM pipeline_stages");

@@ -29,6 +29,8 @@ import {
   MonitorSmartphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useUser } from "@/context/UserContext";
+import { hasPermission, type NavSectionKey } from "@/lib/permissions";
 
 interface NavItem {
   href: string;
@@ -38,6 +40,7 @@ interface NavItem {
 }
 
 interface NavSection {
+  key: NavSectionKey;
   header?: string;
   items: NavItem[];
   showDots?: boolean;
@@ -46,6 +49,7 @@ interface NavSection {
 
 const navSections: NavSection[] = [
   {
+    key: "principal",
     header: "PRINCIPAL",
     showDots: true,
     items: [
@@ -58,6 +62,7 @@ const navSections: NavSection[] = [
     ],
   },
   {
+    key: "revenue",
     header: "REVENUE",
     showChevron: true,
     items: [
@@ -66,6 +71,7 @@ const navSections: NavSection[] = [
     ],
   },
   {
+    key: "cuentas",
     header: "CUENTAS",
     showChevron: true,
     items: [
@@ -77,6 +83,7 @@ const navSections: NavSection[] = [
     ],
   },
   {
+    key: "negocios",
     header: "NEGOCIOS",
     showChevron: true,
     items: [
@@ -86,6 +93,7 @@ const navSections: NavSection[] = [
     ],
   },
   {
+    key: "arsenal",
     header: "ARSENAL",
     showChevron: true,
     items: [
@@ -93,6 +101,7 @@ const navSections: NavSection[] = [
     ],
   },
   {
+    key: "config",
     header: "CONFIG",
     showChevron: true,
     items: [
@@ -104,8 +113,11 @@ const navSections: NavSection[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { activeUser } = useUser();
   const [open, setOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const visibleSections = navSections.filter((section) => hasPermission(activeUser, section.key));
 
   const cancelClose = useCallback(() => {
     if (closeTimer.current) clearTimeout(closeTimer.current);
@@ -181,7 +193,7 @@ export function Sidebar() {
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5">
-          {navSections.map((section, si) => (
+          {visibleSections.map((section, si) => (
             <div key={si} className={si > 0 ? "mt-3" : ""}>
               {section.header && (
                 <p

@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { crmSettings } from "@/db/schema";
 import { DEFAULT_CONFIG, type ThemeConfig } from "@/lib/theme";
 import { eq } from "drizzle-orm";
+import { requireNavPermission } from "@/lib/permissions-server";
 
 const KEY = "theme_config";
 
@@ -24,6 +25,9 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
+  const denied = await requireNavPermission("config");
+  if (denied) return NextResponse.json({ error: denied.error }, { status: denied.status });
+
   try {
     const body = await req.json() as ThemeConfig;
     const value = JSON.stringify(body);

@@ -4,8 +4,12 @@ import {
   isWhatsAppConfigured,
   sendWhatsAppToNotifyNumbers,
 } from "@/lib/paymentAutomation";
+import { requireNavPermission } from "@/lib/permissions-server";
 
 export async function POST() {
+  const denied = await requireNavPermission("config");
+  if (denied) return NextResponse.json({ error: denied.error }, { status: denied.status });
+
   const config = await getPaymentAutomationConfig();
 
   if (!isWhatsAppConfigured(config)) {
