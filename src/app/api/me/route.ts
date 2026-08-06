@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { parsePermissions } from "@/lib/permissions";
 
 // Returns the currently authenticated user's profile.
 // When AUTH_ENABLED=true this is the real Google session user.
@@ -38,6 +39,7 @@ export async function GET() {
           avatar: dbUser.avatar ?? null,
           isHers: dbUser.isHers ?? false,
           role:   dbUser.role ?? "member",
+          permissions: parsePermissions(dbUser.permissions),
         }
       : null,
   });

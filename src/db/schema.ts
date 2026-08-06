@@ -151,6 +151,29 @@ export const users = sqliteTable("users", {
   emailVerified: integer("email_verified", { mode: "timestamp" }),
   image: text("image"),
   role: text("role").notNull().default("member"), // "owner" | "member"
+  // JSON array of nav-section keys this user can see/use — see
+  // NAV_SECTION_KEYS in src/lib/permissions.ts. Ignored for role="owner",
+  // who always has full access. Set from allowed_emails.permissions at
+  // sign-in and kept in sync with it from there on.
+  permissions: text("permissions").notNull().default("[]"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+// Google-OAuth allowlist, managed from Settings > Usuarios instead of an
+// env var — the owner can add/remove/repermission up to N real people
+// without a redeploy. Auth.js creates the matching `users` row on first
+// sign-in; this table is the thing that decides whether that sign-in is
+// allowed at all, and what role/permissions it gets.
+export const allowedEmails = sqliteTable("allowed_emails", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  email: text("email").notNull().unique(), // stored lowercased
+  role: text("role").notNull().default("member"), // "owner" | "member"
+  permissions: text("permissions").notNull().default("[]"), // JSON array of nav-section keys
+  invitedByUserId: text("invited_by_user_id").references(() => users.id),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),

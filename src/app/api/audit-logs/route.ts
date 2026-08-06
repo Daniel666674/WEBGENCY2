@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { auditLogs, users } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
+import { requireNavPermission } from "@/lib/permissions-server";
 
 export async function GET(request: NextRequest) {
+  const denied = await requireNavPermission("config");
+  if (denied) return NextResponse.json({ error: denied.error }, { status: denied.status });
+
   const { searchParams } = new URL(request.url);
   const limitParam = searchParams.get("limit");
   const limit = Math.min(Number(limitParam) || 100, 500);
