@@ -1,8 +1,8 @@
 import { auth } from "@/auth";
-import { hasPermission, type NavSectionKey } from "@/lib/permissions";
+import { hasPermission, type PermissionKey } from "@/lib/permissions";
 
 /**
- * Server-side guard for API routes gated behind a nav-section permission.
+ * Server-side guard for API routes gated behind a page permission.
  * Returns null when the request may proceed, or a ready-to-return
  * NextResponse-shaped error object when it must be rejected.
  *
@@ -10,7 +10,7 @@ import { hasPermission, type NavSectionKey } from "@/lib/permissions";
  * model), this is a no-op — that mode has no concept of restricted tabs.
  */
 export async function requireNavPermission(
-  key: NavSectionKey
+  key: PermissionKey
 ): Promise<{ status: number; error: string } | null> {
   if (process.env.AUTH_ENABLED !== "true") return null;
 

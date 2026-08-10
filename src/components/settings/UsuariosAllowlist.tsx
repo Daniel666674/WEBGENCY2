@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Trash2, UserPlus, Crown } from "lucide-react";
-import { NAV_SECTION_KEYS, NAV_SECTION_LABELS, type NavSectionKey } from "@/lib/permissions";
+import { PermissionPicker } from "./PermissionPicker";
 
 interface AllowedEmailRow {
   id: string;
   email: string;
   role: string;
-  permissions: NavSectionKey[];
+  permissions: string[];
   registeredUser: { id: string; email: string | null; name: string; image: string | null } | null;
 }
 
@@ -21,7 +21,7 @@ export function UsuariosAllowlist() {
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"owner" | "member">("member");
-  const [invitePerms, setInvitePerms] = useState<NavSectionKey[]>(["principal"]);
+  const [invitePerms, setInvitePerms] = useState<string[]>(["dashboard"]);
   const [inviting, setInviting] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
 
@@ -55,7 +55,7 @@ export function UsuariosAllowlist() {
       toast.success("Usuario invitado — ya puede iniciar sesion con Google");
       setInviteEmail("");
       setInviteRole("member");
-      setInvitePerms(["principal"]);
+      setInvitePerms(["dashboard"]);
       load();
     } catch {
       toast.error("Error al invitar");
@@ -64,7 +64,7 @@ export function UsuariosAllowlist() {
     }
   }
 
-  async function updateRow(row: AllowedEmailRow, patch: { role?: string; permissions?: NavSectionKey[] }) {
+  async function updateRow(row: AllowedEmailRow, patch: { role?: string; permissions?: string[] }) {
     setSavingId(row.id);
     try {
       const res = await fetch(`/api/allowed-emails/${row.id}`, {
@@ -93,10 +93,6 @@ export function UsuariosAllowlist() {
     if (!res.ok) { toast.error(data.error ?? "Error"); return; }
     toast.success("Acceso revocado");
     load();
-  }
-
-  function togglePermInvite(key: NavSectionKey) {
-    setInvitePerms((prev) => (prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key]));
   }
 
   return (
@@ -161,23 +157,12 @@ export function UsuariosAllowlist() {
                   </div>
 
                   {row.role !== "owner" && (
-                    <div className="pl-12 grid grid-cols-2 gap-1.5">
-                      {NAV_SECTION_KEYS.map((key) => (
-                        <label key={key} className="flex items-center gap-1.5 text-xs cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={row.permissions.includes(key)}
-                            disabled={savingId === row.id}
-                            onChange={() => {
-                              const next = row.permissions.includes(key)
-                                ? row.permissions.filter((p) => p !== key)
-                                : [...row.permissions, key];
-                              updateRow(row, { permissions: next });
-                            }}
-                          />
-                          {NAV_SECTION_LABELS[key]}
-                        </label>
-                      ))}
+                    <div className="pl-12">
+                      <PermissionPicker
+                        value={row.permissions}
+                        disabled={savingId === row.id}
+                        onChange={(next) => updateRow(row, { permissions: next })}
+                      />
                     </div>
                   )}
                 </div>
@@ -217,14 +202,7 @@ export function UsuariosAllowlist() {
           </div>
 
           {inviteRole === "member" && (
-            <div className="grid grid-cols-2 gap-1.5">
-              {NAV_SECTION_KEYS.map((key) => (
-                <label key={key} className="flex items-center gap-1.5 text-xs cursor-pointer">
-                  <input type="checkbox" checked={invitePerms.includes(key)} onChange={() => togglePermInvite(key)} />
-                  {NAV_SECTION_LABELS[key]}
-                </label>
-              ))}
-            </div>
+            <PermissionPicker value={invitePerms} onChange={setInvitePerms} />
           )}
 
           <Button onClick={invite} disabled={inviting || !inviteEmail.trim()} className="cursor-pointer">

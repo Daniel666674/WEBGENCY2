@@ -8,6 +8,7 @@ import { HersThemeApplier } from "@/components/user/HersThemeApplier";
 // HersWelcomePopup temporarily hidden — re-add <HersWelcomePopup /> below to restore.
 // import { HersWelcomePopup } from "@/components/user/HersWelcomePopup";
 import { ThemeEngine } from "@/components/shared/ThemeEngine";
+import { PermissionGuard } from "@/components/layout/PermissionGuard";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -21,7 +22,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <Header />
         <AlertBanner />
         <main className="flex-1 min-w-0 p-4 md:p-6 bg-background overflow-y-auto overflow-x-hidden">
-          {children}
+          <PermissionGuard>{children}</PermissionGuard>
         </main>
       </div>
       <NotificationChecker />

@@ -17,6 +17,9 @@ export interface AppUser {
 interface UserContextValue {
   users: AppUser[];
   activeUser: AppUser | null;
+  /** True when Google OAuth is on — the only mode with a real permission
+   *  model. Credentials mode has no per-user gating to enforce. */
+  authEnabled: boolean;
   switchUser: (id: string) => void;
   refetchUsers: () => Promise<void>;
   loading: boolean;
@@ -25,6 +28,7 @@ interface UserContextValue {
 const UserContext = createContext<UserContextValue>({
   users: [],
   activeUser: null,
+  authEnabled: false,
   switchUser: () => {},
   refetchUsers: async () => {},
   loading: true,
@@ -51,11 +55,13 @@ function clearLoginAsHint() {
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [activeUser, setActiveUser] = useState<AppUser | null>(null);
+  const [authEnabled, setAuthEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     // If Google Auth is enabled, identity comes from the server session.
     const meRes = await fetch("/api/me").then((r) => r.json()).catch(() => ({ authEnabled: false }));
+    setAuthEnabled(!!meRes.authEnabled);
     if (meRes.authEnabled && meRes.user) {
       const u = meRes.user as AppUser & { email?: string };
       const appUser: AppUser = {
@@ -125,7 +131,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, [load]);
 
   return (
-    <UserContext.Provider value={{ users, activeUser, switchUser, refetchUsers, loading }}>
+    <UserContext.Provider value={{ users, activeUser, authEnabled, switchUser, refetchUsers, loading }}>
       {children}
     </UserContext.Provider>
   );
