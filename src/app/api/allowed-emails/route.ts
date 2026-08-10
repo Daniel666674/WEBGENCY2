@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { allowedEmails, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
-import { ALL_PERMISSIONS, DEFAULT_NEW_USER_PERMISSIONS, NAV_SECTION_KEYS } from "@/lib/permissions";
+import { ALL_PERMISSIONS, DEFAULT_NEW_USER_PERMISSIONS, PERMISSION_KEYS, parsePermissions } from "@/lib/permissions";
 
 // Only the owner manages who's allowed in and what they can see — this is
 // deliberately stricter than the generic "config" nav permission, since
@@ -26,7 +26,7 @@ async function requireOwner() {
 
 function sanitizePermissions(input: unknown): string[] {
   if (!Array.isArray(input)) return DEFAULT_NEW_USER_PERMISSIONS;
-  const valid = input.filter((v): v is string => NAV_SECTION_KEYS.includes(v));
+  const valid = input.filter((v): v is string => typeof v === "string" && PERMISSION_KEYS.includes(v));
   return valid.length ? valid : DEFAULT_NEW_USER_PERMISSIONS;
 }
 
@@ -43,7 +43,7 @@ export async function GET() {
   return NextResponse.json(
     rows.map((r) => ({
       ...r,
-      permissions: JSON.parse(r.permissions || "[]"),
+      permissions: parsePermissions(r.permissions),
       registeredUser: registered.find((u) => (u.email ?? "").toLowerCase() === r.email) ?? null,
     }))
   );

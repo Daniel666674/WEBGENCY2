@@ -5,7 +5,7 @@ import { desc, eq } from "drizzle-orm";
 import { requireNavPermission } from "@/lib/permissions-server";
 
 export async function GET(request: NextRequest) {
-  const denied = await requireNavPermission("config");
+  const denied = await requireNavPermission("audit");
   if (denied) return NextResponse.json({ error: denied.error }, { status: denied.status });
 
   const { searchParams } = new URL(request.url);

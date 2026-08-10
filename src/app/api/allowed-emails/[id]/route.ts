@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { allowedEmails, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
-import { ALL_PERMISSIONS, NAV_SECTION_KEYS } from "@/lib/permissions";
+import { ALL_PERMISSIONS, PERMISSION_KEYS } from "@/lib/permissions";
 
 async function requireOwner() {
   if (process.env.AUTH_ENABLED !== "true") {
@@ -22,7 +22,7 @@ async function requireOwner() {
 
 function sanitizePermissions(input: unknown): string[] {
   if (!Array.isArray(input)) return [];
-  return input.filter((v): v is string => NAV_SECTION_KEYS.includes(v));
+  return input.filter((v): v is string => typeof v === "string" && PERMISSION_KEYS.includes(v));
 }
 
 // PUT — update role/permissions. Writes both allowed_emails (governs future

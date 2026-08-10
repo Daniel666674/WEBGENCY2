@@ -7,7 +7,7 @@ import {
 import { requireNavPermission } from "@/lib/permissions-server";
 
 export async function POST() {
-  const denied = await requireNavPermission("config");
+  const denied = await requireNavPermission("settings");
   if (denied) return NextResponse.json({ error: denied.error }, { status: denied.status });
 
   const config = await getPaymentAutomationConfig();

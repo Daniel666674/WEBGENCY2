@@ -25,7 +25,7 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
-  const denied = await requireNavPermission("config");
+  const denied = await requireNavPermission("settings");
   if (denied) return NextResponse.json({ error: denied.error }, { status: denied.status });
 
   try {

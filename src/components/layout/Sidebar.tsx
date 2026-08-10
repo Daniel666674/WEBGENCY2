@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/context/UserContext";
-import { hasPermission, type NavSectionKey } from "@/lib/permissions";
+import { hasPermission, permissionForPath, type NavSectionKey } from "@/lib/permissions";
 
 interface NavItem {
   href: string;
@@ -117,7 +117,18 @@ export function Sidebar() {
   const [open, setOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const visibleSections = navSections.filter((section) => hasPermission(activeUser, section.key));
+  // Permissions are per page, so filter the items first and drop any section
+  // left with nothing in it — otherwise a user granted a single page would
+  // still see the empty header of every other section.
+  const visibleSections = navSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => {
+        const key = permissionForPath(item.href);
+        return key ? hasPermission(activeUser, key) : true;
+      }),
+    }))
+    .filter((section) => section.items.length > 0);
 
   const cancelClose = useCallback(() => {
     if (closeTimer.current) clearTimeout(closeTimer.current);

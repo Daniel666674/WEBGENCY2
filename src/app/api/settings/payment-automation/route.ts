@@ -19,7 +19,7 @@ function isMasked(value: string): boolean {
 }
 
 export async function GET() {
-  const denied = await requireNavPermission("config");
+  const denied = await requireNavPermission("settings");
   if (denied) return NextResponse.json({ error: denied.error }, { status: denied.status });
 
   const config = await getPaymentAutomationConfig();
@@ -31,7 +31,7 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
-  const denied = await requireNavPermission("config");
+  const denied = await requireNavPermission("settings");
   if (denied) return NextResponse.json({ error: denied.error }, { status: denied.status });
 
   let body: Partial<PaymentAutomationConfig>;
