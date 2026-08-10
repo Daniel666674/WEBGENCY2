@@ -8,11 +8,13 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   GripVertical, Eye, EyeOff, Monitor, Smartphone, Tablet, ArrowLeft,
   ExternalLink, Loader2, Globe, Check, Palette, Type, Layers, Plus,
-  Undo2, Redo2, Code2, Menu, ChevronRight, Copy, Trash2, PanelsTopLeft, Files,
+  Undo2, Redo2, Code2, Menu, ChevronRight, Copy, Trash2, PanelsTopLeft, Files, SlidersHorizontal,
   AlertTriangle, Lightbulb,
 } from "lucide-react";
-import type { DemoConfig, DemoPage, Section, SectionType, ButtonShape, ButtonFill, ElementKey, NavLink } from "@/lib/demo/types";
+import type { DemoConfig, DemoPage, Section, SectionType, ButtonShape, ButtonFill, ElementKey, NavLink, DemoBrief } from "@/lib/demo/types";
 import { SECTION_LABELS, SECTION_CATEGORIES, newId, defaultNav, defaultFooter, defaultNavLinks, defaultPages } from "@/lib/demo/types";
+import { isItemDriven, starterItems } from "@/lib/demo/coach";
+import { CoachTips } from "./CoachTips";
 import { TEMPLATES, getTemplate } from "@/lib/demo/templates";
 import { FONT_PAIRS } from "@/lib/demo/fonts";
 import { renderDemo } from "@/lib/demo/render";
@@ -469,12 +471,29 @@ export function DemoBuilder({
     update({ template, fontPair, brand, sections, pages: newPages });
   }
 
+  /**
+   * Some sections ship with an empty item list (Galería is the notable one).
+   * Turning them on then produced a section the renderer skipped entirely —
+   * it looked like the toggle did nothing. Seed starter rows so enabling a
+   * section always puts something on the canvas to edit.
+   */
+  function withStarterItems(s: Section): Section {
+    if (!isItemDriven(s.type) || (s.items?.length ?? 0) > 0) return s;
+    const items = starterItems(s.type);
+    return items.length ? { ...s, items } : s;
+  }
+
+  function toggleSectionEnabled(s: Section) {
+    const next = { ...s, enabled: !s.enabled };
+    updateSection(next.enabled ? withStarterItems(next) : next);
+  }
+
   function addSection(type: SectionType) {
     const proto = getTemplate(cfg.template).defaults().sections.find((s) => s.type === type);
     const built: Section = proto
       ? { ...proto, id: newId(), enabled: true }
       : { id: newId(), type, variant: "list", enabled: true, heading: "" };
-    updateSections([...activeSections, built]);
+    updateSections([...activeSections, withStarterItems(built)]);
     setAddPickerOpen(false);
     setSelected(null);
     setActiveSectionId(built.id);
@@ -498,6 +517,10 @@ export function DemoBuilder({
   function selectSection(id: string) {
     setSelected(null);
     setActiveSectionId(id);
+    // On a phone the editor is a separate overlay — picking a section from the
+    // structure list should take you straight to its fields, not leave you
+    // looking at the list you just used.
+    if (typeof window !== "undefined" && window.innerWidth < 1024) setMobilePanel("editor");
     toCanvas({ type: "select", id });
   }
 
@@ -521,11 +544,11 @@ export function DemoBuilder({
     return a.filter((x) => x.level !== "tip").length;
   }, [cfg]);
 
-  const finishSetup = useCallback(async ({ name, template, contactId }: { name: string; template: string; contactId: string }) => {
+  const finishSetup = useCallback(async ({ name, template, contactId, brief }: { name: string; template: string; contactId: string; brief: DemoBrief }) => {
     const t = getTemplate(template);
     const fresh = t.defaults();
     fresh.brand.name = name;
-    const nextCfg: DemoConfig = { ...fresh, nav: fresh.nav, footer: fresh.footer };
+    const nextCfg: DemoConfig = { ...fresh, nav: fresh.nav, footer: fresh.footer, brief };
 
     const res = await fetch(`/api/demo-pages/${demoId}`, {
       method: "PUT",
@@ -554,6 +577,9 @@ export function DemoBuilder({
   }, [demoId]);
 
   const frameW = device === "desktop" ? "100%" : device === "tablet" ? "820px" : "390px";
+  // Below lg the two side panels can't sit next to the canvas, so they become
+  // full-screen overlays switched from a bottom bar. "canvas" = both closed.
+  const [mobilePanel, setMobilePanel] = useState<"canvas" | "structure" | "editor">("canvas");
   const canUndo = historyIndex.current > 0;
   const canRedo = historyIndex.current < history.current.length - 1;
   void historyTick;
@@ -574,7 +600,7 @@ export function DemoBuilder({
         <input
           value={title}
           onChange={(e) => { dirty.current = true; setUnpublishedChanges(true); setTitle(e.target.value); }}
-          className="min-w-0 max-w-[220px] flex-shrink rounded-md bg-transparent px-2 py-1 text-sm font-semibold outline-none hover:bg-muted focus:bg-muted"
+          className="min-w-0 max-w-[110px] flex-shrink rounded-md bg-transparent px-2 py-1 text-sm font-semibold outline-none hover:bg-muted focus:bg-muted sm:max-w-[220px]"
           placeholder="Nombre del demo"
         />
 
@@ -672,9 +698,11 @@ export function DemoBuilder({
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1">
         {/* ── Left: structure ─────────────────────────────── */}
-        <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-card md:flex">
+        <aside
+          className={`${mobilePanel === "structure" ? "flex" : "hidden"} absolute bottom-0 left-0 right-0 top-0 z-30 w-full flex-col overflow-hidden border-r border-border bg-card md:static md:flex md:w-60 md:shrink-0`}
+        >
           <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
             <PanelsTopLeft className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-xs font-semibold">Estructura del sitio</span>
@@ -752,7 +780,7 @@ export function DemoBuilder({
                       section={s}
                       active={activeSectionId === s.id}
                       onSelect={() => selectSection(s.id)}
-                      onToggleEnabled={() => updateSection({ ...s, enabled: !s.enabled })}
+                      onToggleEnabled={() => toggleSectionEnabled(s)}
                     />
                   ))}
                 </div>
@@ -811,9 +839,12 @@ export function DemoBuilder({
         </main>
 
         {/* ── Right: inspector ────────────────────────────── */}
-        <aside className="hidden w-[340px] shrink-0 flex-col border-l border-border bg-card lg:flex">
+        <aside
+          className={`${mobilePanel === "editor" ? "flex" : "hidden"} absolute bottom-0 left-0 right-0 top-0 z-30 w-full flex-col overflow-hidden border-l border-border bg-card lg:static lg:flex lg:w-[340px] lg:shrink-0`}
+        >
           {inspecting && activeSection && selected ? (
             <div className="flex-1 overflow-y-auto p-3.5">
+              <CoachTips section={activeSection} elementKey={selected.key} cfg={cfg} />
               <ElementInspector
                 section={activeSection}
                 elementKey={selected.key}
@@ -849,6 +880,7 @@ export function DemoBuilder({
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto p-3.5">
+                <CoachTips section={activeSection} cfg={cfg} />
                 <p className="mb-3 rounded-md bg-muted/60 px-2.5 py-1.5 text-[11px] text-muted-foreground">
                   Haz clic en cualquier texto o imagen de la vista previa para editar su estilo por separado.
                 </p>
@@ -1081,6 +1113,33 @@ export function DemoBuilder({
           )}
         </aside>
       </div>
+
+      {/* ── Mobile bottom bar ───────────────────────────────
+          The side panels are overlays below lg, so this is the only way to
+          reach them on a phone. Hidden from lg up, where both panels are
+          permanently docked beside the canvas. */}
+      <nav className="flex h-12 shrink-0 items-stretch border-t border-border bg-card lg:hidden">
+        {([
+          ["structure", "Estructura", PanelsTopLeft, "md:hidden"],
+          ["canvas", "Vista previa", Eye, ""],
+          ["editor", "Editar", SlidersHorizontal, ""],
+        ] as const).map(([id, label, Icon, extra]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setMobilePanel(id)}
+            className={`flex flex-1 flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors ${extra} ${
+              mobilePanel === id ? "text-primary" : "text-muted-foreground"
+            }`}
+          >
+            <Icon className="h-4 w-4" />
+            {label}
+            {id === "editor" && activeSection && (
+              <span className="sr-only">{SECTION_LABELS[activeSection.type]}</span>
+            )}
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }
