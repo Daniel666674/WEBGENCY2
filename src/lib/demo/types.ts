@@ -214,6 +214,19 @@ export interface DemoPage {
   sections: Section[];
 }
 
+export type BriefGoal = "leads" | "sales" | "credibility" | "bookings";
+export type BriefTone = "cercano" | "profesional" | "premium" | "atrevido";
+
+/** Answers collected before the first edit, used to tailor the builder's
+ *  coaching to this specific business instead of generic web advice. */
+export interface DemoBrief {
+  industry?: string;
+  goal?: BriefGoal;
+  audience?: string;
+  tone?: BriefTone;
+  differentiator?: string;
+}
+
 export interface DemoConfig {
   template: string;
   fontPair: string;
@@ -232,6 +245,8 @@ export interface DemoConfig {
   customCss?: string;
   nav?: NavConfig;
   footer?: FooterConfig;
+  /** Pre-build answers. Absent on demos created before the brief existed. */
+  brief?: DemoBrief;
 }
 
 export function newId(): string {

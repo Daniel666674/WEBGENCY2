@@ -1,7 +1,7 @@
 import type { DemoConfig, Section, MediaRef, SectionWidth, SectionPad, NavConfig, FooterConfig, NavLink, NavSize, FooterSize, ElementKey } from "./types";
 import { getTemplate } from "./templates";
 import { getFontPair } from "./fonts";
-import { defaultNav, defaultFooter, defaultNavLinks, ELEMENT_LABELS } from "./types";
+import { defaultNav, defaultFooter, defaultNavLinks, ELEMENT_LABELS, SECTION_ANCHORS } from "./types";
 import { safeUrl, safeColor, safeCss, sanitizeRich } from "./validate";
 
 function esc(s: string | undefined): string {
@@ -348,11 +348,32 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
         <p${elClass("items.body")}${elHandle("items.body")} style="color:${muted};line-height:1.7;margin:0;font-size:.98rem;${elStyle("items.body")}"${textAttr(`items.${i}.body`, true)}>${sanitizeRich(it.body)}</p>`)).join("") + `</div>`, "servicios");
   }
 
+  /**
+   * What an enabled-but-empty section renders.
+   *
+   * Published output stays clean: an empty section is simply omitted, exactly
+   * as before. In the builder it would otherwise vanish silently — you enable
+   * "Galería", nothing appears on the canvas, and there is no way to tell the
+   * section is on but has no content yet. So in edit mode it draws a dashed
+   * placeholder naming what the section needs.
+   */
+  function emptyState(s: Section, label: string, hint: string): string {
+    if (!editMode) return "";
+    return sec(
+      s,
+      `<div style="border:2px dashed ${accent}55;border-radius:${d.imageRadius};padding:44px 24px;text-align:center;background:${accent}0a;">
+        <p style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.05rem;color:${ink};margin:0 0 6px;">${esc(label)}</p>
+        <p style="color:${muted};font-size:.88rem;margin:0;line-height:1.6;">${esc(hint)}</p>
+      </div>`,
+      SECTION_ANCHORS[s.type]?.[0]
+    );
+  }
+
   // ── GALLERY ─────────────────────────────────────────────
   function gallery(s: Section): string {
     beginSection(s);
     const items = (s.items ?? []).filter((i) => i.media?.url);
-    if (!items.length) return "";
+    if (!items.length) return emptyState(s, "Galería sin imágenes", "Agrega fotos desde el panel de la derecha para que esta sección aparezca en el sitio.");
     const align = alignOf(s);
     const head = `<div style="${align === "center" ? "text-align:center;max-width:620px;margin:0 auto 48px;" : "margin:0 0 48px;"}">${eyebrow(s.eyebrow, align)}${h2(s.heading)}${lede(s.body, align)}</div>`;
 
@@ -373,7 +394,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
   // ── VIDEO ───────────────────────────────────────────────
   function video(s: Section): string {
     beginSection(s);
-    if (!s.media?.url) return "";
+    if (!s.media?.url) return emptyState(s, "Video sin enlace", "Pega la URL de YouTube o Vimeo en el panel de la derecha.");
     const v = s.media.url;
     const isEmbed = /youtube|youtu\.be|vimeo/.test(v);
     const embedUrl = v.includes("youtu.be")
@@ -430,7 +451,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
   function testimonials(s: Section): string {
     beginSection(s);
     const items = s.items ?? [];
-    if (!items.length) return "";
+    if (!items.length) return emptyState(s, "Testimonios sin contenido", "Agrega al menos una cita con el nombre de quien la dijo.");
     const testBg = s.style?.bg || (dark ? mix(paper, "#ffffff", 0.04) : soft);
     if (s.variant === "single") {
       const it = items[0];
@@ -452,7 +473,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
   function stats(s: Section): string {
     beginSection(s);
     const items = s.items ?? [];
-    if (!items.length) return "";
+    if (!items.length) return emptyState(s, "Cifras destacadas vacías", "Agrega los números que quieras resaltar, por ejemplo: +120 clientes.");
     const align = alignOf(s);
     const head = (s.eyebrow || s.heading) ? `<div style="${align === "center" ? "text-align:center;" : ""}margin:0 0 40px;">${eyebrow(s.eyebrow, align)}${h2(s.heading)}</div>` : "";
     if (s.variant === "cards") {
@@ -470,7 +491,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
   function team(s: Section): string {
     beginSection(s);
     const items = s.items ?? [];
-    if (!items.length) return "";
+    if (!items.length) return emptyState(s, "Equipo sin integrantes", "Agrega las personas del equipo con su nombre y cargo.");
     const align = alignOf(s);
     const head = `<div style="${align === "center" ? "text-align:center;max-width:620px;margin:0 auto 48px;" : "margin:0 0 48px;"}">${eyebrow(s.eyebrow, align)}${h2(s.heading)}${lede(s.body, align)}</div>`;
     if (s.variant === "rows") {
@@ -495,7 +516,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
   function logos(s: Section): string {
     beginSection(s);
     const items = (s.items ?? []).filter((i) => i.media?.url);
-    if (!items.length) return "";
+    if (!items.length) return emptyState(s, "Logos de clientes vacío", "Sube los logos de las marcas con las que trabajaste.");
     return sec(s, `${s.eyebrow ? `<p${elClass("eyebrow")}${elHandle("eyebrow")} style="text-align:center;font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;color:${muted};font-weight:600;margin:0 0 32px;${elStyle("eyebrow")}"${textAttr("eyebrow")}>${esc(s.eyebrow)}</p>` : ""}
     <div style="display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:clamp(24px,5vw,56px);">
       ${items.map((it) => media(it.media, "height:32px;width:auto;object-fit:contain;opacity:.75;filter:" + (dark ? "brightness(2) grayscale(1);" : "grayscale(1);")))
@@ -507,7 +528,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
   function faq(s: Section): string {
     beginSection(s);
     const items = s.items ?? [];
-    if (!items.length) return "";
+    if (!items.length) return emptyState(s, "Preguntas frecuentes vacías", "Agrega las preguntas que más te hacen y su respuesta.");
     const align = alignOf(s);
     const head = `<div style="${align === "center" ? "text-align:center;max-width:620px;margin:0 auto 44px;" : "max-width:620px;margin:0 0 44px;"}">${eyebrow(s.eyebrow, align)}${h2(s.heading)}</div>`;
     const row = (it: { title?: string; body?: string }, i: number) => `<details style="border-top:1px solid ${hairline};padding:18px 0;">
@@ -574,7 +595,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
   function menu(s: Section): string {
     beginSection(s);
     const items = s.items ?? [];
-    if (!items.length) return "";
+    if (!items.length) return emptyState(s, "Menú / Precios vacío", "Agrega los productos o planes con su precio.");
     const align = alignOf(s);
     const head = `<div style="${align === "center" ? "text-align:center;max-width:620px;margin:0 auto 52px;" : "margin:0 0 52px;"}">${eyebrow(s.eyebrow, align)}${h2(s.heading)}${lede(s.body, align)}</div>`;
 

@@ -11,6 +11,7 @@ import { PipelineChart } from "@/components/dashboard/PipelineChart";
 import { ActivitySummary } from "@/components/dashboard/ActivitySummary";
 import { ClientLifetimeValue } from "@/components/dashboard/ClientLifetimeValue";
 import { NotificationBanner } from "@/components/dashboard/NotificationBanner";
+import { GreetingHeading } from "@/components/dashboard/GreetingHeading";
 import { StatTile } from "@/components/shared/StatTile";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/constants";
@@ -211,12 +212,7 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* ── Greeting ─────────────────────────────────── */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">¡Bienvenido de vuelta, Daniel! 👋</h1>
-        <p className="text-muted-foreground text-sm mt-0.5">
-          Aquí tienes el resumen de tu pipeline y actividad comercial.
-        </p>
-      </div>
+      <GreetingHeading />
 
       <div className="flex items-center justify-between flex-wrap gap-2">
         <NotificationBanner />
