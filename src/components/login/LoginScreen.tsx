@@ -63,12 +63,17 @@ function LogoMark({ size = 40 }: { size?: number }) {
 export function LoginScreen({
   authEnabled,
   callbackUrl,
-  error,
+  errorMessage,
+  configProblems = [],
   onGoogle,
 }: {
   authEnabled: boolean;
   callbackUrl: string;
   error?: string;
+  /** Human-readable version of `error` — see describeAuthError(). */
+  errorMessage?: string | null;
+  /** Missing server env vars blocking Google sign-in — see authConfigProblems(). */
+  configProblems?: string[];
   onGoogle: () => Promise<void>;
 }) {
   const [showPassword, setShowPassword] = useState(false);
@@ -164,6 +169,28 @@ export function LoginScreen({
             </div>
 
             <div className="w-full flex flex-col items-center gap-3">
+              {/* Why the sign-in failed, in plain language. Without this the
+                  Google flow bounces back here silently (or lands on Auth.js's
+                  generic "check the server logs" page) with nothing to act on. */}
+              {configProblems.length > 0 ? (
+                <div className="w-full rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3">
+                  <p className={`${mono.className} text-[11px] font-medium text-amber-300 mb-1.5`}>
+                    Configuración del servidor incompleta
+                  </p>
+                  <ul className={`${mono.className} space-y-1 text-[11px] leading-relaxed text-amber-200/80`}>
+                    {configProblems.map((p) => (
+                      <li key={p}>• {p}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                errorMessage && (
+                  <div className="w-full rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-3">
+                    <p className={`${mono.className} text-[11px] leading-relaxed text-red-300`}>{errorMessage}</p>
+                  </div>
+                )
+              )}
+
               {authEnabled ? (
                 <form action={onGoogle} className="w-full">
                   <button
@@ -235,15 +262,7 @@ export function LoginScreen({
                     <span style={{ color: "#5fd4c2" }}>¿Olvidaste tu contraseña?</span>
                   </div>
 
-                  {error === "1" && (
-                    <p className={`${mono.className} text-xs text-red-400 text-center -mb-1`}>Usuario o contraseña incorrectos</p>
-                  )}
-                  {error === "config" && (
-                    <p className={`${mono.className} text-xs text-amber-400 text-center -mb-1`}>
-                      Falta CRM_USERNAME / CRM_PASSWORD / SESSION_SECRET en el servidor
-                    </p>
-                  )}
-
+                  {/* Credentials-mode errors render in the shared alert above. */}
                   <button
                     type="submit"
                     className={`${display.className} group w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm text-white hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer mt-1`}

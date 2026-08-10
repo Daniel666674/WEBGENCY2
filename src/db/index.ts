@@ -41,6 +41,7 @@ const TABLES = [
   "CREATE TABLE IF NOT EXISTS `sessions` (\n\t`sessionToken` text PRIMARY KEY NOT NULL,\n\t`userId` text NOT NULL,\n\t`expires` integer NOT NULL,\n\tFOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade\n);",
   "CREATE TABLE IF NOT EXISTS users (\n    id TEXT PRIMARY KEY,\n    name TEXT NOT NULL,\n    color TEXT NOT NULL DEFAULT '#0d9a8a',\n    is_hers INTEGER NOT NULL DEFAULT 0,\n    avatar TEXT,\n    created_at INTEGER NOT NULL\n  , email text, email_verified integer, image text, role text NOT NULL DEFAULT 'member', permissions text NOT NULL DEFAULT '[]');",
   "CREATE TABLE IF NOT EXISTS allowed_emails (\n    id TEXT PRIMARY KEY,\n    email TEXT NOT NULL UNIQUE,\n    role TEXT NOT NULL DEFAULT 'member',\n    permissions TEXT NOT NULL DEFAULT '[]',\n    invited_by_user_id TEXT REFERENCES users(id),\n    created_at INTEGER NOT NULL\n  );",
+  "CREATE TABLE IF NOT EXISTS schema_migrations (\n    id TEXT PRIMARY KEY,\n    applied_at INTEGER NOT NULL\n  );",
   "CREATE TABLE IF NOT EXISTS `verificationTokens` (\n\t`identifier` text NOT NULL,\n\t`token` text NOT NULL,\n\t`expires` integer NOT NULL,\n\tPRIMARY KEY(`identifier`, `token`)\n);",
 ];
 /**
@@ -71,17 +72,27 @@ const COLUMN_MIGRATIONS = [
 // Backfills that must run after COLUMN_MIGRATIONS. Idempotent by
 // construction — each only touches rows still holding the pre-migration
 // value, so re-running on an already-migrated database is a no-op.
-const DATA_MIGRATIONS = [
-  // Demos published before the split have no snapshot; seed it from the
-  // working config so their public URL keeps serving the same page.
-  "UPDATE demo_pages SET published_config = config WHERE published = 1 AND published_config IS NULL",
-  // Every user created before the permissions model existed had unrestricted
-  // access by default (there was nothing to restrict). Backfill them to full
-  // access rather than silently locking them out the moment the new
-  // permissions column defaults to '[]'. Safe to run forever: after first
-  // boot no row holds exactly '[]' unless deliberately revoked down to
-  // nothing, and new invitees start from DEFAULT_NEW_USER_PERMISSIONS, not '[]'.
-  "UPDATE users SET permissions = '[\"principal\",\"revenue\",\"cuentas\",\"negocios\",\"arsenal\",\"config\"]' WHERE permissions = '[]'",
+// Each entry runs at most once ever, tracked by id in `schema_migrations`.
+// A value-based guard ("only touch rows still holding the old value") is not
+// enough for the permissions backfill: '[]' is also what a legitimately
+// revoked user looks like, so re-running it on every boot would hand full
+// access — Config tab included — back to someone the owner had just locked
+// out.
+const DATA_MIGRATIONS: { id: string; sql: string }[] = [
+  {
+    // Demos published before the split have no snapshot; seed it from the
+    // working config so their public URL keeps serving the same page.
+    id: "2025-demo-pages-published-config-backfill",
+    sql: "UPDATE demo_pages SET published_config = config WHERE published = 1 AND published_config IS NULL",
+  },
+  {
+    // Every user created before the permissions model existed had unrestricted
+    // access by default (there was nothing to restrict). Backfill them to full
+    // access rather than silently locking them out the moment the new
+    // permissions column defaults to '[]'.
+    id: "2025-users-permissions-initial-backfill",
+    sql: "UPDATE users SET permissions = '[\"principal\",\"revenue\",\"cuentas\",\"negocios\",\"arsenal\",\"config\"]' WHERE permissions = '[]'",
+  },
 ];
 
 export async function ensureSchema(): Promise<void> {
@@ -102,9 +113,23 @@ export async function ensureSchema(): Promise<void> {
     }
   }
 
-  for (const sql of DATA_MIGRATIONS) {
+  // Run-once data migrations. The marker row is written only after the
+  // statement succeeds, so a migration that failed against a partially
+  // migrated database gets retried on the next boot instead of being
+  // recorded as done.
+  for (const { id, sql } of DATA_MIGRATIONS) {
     try {
+      const { rows } = await client.execute({
+        sql: "SELECT 1 FROM schema_migrations WHERE id = ?",
+        args: [id],
+      });
+      if (rows.length > 0) continue;
+
       await client.execute(sql);
+      await client.execute({
+        sql: "INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)",
+        args: [id, Date.now()],
+      });
     } catch {
       // Target column may not exist yet on a partially-migrated database.
     }

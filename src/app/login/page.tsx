@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
 import { LoginScreen } from "@/components/login/LoginScreen";
+import { authConfigProblems, describeAuthError } from "@/lib/authConfig";
 
 export default async function LoginPage({
   searchParams,
@@ -9,10 +10,20 @@ export default async function LoginPage({
 }) {
   const { callbackUrl, error } = await searchParams;
   const authEnabled = process.env.AUTH_ENABLED === "true";
+  const problems = authConfigProblems();
 
-  if (authEnabled) {
-    const session = await auth();
-    if (session) redirect(callbackUrl || "/");
+  if (authEnabled && problems.length === 0) {
+    // Only worth asking when the environment is actually complete — with a
+    // missing AUTH_SECRET this call throws, and an unhandled throw here
+    // turns the one page that could explain the problem into a 500.
+    try {
+      const session = await auth();
+      if (session) redirect(callbackUrl || "/");
+    } catch (err) {
+      // redirect() signals via a thrown control-flow error — rethrow it.
+      if (err && typeof err === "object" && "digest" in err) throw err;
+      console.error("[login] no se pudo leer la sesion:", err);
+    }
   }
   // Credentials mode's own "already logged in" check happens via proxy.ts —
   // if this page is reachable, the signed cookie is missing or expired.
@@ -30,6 +41,8 @@ export default async function LoginPage({
       authEnabled={authEnabled}
       callbackUrl={callbackUrl || "/"}
       error={error}
+      errorMessage={describeAuthError(error)}
+      configProblems={problems.map((p) => p.message)}
       onGoogle={enterWithGoogle}
     />
   );
