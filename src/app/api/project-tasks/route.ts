@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, persistNow } from "@/db";
 import { projectTasks, users, projects } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { requireApi } from "@/lib/apiAuth";
 
 async function getOrCreateGeneralProject(): Promise<string> {
   const existing = await db.select({ id: projects.id }).from(projects)
@@ -18,6 +19,9 @@ async function getOrCreateGeneralProject(): Promise<string> {
 }
 
 export async function GET(request: NextRequest) {
+  const denied = await requireApi("tareas");
+  if (denied) return denied;
+
   const { searchParams } = new URL(request.url);
   const projectId = searchParams.get("projectId");
   const type = searchParams.get("type");
@@ -66,6 +70,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await requireApi("tareas");
+  if (denied) return denied;
+
   try {
     const { projectId, type, title, description, assignedUserId, dueDate, reminderAt, status, priority, actorName } =
       await request.json();

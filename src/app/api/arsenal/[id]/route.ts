@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { arsenalItems } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { requireApi } from "@/lib/apiAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,9 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireApi("arsenal");
+  if (denied) return denied;
+
   const { id } = await params;
   const row = await db.select().from(arsenalItems).where(eq(arsenalItems.id, id)).get();
   if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -19,6 +23,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireApi("arsenal");
+  if (denied) return denied;
+
   const { id } = await params;
   let body: Record<string, unknown>;
   try {
@@ -57,6 +64,9 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireApi("arsenal");
+  if (denied) return denied;
+
   const { id } = await params;
   await db.delete(arsenalItems).where(eq(arsenalItems.id, id)).run();
   return NextResponse.json({ ok: true });

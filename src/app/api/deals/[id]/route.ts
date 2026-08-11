@@ -3,11 +3,15 @@ import { db, persistNow } from "@/db";
 import { deals } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { logAudit } from "@/lib/audit";
+import { requireApi } from "@/lib/apiAuth";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireApi("deals");
+  if (denied) return denied;
+
   const { id } = await params;
 
   const deal = await db.select().from(deals).where(eq(deals.id, id)).get();
@@ -26,6 +30,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireApi("deals");
+  if (denied) return denied;
+
   const { id } = await params;
 
   let body;
@@ -74,6 +81,9 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireApi("deals");
+  if (denied) return denied;
+
   const { id } = await params;
 
   const existing = await db.select().from(deals).where(eq(deals.id, id)).get();

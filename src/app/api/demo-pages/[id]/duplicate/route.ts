@@ -4,8 +4,12 @@ import { demoPages } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { logAudit } from "@/lib/audit";
 import { uniqueSlug } from "@/lib/demo/slug";
+import { requireApi } from "@/lib/apiAuth";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireApi("demos");
+  if (denied) return denied;
+
   const { id } = await params;
   const source = await db.select().from(demoPages).where(eq(demoPages.id, id)).get();
   if (!source) return NextResponse.json({ error: "No encontrado" }, { status: 404 });

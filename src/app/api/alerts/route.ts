@@ -2,8 +2,12 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { projectTasks, projectMilestones } from "@/db/schema";
 import { lt, isNotNull, isNull, ne, eq, and } from "drizzle-orm";
+import { requireApi } from "@/lib/apiAuth";
 
 export async function GET() {
+  const denied = await requireApi();
+  if (denied) return denied;
+
   try {
     const now = new Date();
 

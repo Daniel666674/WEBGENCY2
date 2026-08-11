@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { analyticsProperties } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { requireApi } from "@/lib/apiAuth";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireApi("contacts");
+  if (denied) return denied;
+
   const { id } = await params;
   const row = await db
     .select()
@@ -23,6 +27,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireApi("contacts");
+  if (denied) return denied;
+
   const { id } = await params;
   let body;
   try {

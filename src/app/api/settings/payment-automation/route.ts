@@ -4,7 +4,7 @@ import {
   savePaymentAutomationConfig,
   type PaymentAutomationConfig,
 } from "@/lib/paymentAutomation";
-import { requireNavPermission } from "@/lib/permissions-server";
+import { requireApi } from "@/lib/apiAuth";
 
 const SECRET_FIELDS: (keyof PaymentAutomationConfig)[] = ["gatewayWebhookSecret", "whatsappToken"];
 
@@ -19,8 +19,9 @@ function isMasked(value: string): boolean {
 }
 
 export async function GET() {
-  const denied = await requireNavPermission("settings");
-  if (denied) return NextResponse.json({ error: denied.error }, { status: denied.status });
+  const denied = await requireApi("settings");
+  if (denied) return denied;
+
 
   const config = await getPaymentAutomationConfig();
   const masked = { ...config };
@@ -31,8 +32,9 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
-  const denied = await requireNavPermission("settings");
-  if (denied) return NextResponse.json({ error: denied.error }, { status: denied.status });
+  const denied = await requireApi("settings");
+  if (denied) return denied;
+
 
   let body: Partial<PaymentAutomationConfig>;
   try {

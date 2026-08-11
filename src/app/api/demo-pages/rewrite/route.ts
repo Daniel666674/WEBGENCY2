@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rewriteCopy, isAIEnabled, type RewriteTone } from "@/lib/claude";
 import { sanitizeRich } from "@/lib/demo/validate";
+import { requireApi } from "@/lib/apiAuth";
 
 const TONES: RewriteTone[] = ["shorter", "punchier", "formal", "casual"];
 
 export async function POST(request: NextRequest) {
+  const denied = await requireApi("demos");
+  if (denied) return denied;
+
   if (!isAIEnabled()) {
     return NextResponse.json(
       { error: "Configura ANTHROPIC_API_KEY para usar la reescritura con IA." },

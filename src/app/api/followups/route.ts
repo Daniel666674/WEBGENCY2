@@ -2,8 +2,12 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { activities, contacts } from "@/db/schema";
 import { eq, isNull, asc } from "drizzle-orm";
+import { requireApi } from "@/lib/apiAuth";
 
 export async function GET() {
+  const denied = await requireApi();
+  if (denied) return denied;
+
   const pendingFollowups = await db
     .select({
       id: activities.id,

@@ -4,8 +4,12 @@ import { contacts, activities } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { classifyLead, isAIEnabled } from "@/lib/claude";
 import { calculateLeadScore, suggestTemperature } from "@/lib/scoring";
+import { requireApi } from "@/lib/apiAuth";
 
 export async function POST(request: NextRequest) {
+  const denied = await requireApi();
+  if (denied) return denied;
+
   let body;
   try {
     body = await request.json();

@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, persistNow } from "@/db";
 import { projects, contacts, projectMilestones, projectDeliverables } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { requireApi } from "@/lib/apiAuth";
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireApi("projects");
+  if (denied) return denied;
+
   const { id } = await params;
   try {
     const row = await db
@@ -81,6 +85,9 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireApi("projects");
+  if (denied) return denied;
+
   const { id } = await params;
   try {
     const body = await req.json();
@@ -112,6 +119,9 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireApi("projects");
+  if (denied) return denied;
+
   const { id } = await params;
   try {
     await db.delete(projects).where(eq(projects.id, id)).run();

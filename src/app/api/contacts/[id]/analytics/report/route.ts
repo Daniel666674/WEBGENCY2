@@ -5,11 +5,15 @@ import { analyticsProperties, accounts } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { getServiceAccountAuth } from "@/lib/googleAnalytics";
+import { requireApi } from "@/lib/apiAuth";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireApi("contacts");
+  if (denied) return denied;
+
   const { id } = await params;
   const rawDays = Number(request.nextUrl.searchParams.get("days") ?? "30");
   const days = [7, 28, 30, 90].includes(rawDays) ? rawDays : 30;

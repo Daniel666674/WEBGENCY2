@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { payments, contacts, projects } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { requireApi } from "@/lib/apiAuth";
 
 export async function GET(request: NextRequest) {
+  const denied = await requireApi("clients");
+  if (denied) return denied;
+
   const { searchParams } = new URL(request.url);
   const clientId = searchParams.get("clientId");
 
@@ -36,6 +40,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await requireApi("clients");
+  if (denied) return denied;
+
   try {
     const { clientId, projectId, amountCents, paidAt, note } = await request.json();
     if (!clientId || !amountCents) {

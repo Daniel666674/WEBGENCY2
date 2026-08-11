@@ -3,8 +3,12 @@ import { db, persistNow } from "@/db";
 import { proposals, contacts } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { logAudit } from "@/lib/audit";
+import { requireApi } from "@/lib/apiAuth";
 
 export async function GET(request: NextRequest) {
+  const denied = await requireApi("proposals");
+  if (denied) return denied;
+
   const { searchParams } = new URL(request.url);
   const contactId = searchParams.get("contactId");
 
@@ -41,6 +45,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await requireApi("proposals");
+  if (denied) return denied;
+
   let body;
   try {
     body = await request.json();

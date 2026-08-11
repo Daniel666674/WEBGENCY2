@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, persistNow } from "@/db";
 import { attachments } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { requireApi } from "@/lib/apiAuth";
 
 export async function GET(req: NextRequest) {
+  const denied = await requireApi();
+  if (denied) return denied;
+
   try {
     const { searchParams } = new URL(req.url);
     const contactId = searchParams.get("contactId");
@@ -40,6 +44,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = await requireApi();
+  if (denied) return denied;
+
   try {
     const contentType = req.headers.get("content-type") || "";
 

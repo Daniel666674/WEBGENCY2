@@ -8,9 +8,21 @@ import { HersThemeApplier } from "@/components/user/HersThemeApplier";
 // HersWelcomePopup temporarily hidden — re-add <HersWelcomePopup /> below to restore.
 // import { HersWelcomePopup } from "@/components/user/HersWelcomePopup";
 import { ThemeEngine } from "@/components/shared/ThemeEngine";
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
 import { PermissionGuard } from "@/components/layout/PermissionGuard";
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  // The real session check for every page under (app).
+  //
+  // proxy.ts only sees whether a session *cookie exists* — it runs before the
+  // database is reachable and cannot tell a real token from an invented one.
+  // Without this, anyone could hand-craft that cookie and load the whole CRM.
+  if (process.env.AUTH_ENABLED === "true") {
+    const session = await auth();
+    if (!session?.user) redirect("/login");
+  }
+
   return (
     <UserProvider>
       <ThemeEngine />

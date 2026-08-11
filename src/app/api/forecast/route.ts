@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { deals, contacts, pipelineStages, activities, crmSettings } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { requireApi } from "@/lib/apiAuth";
 
 const GOAL_KEY = "monthly_revenue_goal";
 const MONTH_LABELS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const toMs = (d: unknown) => (d instanceof Date ? d.getTime() : d ? Number(d) : null);
 
 export async function GET() {
+  const denied = await requireApi("forecast");
+  if (denied) return denied;
+
   const stages = await db.select().from(pipelineStages).all();
   const wonLostIds = new Set(stages.filter((s) => s.isWon || s.isLost).map((s) => s.id));
   const stageById = new Map(stages.map((s) => [s.id, s]));
@@ -221,6 +225,9 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
+  const denied = await requireApi("forecast");
+  if (denied) return denied;
+
   let body: { monthlyGoal?: number };
   try {
     body = await request.json();
