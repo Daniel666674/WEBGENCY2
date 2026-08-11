@@ -2,10 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { arsenalItems } from "@/db/schema";
 import { desc, like, or, eq } from "drizzle-orm";
+import { requireApi } from "@/lib/apiAuth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
+  const denied = await requireApi("arsenal");
+  if (denied) return denied;
+
   const { searchParams } = request.nextUrl;
   const q = searchParams.get("q")?.trim() ?? "";
   const category = searchParams.get("category") ?? "";
@@ -33,6 +37,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await requireApi("arsenal");
+  if (denied) return denied;
+
   let body: Record<string, unknown>;
   try {
     body = await request.json();

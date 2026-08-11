@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireApi } from "@/lib/apiAuth";
 
 const UNSPLASH_KEY = process.env.UNSPLASH_ACCESS_KEY;
 
@@ -14,6 +15,9 @@ interface UnsplashResult {
 // required by Unsplash's API guidelines and returned alongside each result
 // so the picker can surface it.
 export async function GET(request: NextRequest) {
+  const denied = await requireApi("demos");
+  if (denied) return denied;
+
   if (!UNSPLASH_KEY) {
     return NextResponse.json(
       { error: "Configura UNSPLASH_ACCESS_KEY para buscar fotos de stock." },

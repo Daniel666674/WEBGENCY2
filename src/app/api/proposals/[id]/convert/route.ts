@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { proposals, contacts, projects } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { requireApi } from "@/lib/apiAuth";
 
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireApi("proposals");
+  if (denied) return denied;
+
   const { id } = await params;
   try {
     const proposal = await db.select().from(proposals).where(eq(proposals.id, id)).get();

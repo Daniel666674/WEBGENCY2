@@ -3,8 +3,12 @@ import { db, persistNow } from "@/db";
 import { proposals } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { logAudit } from "@/lib/audit";
+import { requireApi } from "@/lib/apiAuth";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireApi("proposals");
+  if (denied) return denied;
+
   const { id } = await params;
   const row = await db.select().from(proposals).where(eq(proposals.id, id)).get();
   if (!row) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
@@ -18,6 +22,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireApi("proposals");
+  if (denied) return denied;
+
   const { id } = await params;
   let body;
   try {
@@ -66,6 +73,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireApi("proposals");
+  if (denied) return denied;
+
   const { id } = await params;
   const existing = await db.select().from(proposals).where(eq(proposals.id, id)).get();
   await db.delete(proposals).where(eq(proposals.id, id)).run();

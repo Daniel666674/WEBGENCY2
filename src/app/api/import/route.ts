@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { contacts } from "@/db/schema";
+import { requireApi } from "@/lib/apiAuth";
 
 export async function POST(request: NextRequest) {
+  const denied = await requireApi("contacts");
+  if (denied) return denied;
+
   let body;
   try {
     body = await request.json();

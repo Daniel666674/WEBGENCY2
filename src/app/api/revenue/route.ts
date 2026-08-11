@@ -2,10 +2,14 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { contacts, deals, pipelineStages, proposals } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { requireApi } from "@/lib/apiAuth";
 
 const MONTH_LABELS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
 export async function GET() {
+  const denied = await requireApi("revenue");
+  if (denied) return denied;
+
   // Active clients — contacts with client_status = 'active_client'
   const activeClients = await db
     .select()

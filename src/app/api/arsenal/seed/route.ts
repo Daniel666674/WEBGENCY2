@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireApi } from "@/lib/apiAuth";
 import { cookies } from "next/headers";
 import { db } from "@/db";
 import { arsenalItems } from "@/db/schema";
@@ -1779,6 +1780,9 @@ IMPORTANTE: construir el banner ANTES de agregar cualquier tracking al sitio.`,
 ];
 
 export async function POST() {
+  const denied = await requireApi("arsenal");
+  if (denied) return denied;
+
   const secret = process.env.SESSION_SECRET;
   if (!secret) return NextResponse.json({ error: "Not configured" }, { status: 500 });
 

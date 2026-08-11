@@ -5,8 +5,12 @@ import { eq, desc } from "drizzle-orm";
 import { logAudit } from "@/lib/audit";
 import { getTemplate } from "@/lib/demo/templates";
 import { uniqueSlug } from "@/lib/demo/slug";
+import { requireApi } from "@/lib/apiAuth";
 
 export async function GET(request: NextRequest) {
+  const denied = await requireApi("demos");
+  if (denied) return denied;
+
   const contactId = new URL(request.url).searchParams.get("contactId");
 
   const base = db
@@ -32,6 +36,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await requireApi("demos");
+  if (denied) return denied;
+
   let body;
   try {
     body = await request.json();

@@ -5,6 +5,7 @@ import { eq, desc, asc } from "drizzle-orm";
 import { formatDate, formatCurrency } from "@/lib/constants";
 import { SOURCE_LABELS } from "@/lib/constants";
 import type { LeadSource } from "@/types";
+import { requireApi } from "@/lib/apiAuth";
 
 function escapeCSV(value: string | null | undefined): string {
   if (value === null || value === undefined) return "";
@@ -22,6 +23,9 @@ function buildCSV(headers: string[], rows: string[][]): string {
 }
 
 export async function GET(request: NextRequest) {
+  const denied = await requireApi("contacts");
+  if (denied) return denied;
+
   const { searchParams } = new URL(request.url);
   const type = searchParams.get("type") || "contacts";
   const today = new Date().toISOString().split("T")[0];

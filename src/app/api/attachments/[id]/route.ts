@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, persistNow } from "@/db";
 import { attachments } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { requireApi } from "@/lib/apiAuth";
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireApi();
+  if (denied) return denied;
+
   try {
     const { id } = await params;
     const [row] = await db.select().from(attachments).where(eq(attachments.id, id));
@@ -41,6 +45,9 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireApi();
+  if (denied) return denied;
+
   try {
     const { id } = await params;
     await db.delete(attachments).where(eq(attachments.id, id));

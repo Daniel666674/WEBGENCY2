@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { projectDeliverables } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { requireApi } from "@/lib/apiAuth";
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireApi("projects");
+  if (denied) return denied;
+
   const { id } = await params;
   try {
     const rows = await db
@@ -24,6 +28,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireApi("projects");
+  if (denied) return denied;
+
   const { id: milestoneId } = await params;
   try {
     const { description, fileUrl } = await req.json();

@@ -3,8 +3,12 @@ import { db, persistNow } from "@/db";
 import { deals, contacts, pipelineStages } from "@/db/schema";
 import { logAudit } from "@/lib/audit";
 import { eq, desc } from "drizzle-orm";
+import { requireApi } from "@/lib/apiAuth";
 
 export async function GET() {
+  const denied = await requireApi("deals");
+  if (denied) return denied;
+
   const results = await db
     .select({
       id: deals.id,
@@ -36,6 +40,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await requireApi("deals");
+  if (denied) return denied;
+
   let body;
   try {
     body = await request.json();

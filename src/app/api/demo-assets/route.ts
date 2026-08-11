@@ -3,15 +3,22 @@ import { db, persistNow } from "@/db";
 import { demoAssets } from "@/db/schema";
 import { desc } from "drizzle-orm";
 import { safeUrl } from "@/lib/demo/validate";
+import { requireApi } from "@/lib/apiAuth";
 
 // Reusable across every demo — this CRM is single-tenant, so there's no
 // per-account scoping needed. Newest first, capped generously.
 export async function GET() {
+  const denied = await requireApi("demos");
+  if (denied) return denied;
+
   const rows = await db.select().from(demoAssets).orderBy(desc(demoAssets.createdAt)).limit(200).all();
   return NextResponse.json(rows);
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await requireApi("demos");
+  if (denied) return denied;
+
   let body;
   try {
     body = await request.json();

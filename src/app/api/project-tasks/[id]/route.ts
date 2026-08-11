@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, persistNow } from "@/db";
 import { projectTasks } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { requireApi } from "@/lib/apiAuth";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pendiente",
@@ -19,6 +20,9 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireApi("tareas");
+  if (denied) return denied;
+
   const { id } = await params;
   try {
     const body = await req.json();
@@ -67,6 +71,9 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireApi("tareas");
+  if (denied) return denied;
+
   const { id } = await params;
   try {
     await db.delete(projectTasks).where(eq(projectTasks.id, id)).run();

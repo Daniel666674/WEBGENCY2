@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { auditLogs, users } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
-import { requireNavPermission } from "@/lib/permissions-server";
+import { requireApi } from "@/lib/apiAuth";
 
 export async function GET(request: NextRequest) {
-  const denied = await requireNavPermission("audit");
-  if (denied) return NextResponse.json({ error: denied.error }, { status: denied.status });
+  const denied = await requireApi("audit");
+  if (denied) return denied;
+
 
   const { searchParams } = new URL(request.url);
   const limitParam = searchParams.get("limit");

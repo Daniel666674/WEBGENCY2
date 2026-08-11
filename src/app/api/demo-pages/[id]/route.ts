@@ -4,6 +4,7 @@ import { demoPages } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { logAudit } from "@/lib/audit";
 import { validateDemoConfig } from "@/lib/demo/validate";
+import { requireApi } from "@/lib/apiAuth";
 
 function parseRow(row: typeof demoPages.$inferSelect) {
   let config = {};
@@ -12,6 +13,9 @@ function parseRow(row: typeof demoPages.$inferSelect) {
 }
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireApi("demos");
+  if (denied) return denied;
+
   const { id } = await params;
   const row = await db.select().from(demoPages).where(eq(demoPages.id, id)).get();
   if (!row) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
@@ -19,6 +23,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireApi("demos");
+  if (denied) return denied;
+
   const { id } = await params;
   let body;
   try {
@@ -99,6 +106,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await requireApi("demos");
+  if (denied) return denied;
+
   const { id } = await params;
   const existing = await db.select().from(demoPages).where(eq(demoPages.id, id)).get();
   await db.delete(demoPages).where(eq(demoPages.id, id)).run();

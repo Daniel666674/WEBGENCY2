@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
+import { requireApi } from "@/lib/apiAuth";
 
 // Issues short-lived client tokens so the browser can upload attachment
 // files (contracts, mockups, etc.) straight to Blob storage, bypassing
@@ -8,6 +9,9 @@ import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 // our code ever runs. Already behind the session-cookie gate in proxy.ts
 // (this path isn't in its public-route exclusion list).
 export async function POST(request: NextRequest) {
+  const denied = await requireApi();
+  if (denied) return denied;
+
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return NextResponse.json(
       { error: "Blob storage no configurado en este entorno" },

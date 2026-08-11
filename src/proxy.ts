@@ -3,8 +3,13 @@ import { verifySession } from "@/lib/sessionToken";
 
 // Real auth is gated behind AUTH_ENABLED so the app keeps working exactly
 // as today until Google OAuth credentials exist and this is flipped on.
-// Once enabled, this only checks for the session cookie (edge-safe) —
-// full session/DB verification happens server-side via auth() in layout.tsx.
+//
+// IMPORTANT: when enabled this only checks that a session cookie is *present*.
+// It runs before the database is reachable, so it cannot tell a valid session
+// token from an arbitrary string, and it authorizes nothing. Its only job is
+// redirecting signed-out browsers to /login. The actual verification lives in
+// src/app/(app)/layout.tsx (pages) and requireApi() in src/lib/apiAuth.ts
+// (every API route that touches real data). Never treat this as the boundary.
 //
 // Until then, a signed session cookie gates the app instead — see
 // src/lib/sessionToken.ts for why it's signed rather than a bare presence

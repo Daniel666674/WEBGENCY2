@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, persistNow } from "@/db";
 import { activities } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { requireApi } from "@/lib/apiAuth";
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireApi("activities");
+  if (denied) return denied;
+
   const { id } = await params;
 
   let body;
@@ -100,6 +104,9 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireApi("activities");
+  if (denied) return denied;
+
   const { id } = await params;
 
   try {

@@ -4,11 +4,15 @@ import { contacts, deals, activities } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { logAudit } from "@/lib/audit";
 import { parseContactJsonFields, applyContactJsonFields } from "@/lib/contactJsonFields";
+import { requireApi } from "@/lib/apiAuth";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireApi("contacts");
+  if (denied) return denied;
+
   const { id } = await params;
 
   const contact = await db
@@ -47,6 +51,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireApi("contacts");
+  if (denied) return denied;
+
   const { id } = await params;
 
   let body;
@@ -103,6 +110,9 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await requireApi("contacts");
+  if (denied) return denied;
+
   const { id } = await params;
 
   const existing = await db
