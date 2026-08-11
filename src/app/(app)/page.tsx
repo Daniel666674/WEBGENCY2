@@ -12,6 +12,7 @@ import { ActivitySummary } from "@/components/dashboard/ActivitySummary";
 import { ClientLifetimeValue } from "@/components/dashboard/ClientLifetimeValue";
 import { NotificationBanner } from "@/components/dashboard/NotificationBanner";
 import { GreetingHeading } from "@/components/dashboard/GreetingHeading";
+import { NextBestActions } from "@/components/dashboard/NextBestActions";
 import { StatTile } from "@/components/shared/StatTile";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/constants";
@@ -221,6 +222,9 @@ export default async function DashboardPage() {
           {dateStr} &middot; {timeStr} (BOG)
         </span>
       </div>
+
+      {/* ── Next best actions ─────────────────────────── */}
+      <NextBestActions limit={6} />
 
       {/* ── Row 1: Stat tiles ──────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
