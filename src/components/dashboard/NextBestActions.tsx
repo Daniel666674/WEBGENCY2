@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Target, ArrowRight, Copy, Check, Loader2 } from "lucide-react";
+import { Target, ArrowRight, Copy, Check, Loader2, X, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/constants";
 import { urgencyOf, type NextBestAction } from "@/lib/nba";
@@ -32,6 +32,7 @@ export function NextBestActions({ limit = 6 }: { limit?: number }) {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/nba?limit=${limit}`)
@@ -43,6 +44,25 @@ export function NextBestActions({ limit = 6 }: { limit?: number }) {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [limit]);
+
+  async function dismiss(a: NextBestAction, reason: "done" | "not_relevant" | "snooze") {
+    setBusy(a.id);
+    try {
+      const res = await fetch("/api/nba/dismiss", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actionId: a.id, reason }),
+      });
+      if (!res.ok) throw new Error();
+      setActions((prev) => prev.filter((x) => x.id !== a.id));
+      setTotal((t) => Math.max(0, t - 1));
+      toast.success(reason === "snooze" ? "Lo vemos mañana" : reason === "done" ? "Marcada como hecha" : "No la mostramos por un mes");
+    } catch {
+      toast.error("No se pudo guardar");
+    } finally {
+      setBusy(null);
+    }
+  }
 
   async function copyScript(a: NextBestAction) {
     if (!a.script) return;
@@ -111,6 +131,38 @@ export function NextBestActions({ limit = 6 }: { limit?: number }) {
                         Copiar mensaje
                       </button>
                     )}
+
+                    {/* Feedback. Without it the same three ignored actions sit
+                        at the top forever and poison the whole list. */}
+                    <div className="ml-auto flex items-center gap-1">
+                      <button
+                        type="button"
+                        disabled={busy === a.id}
+                        onClick={() => dismiss(a, "done")}
+                        title="Ya lo hice"
+                        className="rounded p-1 text-muted-foreground hover:text-green-600 disabled:opacity-40 cursor-pointer"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy === a.id}
+                        onClick={() => dismiss(a, "snooze")}
+                        title="Mañana"
+                        className="rounded p-1 text-muted-foreground hover:text-foreground disabled:opacity-40 cursor-pointer"
+                      >
+                        <Clock className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy === a.id}
+                        onClick={() => dismiss(a, "not_relevant")}
+                        title="No aplica"
+                        className="rounded p-1 text-muted-foreground hover:text-red-500 disabled:opacity-40 cursor-pointer"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

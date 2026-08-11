@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { contacts, deals, activities, proposals, projects, projectTasks, pipelineStages, demoPages } from "@/db/schema";
+import { contacts, deals, activities, proposals, projects, projectTasks, pipelineStages, demoPages, nbaDismissals } from "@/db/schema";
+import { gt } from "drizzle-orm";
 import { requireApi } from "@/lib/apiAuth";
 import { computeNextBestActions } from "@/lib/nba";
 
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
 
   const limit = Math.min(50, Math.max(1, Number(request.nextUrl.searchParams.get("limit") ?? 12)));
 
-  const [allContacts, allDeals, allActivities, allProposals, allProjects, allTasks, stages, demos] =
+  const [allContacts, allDeals, allActivities, allProposals, allProjects, allTasks, stages, demos, dismissed] =
     await Promise.all([
       db.select().from(contacts).all(),
       db.select().from(deals).all(),
@@ -38,7 +39,16 @@ export async function GET(request: NextRequest) {
         })
         .from(demoPages)
         .all(),
+      // Only dismissals still inside their hide window — an expired one lets
+      // the action surface again, which is the point.
+      db
+        .select({ actionId: nbaDismissals.actionId })
+        .from(nbaDismissals)
+        .where(gt(nbaDismissals.hiddenUntil, new Date()))
+        .all(),
     ]);
+
+  const hidden = new Set(dismissed.map((d) => d.actionId));
 
   const actions = computeNextBestActions({
     contacts: allContacts,
@@ -51,8 +61,10 @@ export async function GET(request: NextRequest) {
     demos: demos.map((d) => ({ ...d, published: !!d.published })),
   });
 
+  const visible = actions.filter((a) => !hidden.has(a.id));
+
   return NextResponse.json(
-    { total: actions.length, actions: actions.slice(0, limit) },
+    { total: visible.length, actions: visible.slice(0, limit) },
     { headers: { "Cache-Control": "no-store" } }
   );
 }

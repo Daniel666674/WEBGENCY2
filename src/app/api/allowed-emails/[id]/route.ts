@@ -4,6 +4,8 @@ import { allowedEmails, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { ALL_PERMISSIONS, PERMISSION_KEYS } from "@/lib/permissions";
+import { logAudit } from "@/lib/audit";
+import { sameEmail } from "@/lib/email";
 
 async function requireOwner() {
   if (process.env.AUTH_ENABLED !== "true") {
@@ -60,13 +62,22 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     .where(eq(users.email, entry.email))
     .run();
 
+  // Permission changes are the highest-leverage action in the CRM — who can
+  // see what. The audit log records the before and after, not just that
+  // "something changed".
+  await logAudit(request, "permissions_change", "allowed_email", id, {
+    email: entry.email,
+    from: { role: entry.role, permissions: JSON.parse(entry.permissions || "[]") },
+    to: { role, permissions },
+  });
+
   return NextResponse.json({ ...entry, role, permissions });
 }
 
 // DELETE — revoke access entirely. Also strips the matching users row down
 // to no access immediately, so an already-signed-in session can't keep
 // using the CRM until it happens to expire.
-export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const gate = await requireOwner();
   if (gate.error) return gate.error;
 
@@ -74,12 +85,18 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
   const entry = await db.select().from(allowedEmails).where(eq(allowedEmails.id, id)).get();
   if (!entry) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
-  if (entry.email === gate.sessionUser!.email?.toLowerCase()) {
+  if (sameEmail(entry.email, gate.sessionUser!.email)) {
     return NextResponse.json({ error: "No podes revocar tu propio acceso" }, { status: 400 });
   }
 
   await db.delete(allowedEmails).where(eq(allowedEmails.id, id)).run();
   await db.update(users).set({ role: "member", permissions: "[]" }).where(eq(users.email, entry.email)).run();
+
+  await logAudit(request, "revoke", "allowed_email", id, {
+    email: entry.email,
+    hadRole: entry.role,
+    hadPermissions: JSON.parse(entry.permissions || "[]"),
+  });
 
   return NextResponse.json({ ok: true });
 }

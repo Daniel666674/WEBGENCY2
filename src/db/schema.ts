@@ -429,3 +429,26 @@ export const analyticsProperties = sqliteTable("analytics_properties", {
     .notNull()
     .$defaultFn(() => new Date()),
 });
+
+/**
+ * Actions the user has dealt with, so the NBA list stops re-proposing them.
+ *
+ * Every dismissal expires. A permanent hide would rot the list: action ids
+ * are derived from the entity ("hot-<contactId>"), so silencing one forever
+ * would also silence the same contact going cold again next quarter, which
+ * is exactly when you would want to know.
+ */
+export const nbaDismissals = sqliteTable("nba_dismissals", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  actionId: text("action_id").notNull(),
+  userId: text("user_id").references(() => users.id),
+  // "done" | "not_relevant" | "snooze"
+  reason: text("reason").notNull().default("done"),
+  /** Hidden until this moment; after it the action can surface again. */
+  hiddenUntil: integer("hidden_until", { mode: "timestamp" }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
