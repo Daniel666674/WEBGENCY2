@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { allowedEmails, users } from "@/db/schema";
-import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { ALL_PERMISSIONS, DEFAULT_NEW_USER_PERMISSIONS, PERMISSION_KEYS, parsePermissions } from "@/lib/permissions";
+import { cleanEmail, canonicalEmail } from "@/lib/email";
+import { logAudit } from "@/lib/audit";
 
 // Only the owner manages who's allowed in and what they can see — this is
 // deliberately stricter than the generic "config" nav permission, since
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "JSON invalido" }, { status: 400 });
   }
 
-  const email = (body.email ?? "").toLowerCase().trim();
+  const email = cleanEmail(body.email);
   if (!email || !email.includes("@")) {
     return NextResponse.json({ error: "Email invalido" }, { status: 400 });
   }
@@ -68,9 +69,15 @@ export async function POST(request: NextRequest) {
   const role = body.role === "owner" ? "owner" : "member";
   const permissions = role === "owner" ? ALL_PERMISSIONS : sanitizePermissions(body.permissions);
 
-  const existing = await db.select().from(allowedEmails).where(eq(allowedEmails.email, email)).get();
+  // Compare canonically so juan.perez@gmail.com and juanperez@gmail.com — the
+  // same mailbox — can't become two rows with conflicting permissions.
+  const key = canonicalEmail(email);
+  const existing = (await db.select().from(allowedEmails).all()).find((r) => canonicalEmail(r.email) === key);
   if (existing) {
-    return NextResponse.json({ error: "Ese email ya tiene acceso" }, { status: 409 });
+    return NextResponse.json(
+      { error: existing.email === email ? "Ese email ya tiene acceso" : `Ese buzón ya tiene acceso como ${existing.email}` },
+      { status: 409 }
+    );
   }
 
   const created = await db
@@ -83,6 +90,8 @@ export async function POST(request: NextRequest) {
     })
     .returning()
     .get();
+
+  await logAudit(request, "invite", "allowed_email", created.id, { email, role, permissions });
 
   return NextResponse.json({ ...created, permissions });
 }

@@ -6,6 +6,7 @@ import { users, accounts, sessions, verificationTokens, authenticators, allowedE
 import { eq } from "drizzle-orm";
 import { ALL_PERMISSIONS } from "@/lib/permissions";
 import { authConfigProblems } from "@/lib/authConfig";
+import { canonicalEmail, cleanEmail } from "@/lib/email";
 
 // OWNER_EMAIL bootstraps the very first owner when the DB allowlist is
 // still empty (fresh install, or a deploy that hasn't run ensureSchema's
@@ -13,7 +14,7 @@ import { authConfigProblems } from "@/lib/authConfig";
 // allowlist rows at all and nobody could ever sign in. Once any row exists
 // in allowed_emails, this fallback is dead code; every real invite after
 // that goes through Settings > Usuarios instead of an env var.
-const bootstrapOwnerEmail = (process.env.OWNER_EMAIL ?? "").toLowerCase().trim();
+const bootstrapOwnerEmail = cleanEmail(process.env.OWNER_EMAIL);
 
 // Surface a broken environment in the server logs at boot rather than only
 // as an opaque error page at the moment someone tries to sign in.
@@ -32,10 +33,22 @@ async function resolveAllowlistEntry(email: string) {
   const entry = await db.select().from(allowedEmails).where(eq(allowedEmails.email, email)).get();
   if (entry) return entry;
 
+  // Exact match failed. Before rejecting, compare canonical forms across the
+  // whole list — with an all-Gmail team, "juan.perez@" invited against
+  // "juanperez@" reported by Google is the same person, and a plain string
+  // comparison would lock them out of their own account. The list is a
+  // handful of rows, so scanning it costs nothing.
+  const key = canonicalEmail(email);
+  if (key) {
+    const all = await db.select().from(allowedEmails).all();
+    const match = all.find((r) => canonicalEmail(r.email) === key);
+    if (match) return match;
+  }
+
   // Self-bootstrap: nobody has ever been allowlisted yet, and this is the
   // designated owner email — create their row instead of rejecting them, or
   // the very first login would have nobody able to grant it.
-  if (!bootstrapOwnerEmail || email !== bootstrapOwnerEmail) return null;
+  if (!bootstrapOwnerEmail || canonicalEmail(email) !== canonicalEmail(bootstrapOwnerEmail)) return null;
   const totalAllowed = await db.select({ id: allowedEmails.id }).from(allowedEmails).limit(1).all();
   if (totalAllowed.length > 0) return null;
 
@@ -109,7 +122,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
   callbacks: {
     async signIn({ user }) {
-      const email = (user.email ?? "").toLowerCase();
+      const email = cleanEmail(user.email);
       if (!email) return false;
 
       try {
@@ -135,7 +148,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Re-resolve on every session check rather than trusting whatever
         // was true at sign-in, so the owner granting or revoking a tab takes
         // effect on the user's next request without a re-login.
-        const { role, permissions } = await syncUserFromAllowlist(user.id, (user.email ?? "").toLowerCase());
+        const { role, permissions } = await syncUserFromAllowlist(user.id, cleanEmail(user.email));
         su.role = role;
         su.permissions = permissions;
       } catch (err) {
@@ -158,7 +171,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async createUser({ user }) {
       if (!user.id || !user.email) return;
       try {
-        await syncUserFromAllowlist(user.id, user.email.toLowerCase());
+        await syncUserFromAllowlist(user.id, cleanEmail(user.email));
       } catch (err) {
         console.error("[auth] no se pudo aplicar permisos al usuario nuevo:", err);
       }
