@@ -3,6 +3,7 @@ import { getTemplate } from "./templates";
 import { getFontPair } from "./fonts";
 import { defaultNav, defaultFooter, defaultNavLinks, ELEMENT_LABELS, SECTION_ANCHORS } from "./types";
 import { safeUrl, safeColor, safeCss, sanitizeRich } from "./validate";
+import { buildVerbatimDocument, stripDangerousHtml } from "./verbatim";
 
 function esc(s: string | undefined): string {
   return (s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -65,6 +66,18 @@ export interface RenderOptions {
 }
 
 export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
+  // A page imported in "diseño original" mode carries its own document
+  // instead of Sections, and none of the template/brand machinery below
+  // applies to it — a re-render can only be as faithful as Section is
+  // expressive, and the entire point of this mode is not being limited to
+  // that. Checked before anything else touches `cfg`, so both callers
+  // (the public route and the builder's preview iframe) get the exact same
+  // markup without needing to know verbatim mode exists.
+  const verbatimPage = cfg.verbatim?.[opts.page ?? ""];
+  if (verbatimPage) {
+    return buildVerbatimDocument(stripDangerousHtml(verbatimPage.html), verbatimPage.css);
+  }
+
   const editMode = opts.mode === "edit";
   const t = getTemplate(cfg.template);
   const f = getFontPair(cfg.fontPair);

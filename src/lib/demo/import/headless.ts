@@ -117,6 +117,79 @@ export async function renderPages(urls: string[], max = 12): Promise<RenderedPag
             .map((a) => (a as HTMLAnchorElement).href)
             .filter(Boolean);
 
+          // outerHTML serialises attributes exactly as authored — a browser
+          // does NOT rewrite `src="assets/img/hero.jpg"` to an absolute URL
+          // just because it resolved it internally. Left alone, every
+          // relative asset in the captured markup would 404 the moment it's
+          // served from a different origin (the CRM's own domain). The IDL
+          // property (`img.src`, as opposed to `img.getAttribute('src')`)
+          // *is* the resolved absolute form, so writing that back as the
+          // attribute is what makes the captured HTML portable.
+          const resolveAttr = (el: Element, attr: string, prop: string) => {
+            const raw = el.getAttribute(attr);
+            if (!raw) return;
+            const resolved = (el as unknown as Record<string, string>)[prop];
+            if (resolved) el.setAttribute(attr, resolved);
+          };
+          document.querySelectorAll("img[src],video[poster],script[src]").forEach((el) => {
+            resolveAttr(el, "src", "src");
+            resolveAttr(el, "poster", "poster");
+          });
+          document.querySelectorAll("source[src]").forEach((el) => resolveAttr(el, "src", "src"));
+          document.querySelectorAll("link[href]").forEach((el) => resolveAttr(el, "href", "href"));
+          // srcset has no matching IDL property to lean on — each candidate
+          // URL is resolved by hand against the document's own base.
+          document.querySelectorAll("[srcset]").forEach((el) => {
+            const raw = el.getAttribute("srcset");
+            if (!raw) return;
+            const rewritten = raw
+              .split(",")
+              .map((part) => {
+                const [url, descriptor] = part.trim().split(/\s+/, 2);
+                try {
+                  return [new URL(url, location.href).href, descriptor].filter(Boolean).join(" ");
+                } catch {
+                  return part.trim();
+                }
+              })
+              .join(", ");
+            el.setAttribute("srcset", rewritten);
+          });
+          // `<a href>` gets the same treatment, except fragment-only anchors
+          // ("#contacto") — resolving those to an absolute URL would still
+          // technically work (the browser would jump on the *original*
+          // site), but leaving them bare is what lets same-page navigation
+          // keep working inside the demo without any rewriting at all.
+          document.querySelectorAll("a[href]").forEach((el) => {
+            const raw = el.getAttribute("href");
+            if (!raw || raw.startsWith("#")) return;
+            resolveAttr(el, "href", "href");
+          });
+          // A `style="background-image:url(assets/x.jpg)"` attribute isn't
+          // touched by any of the above — it's CSS text, not a URL-typed
+          // attribute — so relative url() references inside it are resolved
+          // by hand with the same regex the renderer already trusts CSS
+          // text to tolerate.
+          document.querySelectorAll("[style*='url(']").forEach((el) => {
+            const style = el.getAttribute("style");
+            if (!style) return;
+            const rewritten = style.replace(/url\((['"]?)([^'")]+)\1\)/gi, (m, q, url) => {
+              try {
+                return `url(${q}${new URL(url, location.href).href}${q})`;
+              } catch {
+                return m;
+              }
+            });
+            el.setAttribute("style", rewritten);
+          });
+
+          // Scripts have already run by this point (that is the entire
+          // reason to render the page at all) — stripping them now means
+          // the captured markup can never re-execute anything, and it never
+          // needs to: whatever a script was going to build is already sitting
+          // in the DOM being serialised.
+          document.querySelectorAll("script, noscript, base").forEach((el) => el.remove());
+
           return {
             html: document.documentElement.outerHTML,
             css: sheets.slice(0, 8),

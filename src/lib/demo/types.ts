@@ -247,6 +247,17 @@ export interface DemoConfig {
   footer?: FooterConfig;
   /** Pre-build answers. Absent on demos created before the brief existed. */
   brief?: DemoBrief;
+  /**
+   * Pages imported in "diseño original" mode: their own HTML and CSS,
+   * preserved instead of converted to `Section`s. Keyed by page slug (""
+   * for home), matching the `slug` of the corresponding entry in `pages`.
+   *
+   * A page with an entry here ignores `sections` entirely at render time —
+   * see `renderDemo`'s early branch and the public route. Present only on
+   * demos imported with fidelity as the priority; absent otherwise, so
+   * every caller that only knows sections keeps working unmodified.
+   */
+  verbatim?: Record<string, { html: string; css: string }>;
 }
 
 export function newId(): string {

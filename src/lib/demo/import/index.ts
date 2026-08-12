@@ -294,3 +294,9 @@ export function importHtml(html: string, opts: ImportOptions = {}): ImportOutcom
 }
 
 export { importHtmlPages, type SourceFile, type MultiPageOutcome, type PageReport } from "./multipage";
+export {
+  importVerbatim,
+  type VerbatimSourceFile,
+  type VerbatimOutcome,
+  type VerbatimPageReport,
+} from "./verbatimImport";

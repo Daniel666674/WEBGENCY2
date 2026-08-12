@@ -10,6 +10,8 @@ import {
   Home,
   Link2,
   Loader2,
+  Lock,
+  Sparkles,
   Upload,
   X,
 } from "lucide-react";
@@ -19,6 +21,8 @@ import { SECTION_LABELS } from "@/lib/demo/types";
 import type { SectionType } from "@/lib/demo/types";
 import { GithubPicker } from "./GithubPicker";
 import { UrlPicker } from "./UrlPicker";
+
+type ImportMode = "verbatim" | "sections";
 
 interface ReportSection {
   id: string;
@@ -30,7 +34,7 @@ interface ReportSection {
   heading: string;
 }
 
-interface ReportPage {
+interface SectionsReportPage {
   id: string;
   slug: string;
   title: string;
@@ -39,20 +43,42 @@ interface ReportPage {
   sections: ReportSection[];
 }
 
-interface Report {
-  multiPage: boolean;
-  pages: ReportPage[];
-  warnings: string[];
-  brand: { name: string; accent: string; detectedColors: boolean };
-  images: number;
-  linksRewired: number;
+interface VerbatimReportPage {
+  id: string;
+  slug: string;
+  title: string;
+  path: string;
+  isHome: boolean;
+  bytes: number;
 }
+
+type Report =
+  | {
+      mode: "sections";
+      multiPage: boolean;
+      pages: SectionsReportPage[];
+      warnings: string[];
+      brand: { name: string; accent: string; detectedColors: boolean };
+      images: number;
+      linksRewired: number;
+    }
+  | {
+      mode: "verbatim";
+      multiPage: boolean;
+      pages: VerbatimReportPage[];
+      warnings: string[];
+      linksRewired: number;
+    };
 
 interface SourceFile {
   path: string;
   html: string;
   baseUrl?: string;
   css?: string[];
+  /** Set for files that already went through a headless browser (the "Desde
+   *  una URL" tab): URLs are already absolute and scripts already stripped,
+   *  so verbatim mode can skip the server-side equivalent of that pass. */
+  rendered?: boolean;
 }
 
 const CONFIDENCE_STYLE: Record<ReportSection["confidence"], string> = {
@@ -68,18 +94,27 @@ const CONFIDENCE_LABEL: Record<ReportSection["confidence"], string> = {
 };
 
 /**
- * Import HTML pages and turn them into an editable demo.
+ * Import HTML pages and turn them into a demo — two different ways.
  *
- * Two steps, and the second one is what makes this usable: the files are
- * parsed server-side without saving anything, and the result is shown page by
- * page and section by section before the demo exists. An importer that
- * silently produced a mangled demo would cost more time than building the
- * pages by hand.
+ * "Diseño original" keeps the source's own HTML and CSS untouched, which is
+ * what makes the result look exactly like the page it came from; nothing
+ * about it is visually editable in the builder afterward. "Secciones
+ * editables" runs the same pages through the classifier instead, trading the
+ * original's CSS for a page built from the CRM's own editable sections.
+ * Neither is strictly better — they're not the same feature — so the choice
+ * is explicit rather than picked for the user. Fidelity is the default,
+ * since it's the one you can't get back after picking the other.
+ *
+ * Both share the review step, and it's what makes either mode usable: the
+ * files are analyzed server-side without saving anything, and the result is
+ * shown before the demo exists — pages to exclude in verbatim mode, sections
+ * to exclude in sections mode.
  */
 export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [tab, setTab] = useState<"file" | "github" | "url">("file");
+  const [tab, setTab] = useState<"file" | "github" | "url">("url");
+  const [mode, setMode] = useState<ImportMode>("verbatim");
   const [files, setFiles] = useState<SourceFile[]>([]);
   const [title, setTitle] = useState("");
   const [report, setReport] = useState<Report | null>(null);
@@ -109,21 +144,24 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
       const res = await fetch("/api/demo-pages/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ files: sources, title: name, dryRun: true }),
+        body: JSON.stringify({ files: sources, title: name, mode, dryRun: true }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);
       setFiles(sources);
-      setTitle(name ?? body.report.brand.name ?? "");
+      setTitle(name ?? ("brand" in body.report ? body.report.brand.name : "") ?? "");
       setReport(body.report);
       setExcluded(new Set());
       // Multi-page opens collapsed except home; a single page opens expanded,
-      // since there is nothing to scan past.
+      // since there is nothing to scan past. Only meaningful in sections mode
+      // — verbatim's review step has nothing to expand.
       setOpenPages(
         new Set(
-          body.report.multiPage
-            ? body.report.pages.filter((p: ReportPage) => p.isHome).map((p: ReportPage) => p.id)
-            : body.report.pages.map((p: ReportPage) => p.id)
+          body.report.mode === "sections"
+            ? body.report.multiPage
+              ? body.report.pages.filter((p: SectionsReportPage) => p.isHome).map((p: SectionsReportPage) => p.id)
+              : body.report.pages.map((p: SectionsReportPage) => p.id)
+            : []
         )
       );
     } catch (e) {
@@ -165,6 +203,7 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
         body: JSON.stringify({
           files,
           title: title || undefined,
+          mode,
           dryRun: false,
           exclude: [...excluded],
         }),
@@ -189,7 +228,7 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
     });
   }
 
-  function togglePage(page: ReportPage) {
+  function togglePage(page: SectionsReportPage) {
     const ids = page.sections.map((s) => s.id);
     const allOff = ids.every((id) => excluded.has(id));
     setExcluded((prev) => {
@@ -202,10 +241,25 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
     });
   }
 
+  function toggleVerbatimPage(id: string) {
+    setExcluded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   if (!open) return null;
 
-  const kept = report ? report.pages.flatMap((p) => p.sections).filter((s) => !excluded.has(s.id)).length : 0;
-  const livePages = report ? report.pages.filter((p) => p.sections.some((s) => !excluded.has(s.id))).length : 0;
+  const kept =
+    report?.mode === "sections"
+      ? report.pages.flatMap((p) => p.sections).filter((s) => !excluded.has(s.id)).length
+      : (report?.pages.filter((p) => !excluded.has(p.id)).length ?? 0);
+  const livePages =
+    report?.mode === "sections"
+      ? report.pages.filter((p) => p.sections.some((s) => !excluded.has(s.id))).length
+      : kept;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={close}>
@@ -235,8 +289,39 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
 
         {!report ? (
           <div className="p-5 space-y-4">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setMode("verbatim")}
+                className={cn(
+                  "flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors cursor-pointer",
+                  mode === "verbatim" ? "border-primary bg-primary/5" : "hover:border-primary/40"
+                )}
+              >
+                <span className="flex items-center gap-1.5 text-sm font-semibold">
+                  <Lock className="h-3.5 w-3.5" /> Diseño original
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  Se ve exactamente igual al original. No se edita visualmente.
+                </span>
+              </button>
+              <button
+                onClick={() => setMode("sections")}
+                className={cn(
+                  "flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors cursor-pointer",
+                  mode === "sections" ? "border-primary bg-primary/5" : "hover:border-primary/40"
+                )}
+              >
+                <span className="flex items-center gap-1.5 text-sm font-semibold">
+                  <Sparkles className="h-3.5 w-3.5" /> Secciones editables
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  Editable en el builder. No conserva el CSS del original.
+                </span>
+              </button>
+            </div>
+
             <div className="flex gap-1 rounded-lg bg-muted p-1">
-              {(["file", "github", "url"] as const).map((t) => (
+              {(["url", "github", "file"] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
@@ -245,7 +330,7 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
                     tab === t ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  {t === "file" ? "Subir archivos" : t === "github" ? "Desde GitHub" : "Desde una URL"}
+                  {t === "url" ? "Desde una URL" : t === "github" ? "Desde GitHub" : "Subir archivos"}
                 </button>
               ))}
             </div>
@@ -290,12 +375,16 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
             ) : tab === "github" ? (
               <GithubPicker busy={busy} onPick={(picked, name) => void analyze(picked, name)} />
             ) : (
-              <UrlPicker busy={busy} onPick={(picked, name) => void analyze(picked, name)} />
+              <UrlPicker
+                busy={busy}
+                onPick={(picked, name) => void analyze(picked.map((f) => ({ ...f, rendered: true })), name)}
+              />
             )}
 
             <p className="text-xs text-muted-foreground">
-              El contenido, las imágenes y los enlaces se conservan. El CSS del original no: el demo se vuelve a
-              dibujar con la plantilla y la marca del CRM, que es lo que lo hace editable acá.
+              {mode === "verbatim"
+                ? "Guardamos el HTML y el CSS del original tal cual. Las imágenes y los enlaces se resuelven, pero no vas a poder editar el texto ni el estilo desde el builder."
+                : "El contenido, las imágenes y los enlaces se conservan. El CSS del original no: el demo se vuelve a dibujar con la plantilla y la marca del CRM, que es lo que lo hace editable acá."}
             </p>
           </div>
         ) : (
@@ -309,7 +398,7 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
               />
             </label>
 
-            {report.multiPage && report.linksRewired > 0 && (
+            {report.linksRewired > 0 && (
               <p className="flex items-start gap-2 rounded-lg border border-green-100 bg-green-50 p-2.5 text-xs text-green-800">
                 <Link2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 Reconectamos {report.linksRewired} {report.linksRewired === 1 ? "enlace" : "enlaces"} entre páginas —
@@ -327,105 +416,149 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
               </p>
             ))}
 
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">
-                {report.multiPage
-                  ? `${report.pages.length} páginas · ${kept} secciones`
-                  : `${kept} ${kept === 1 ? "sección" : "secciones"}`}
-              </p>
-              <span className="text-xs text-muted-foreground">{report.images} imágenes</span>
-            </div>
+            {report.mode === "verbatim" ? (
+              <>
+                <p className="text-sm font-medium">
+                  {report.pages.length} {report.pages.length === 1 ? "página" : "páginas"} · diseño original
+                </p>
+                <div className="space-y-1.5">
+                  {report.pages.map((page) => {
+                    const on = !excluded.has(page.id);
+                    return (
+                      <label
+                        key={page.id}
+                        className={cn(
+                          "flex cursor-pointer items-center gap-3 rounded-lg border p-2.5 transition-colors",
+                          on ? "hover:border-primary/40" : "opacity-45"
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={on}
+                          onChange={() => toggleVerbatimPage(page.id)}
+                          className="cursor-pointer"
+                        />
+                        {page.isHome && <Home className="h-3.5 w-3.5 shrink-0 text-primary" />}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="truncate text-sm font-medium">{page.title}</span>
+                            <code className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                              {page.isHome ? "/" : `/${page.slug}`}
+                            </code>
+                          </div>
+                          <p className="mt-0.5 truncate text-xs text-muted-foreground">{page.path}</p>
+                        </div>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {Math.max(1, Math.round(page.bytes / 1024))} KB
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">
+                    {report.multiPage
+                      ? `${report.pages.length} páginas · ${kept} secciones`
+                      : `${kept} ${kept === 1 ? "sección" : "secciones"}`}
+                  </p>
+                  <span className="text-xs text-muted-foreground">{report.images} imágenes</span>
+                </div>
 
-            <div className="space-y-2">
-              {report.pages.map((page) => {
-                const isOpen = openPages.has(page.id);
-                const on = page.sections.filter((s) => !excluded.has(s.id)).length;
-                return (
-                  <div key={page.id} className="rounded-lg border">
-                    {report.multiPage && (
-                      <div className="flex items-center gap-2 border-b px-3 py-2">
-                        <button
-                          onClick={() =>
-                            setOpenPages((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(page.id)) next.delete(page.id);
-                              else next.add(page.id);
-                              return next;
-                            })
-                          }
-                          className="flex min-w-0 flex-1 items-center gap-2 text-left cursor-pointer"
-                        >
-                          {page.isHome && <Home className="h-3.5 w-3.5 shrink-0 text-primary" />}
-                          <span className="truncate text-sm font-medium">{page.title}</span>
-                          <code className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                            {page.isHome ? "/" : `/${page.slug}`}
-                          </code>
-                          <span className="shrink-0 text-xs text-muted-foreground">
-                            {on}/{page.sections.length}
-                          </span>
-                        </button>
-                        <button
-                          onClick={() => togglePage(page)}
-                          className="shrink-0 text-xs text-primary hover:underline cursor-pointer"
-                        >
-                          {on === 0 ? "Incluir" : "Excluir"}
-                        </button>
-                      </div>
-                    )}
+                <div className="space-y-2">
+                  {report.pages.map((page) => {
+                    const isOpen = openPages.has(page.id);
+                    const on = page.sections.filter((s) => !excluded.has(s.id)).length;
+                    return (
+                      <div key={page.id} className="rounded-lg border">
+                        {report.multiPage && (
+                          <div className="flex items-center gap-2 border-b px-3 py-2">
+                            <button
+                              onClick={() =>
+                                setOpenPages((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(page.id)) next.delete(page.id);
+                                  else next.add(page.id);
+                                  return next;
+                                })
+                              }
+                              className="flex min-w-0 flex-1 items-center gap-2 text-left cursor-pointer"
+                            >
+                              {page.isHome && <Home className="h-3.5 w-3.5 shrink-0 text-primary" />}
+                              <span className="truncate text-sm font-medium">{page.title}</span>
+                              <code className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                {page.isHome ? "/" : `/${page.slug}`}
+                              </code>
+                              <span className="shrink-0 text-xs text-muted-foreground">
+                                {on}/{page.sections.length}
+                              </span>
+                            </button>
+                            <button
+                              onClick={() => togglePage(page)}
+                              className="shrink-0 text-xs text-primary hover:underline cursor-pointer"
+                            >
+                              {on === 0 ? "Incluir" : "Excluir"}
+                            </button>
+                          </div>
+                        )}
 
-                    {(isOpen || !report.multiPage) && (
-                      <div className="space-y-1.5 p-2">
-                        {page.sections.length === 0 ? (
-                          <p className="px-1 py-2 text-xs text-muted-foreground">
-                            No encontramos contenido importable en esta página.
-                          </p>
-                        ) : (
-                          page.sections.map((s) => {
-                            const kept = !excluded.has(s.id);
-                            return (
-                              <label
-                                key={s.id}
-                                className={cn(
-                                  "flex cursor-pointer items-start gap-3 rounded-lg border p-2.5 transition-colors",
-                                  kept ? "hover:border-primary/40" : "opacity-45"
-                                )}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={kept}
-                                  onChange={() => toggleSection(s.id)}
-                                  className="mt-0.5 cursor-pointer"
-                                />
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <span className="text-sm font-medium">{SECTION_LABELS[s.type]}</span>
-                                    <span
-                                      className={cn(
-                                        "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                                        CONFIDENCE_STYLE[s.confidence]
-                                      )}
-                                    >
-                                      {CONFIDENCE_LABEL[s.confidence]}
-                                    </span>
-                                    {s.itemCount > 0 && (
-                                      <span className="text-xs text-muted-foreground">{s.itemCount} elementos</span>
+                        {(isOpen || !report.multiPage) && (
+                          <div className="space-y-1.5 p-2">
+                            {page.sections.length === 0 ? (
+                              <p className="px-1 py-2 text-xs text-muted-foreground">
+                                No encontramos contenido importable en esta página.
+                              </p>
+                            ) : (
+                              page.sections.map((s) => {
+                                const sectionKept = !excluded.has(s.id);
+                                return (
+                                  <label
+                                    key={s.id}
+                                    className={cn(
+                                      "flex cursor-pointer items-start gap-3 rounded-lg border p-2.5 transition-colors",
+                                      sectionKept ? "hover:border-primary/40" : "opacity-45"
                                     )}
-                                  </div>
-                                  {s.heading && (
-                                    <p className="mt-0.5 truncate text-xs text-foreground/80">{s.heading}</p>
-                                  )}
-                                  <p className="mt-0.5 text-xs text-muted-foreground">{s.evidence}</p>
-                                </div>
-                              </label>
-                            );
-                          })
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={sectionKept}
+                                      onChange={() => toggleSection(s.id)}
+                                      className="mt-0.5 cursor-pointer"
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span className="text-sm font-medium">{SECTION_LABELS[s.type]}</span>
+                                        <span
+                                          className={cn(
+                                            "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                                            CONFIDENCE_STYLE[s.confidence]
+                                          )}
+                                        >
+                                          {CONFIDENCE_LABEL[s.confidence]}
+                                        </span>
+                                        {s.itemCount > 0 && (
+                                          <span className="text-xs text-muted-foreground">{s.itemCount} elementos</span>
+                                        )}
+                                      </div>
+                                      {s.heading && (
+                                        <p className="mt-0.5 truncate text-xs text-foreground/80">{s.heading}</p>
+                                      )}
+                                      <p className="mt-0.5 text-xs text-muted-foreground">{s.evidence}</p>
+                                    </div>
+                                  </label>
+                                );
+                              })
+                            )}
+                          </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
 
             <div className="flex items-center gap-2 border-t pt-4">
               <button
@@ -436,9 +569,11 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
                 {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
                 {busy
                   ? "Creando..."
-                  : report.multiPage
+                  : report.mode === "verbatim"
                     ? `Crear demo · ${livePages} ${livePages === 1 ? "página" : "páginas"}`
-                    : `Crear demo con ${kept} ${kept === 1 ? "sección" : "secciones"}`}
+                    : report.multiPage
+                      ? `Crear demo · ${livePages} ${livePages === 1 ? "página" : "páginas"}`
+                      : `Crear demo con ${kept} ${kept === 1 ? "sección" : "secciones"}`}
               </button>
               <button
                 onClick={reset}

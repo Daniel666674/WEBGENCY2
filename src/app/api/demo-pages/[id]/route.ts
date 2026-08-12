@@ -5,6 +5,7 @@ import { eq, and } from "drizzle-orm";
 import { logAudit } from "@/lib/audit";
 import { validateDemoConfig } from "@/lib/demo/validate";
 import { requireApi } from "@/lib/apiAuth";
+import { sanitizeVerbatimCss, sanitizeVerbatimHtml } from "@/lib/demo/verbatimSanitize";
 
 function parseRow(row: typeof demoPages.$inferSelect) {
   let config = {};
@@ -56,6 +57,24 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const updateData: Record<string, unknown> = { updatedAt: new Date() };
 
   if (body.config !== undefined) {
+    // The real sanitizer (verbatimSanitize.ts, imports sanitize-html) runs
+    // here explicitly rather than living inside validateDemoConfig's schema.
+    // "demos" is shared workspace granted to every signed-in teammate, so
+    // this route accepts a raw `config` from any of them — it cannot assume
+    // `verbatim.html` already went through the importer. validateDemoConfig
+    // still applies its own fast regex backstop after this, but that is
+    // insurance, not the filter: this call is what actually turns arbitrary
+    // HTML into something safe to serve back out publicly.
+    const cfg = body.config as { verbatim?: Record<string, { html?: unknown; css?: unknown }> };
+    if (cfg && typeof cfg === "object" && cfg.verbatim && typeof cfg.verbatim === "object") {
+      for (const page of Object.values(cfg.verbatim)) {
+        if (page && typeof page === "object") {
+          if (typeof page.html === "string") page.html = sanitizeVerbatimHtml(page.html);
+          if (typeof page.css === "string") page.css = sanitizeVerbatimCss(page.css);
+        }
+      }
+    }
+
     const result = validateDemoConfig(body.config);
     if (!result.ok) {
       return NextResponse.json({ error: result.error, code: "invalid_config" }, { status: 400 });

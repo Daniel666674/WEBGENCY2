@@ -55,9 +55,9 @@ export interface MultiPageOutcome {
 }
 
 /** Max pages the config schema accepts. */
-const MAX_PAGES = 12;
+export const MAX_PAGES = 12;
 
-const isIndex = (path: string) => /(?:^|\/)index\.html?$/i.test(path);
+export const isIndex = (path: string) => /(?:^|\/)index\.html?$/i.test(path);
 
 /**
  * Normalizes a file's `path` to something slug-worthy.
@@ -68,7 +68,7 @@ const isIndex = (path: string) => /(?:^|\/)index\.html?$/i.test(path);
  * `nosotros.html` the same way a repo file would arrive, rather than letting
  * the whole URL flatten into a slug like "https-site-com-nosotros-html".
  */
-function normalizePath(path: string): string {
+export function normalizePath(path: string): string {
   try {
     const url = new URL(path);
     const pathname = decodeURIComponent(url.pathname).replace(/^\//, "");
@@ -79,13 +79,13 @@ function normalizePath(path: string): string {
 }
 
 /** Folder the file lives in, with a trailing slash ("" at the repo root). */
-function dirOf(path: string): string {
+export function dirOf(path: string): string {
   const i = path.lastIndexOf("/");
   return i === -1 ? "" : path.slice(0, i + 1);
 }
 
 /** Longest shared prefix of the pages' base URLs — the repo's raw root. */
-function commonRoot(files: SourceFile[]): string {
+export function commonRoot(files: { baseUrl?: string }[]): string {
   const bases = files.map((f) => f.baseUrl).filter((b): b is string => !!b);
   if (bases.length === 0) return "";
   let prefix = bases[0];
@@ -112,7 +112,7 @@ function commonRoot(files: SourceFile[]): string {
  * Returns "" for anything that is not a link to another imported page — a
  * bare anchor, a genuinely external URL, a mailto:. Those are left untouched.
  */
-function resolveLocal(href: string, fromPath: string, rawRoot: string): string {
+export function resolveLocal(href: string, fromPath: string, rawRoot: string): string {
   const raw = href.trim();
   if (!raw || raw.startsWith("#")) return "";
 
@@ -143,7 +143,7 @@ function resolveLocal(href: string, fromPath: string, rawRoot: string): string {
 }
 
 /** The `#anchor` part of an href, so rewriting a link keeps its target. */
-function anchorOf(href: string): string {
+export function anchorOf(href: string): string {
   const i = href.indexOf("#");
   return i === -1 ? "" : href.slice(i);
 }
@@ -155,7 +155,7 @@ function anchorOf(href: string): string {
  * flattened, since page slugs are a single path segment:
  * `bmx-builder/index.html` → "bmx-builder", `docs/guia.html` → "docs-guia".
  */
-function slugFor(path: string, homePath: string): string {
+export function slugFor(path: string, homePath: string): string {
   if (path === homePath) return "";
   const withoutExt = path.replace(/\.html?$/i, "");
   const parts = withoutExt.split("/").filter(Boolean);
@@ -165,7 +165,7 @@ function slugFor(path: string, homePath: string): string {
 }
 
 /** "blog-arma-tu-bmx.html" with no <title> still deserves a readable name. */
-function titleFor(path: string, docTitle: string, isHome: boolean): string {
+export function titleFor(path: string, docTitle: string, isHome: boolean): string {
   // A home page's <title> is almost always the brand ("BMX Store | Bicicletas
   // en Bogotá"), which names the site, not the page. In the builder's page
   // tabs that reads as a company name where a page name belongs.
@@ -339,6 +339,6 @@ export function importHtmlPages(rawFiles: SourceFile[], opts: ImportOptions = {}
 }
 
 /** Relative href for a page, matching what render.ts emits for page links. */
-function hrefFor(page: DemoPage): string {
+export function hrefFor(page: { slug: string }): string {
   return page.slug ? `./${page.slug}` : "./";
 }
