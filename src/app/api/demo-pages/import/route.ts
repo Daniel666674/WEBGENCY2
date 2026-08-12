@@ -15,6 +15,17 @@ export const maxDuration = 60;
 const MAX_HTML = 2_000_000;
 /** Matches the config schema's cap on `pages`. */
 const MAX_FILES = 12;
+/** One stylesheet, matching MAX_VERBATIM_CSS — the real sanitizer's own cap. */
+const MAX_CSS_FILE = 300_000;
+/**
+ * `MAX_HTML` bounds one field on one file; nothing bounded the request as a
+ * whole. Twelve files each carrying six stylesheets just under their own
+ * per-file caps sums to well over 100MB before anything downstream — the
+ * classifier, the headless render, `validateDemoConfig()` — ever gets a
+ * chance to reject it. This is the fail-fast check, before any of that work
+ * starts.
+ */
+const MAX_TOTAL_BYTES = 20_000_000;
 
 interface RawFile {
   path?: string;
@@ -94,6 +105,23 @@ export async function POST(request: NextRequest) {
   if (tooBig) {
     return NextResponse.json(
       { error: `"${tooBig.path}" pesa ${Math.round((tooBig.html?.length ?? 0) / 1024)} KB. El máximo por página es 2 MB.` },
+      { status: 413 }
+    );
+  }
+  const tooBigCss = rawFiles.find((f) => (f.css ?? []).some((c) => typeof c === "string" && c.length > MAX_CSS_FILE));
+  if (tooBigCss) {
+    return NextResponse.json(
+      { error: `Una hoja de estilos de "${tooBigCss.path}" pesa más de ${Math.round(MAX_CSS_FILE / 1024)} KB.` },
+      { status: 413 }
+    );
+  }
+  const totalBytes = rawFiles.reduce(
+    (n, f) => n + (f.html?.length ?? 0) + (f.css ?? []).reduce((m, c) => m + (typeof c === "string" ? c.length : 0), 0),
+    0
+  );
+  if (totalBytes > MAX_TOTAL_BYTES) {
+    return NextResponse.json(
+      { error: `Lo que estás importando pesa ${Math.round(totalBytes / 1024 / 1024)} MB en total. El máximo combinado es ${Math.round(MAX_TOTAL_BYTES / 1024 / 1024)} MB.` },
       { status: 413 }
     );
   }

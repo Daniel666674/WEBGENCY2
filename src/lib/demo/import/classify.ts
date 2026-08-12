@@ -43,8 +43,13 @@ const CONTACT_HINT = /\b(tel[ée]fono|whatsapp|correo|email|direcci[óo]n|addres
 const STAT_VALUE = /^[+\-]?[\d.,]{1,6}\s*(?:%|k|m|\+|mil|millones)?$/i;
 /** Phone numbers open with a plus and digits exactly like a stat does. */
 const PHONE_LIKE = /^\+?\d[\d\s().-]{6,}$/;
-/** The bullet/star separators a scrolling announcement bar is built from. */
-const MARQUEE_SEP = /[✦•·|]/g;
+// The bullet/star separators a scrolling announcement bar is built from.
+// `|` was in this set too, but a pipe is ordinary text — a footer line like
+// "Inicio | Nosotros | Contacto" or a breadcrumb has no heading, is short,
+// and has two or more of them, matching this rule's other conditions and
+// misclassifying plain nav text as a promo banner. ✦/•/· don't have that
+// problem: nothing writes them as an actual word separator.
+const MARQUEE_SEP = /[✦•·]/g;
 
 /** Words that mean "we made this up from very little". */
 function shortLabel(text: string): boolean {

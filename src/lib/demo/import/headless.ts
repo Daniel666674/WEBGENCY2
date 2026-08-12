@@ -210,7 +210,10 @@ export async function renderPages(urls: string[], max = 12): Promise<RenderedPag
             const resolved = (el as unknown as Record<string, string>)[prop];
             if (resolved) el.setAttribute(attr, resolved);
           };
-          document.querySelectorAll("img[src],video[poster],script[src]").forEach((el) => {
+          // `<script src>` is deliberately not in this list — every script
+          // element gets removed a few lines below, so resolving its src
+          // would just be work thrown away on an element that never survives.
+          document.querySelectorAll("img[src],video[poster]").forEach((el) => {
             resolveAttr(el, "src", "src");
             resolveAttr(el, "poster", "poster");
           });
