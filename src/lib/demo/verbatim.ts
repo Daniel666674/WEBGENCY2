@@ -91,7 +91,20 @@ const INJECT_ATTR = "data-oliwan-inject";
  * closest true equivalent that doesn't require inventing a block model for
  * arbitrary markup.
  */
+export type VerbatimEditMode = "text" | "menu";
+
+/**
+ * The one piece of "drag and drop blocks" that's actually honest for raw
+ * HTML: there are no typed Sections to reorder here, only whatever elements
+ * happen to sit at the top of `<body>` (mode "text"), or whatever `<a>`s sit
+ * inside the page's own `<nav>` (mode "menu"). So that's what becomes
+ * draggable — whole nodes, swapped with each other. It's not the Section
+ * builder's drag-and-drop, and page authors need to know that; it's the
+ * closest true equivalent that doesn't require inventing a block model for
+ * arbitrary markup.
+ */
 const EDIT_SCRIPT = `(function(){
+  var MODE = window.__oliwanMode || 'text';
   function snapshot(){
     var clone = document.documentElement.cloneNode(true);
     var junk = clone.querySelectorAll('[${INJECT_ATTR}]');
@@ -108,38 +121,110 @@ const EDIT_SCRIPT = `(function(){
   var timer;
   function debouncedNotify(){ clearTimeout(timer); timer = setTimeout(notify, 400); }
 
-  document.body.setAttribute('contenteditable', 'true');
-  document.body.addEventListener('input', debouncedNotify);
-  document.body.addEventListener('blur', notify, true);
-
-  var dragged = null;
-  var blocks = Array.prototype.slice.call(document.body.children);
-  blocks.forEach(function (el) {
-    if (el.hasAttribute('${INJECT_ATTR}')) return;
+  function enableDrag(el, onDrop){
     el.setAttribute('draggable', 'true');
-    el.addEventListener('dragstart', function () { dragged = el; });
-    el.addEventListener('dragover', function (e) {
-      e.preventDefault();
-      el.classList.add('oliwan-drag-over');
-    });
-    el.addEventListener('dragleave', function () { el.classList.remove('oliwan-drag-over'); });
+    el.addEventListener('dragstart', function (e) { e.stopPropagation(); onDrop.dragged = el; });
+    el.addEventListener('dragover', function (e) { e.preventDefault(); e.stopPropagation(); el.classList.add('oliwan-drag-over'); });
+    el.addEventListener('dragleave', function (e) { e.stopPropagation(); el.classList.remove('oliwan-drag-over'); });
     el.addEventListener('drop', function (e) {
       e.preventDefault();
+      e.stopPropagation();
       el.classList.remove('oliwan-drag-over');
-      if (!dragged || dragged === el || !el.parentNode) return;
+      var dragged = onDrop.dragged;
+      if (!dragged || dragged === el || !el.parentNode || dragged.parentNode !== el.parentNode) return;
       var siblings = Array.prototype.slice.call(el.parentNode.children);
       var before = siblings.indexOf(dragged) < siblings.indexOf(el);
       el.parentNode.insertBefore(dragged, before ? el.nextSibling : el);
-      dragged = null;
+      onDrop.dragged = null;
       notify();
     });
-  });
+  }
+
+  if (MODE === 'text') {
+    document.body.setAttribute('contenteditable', 'true');
+    document.body.addEventListener('input', debouncedNotify);
+    document.body.addEventListener('blur', notify, true);
+
+    var blockDrop = { dragged: null };
+    var blocks = Array.prototype.slice.call(document.body.children);
+    blocks.forEach(function (el) {
+      if (el.hasAttribute('${INJECT_ATTR}')) return;
+      enableDrag(el, blockDrop);
+    });
+  }
+
+  if (MODE === 'menu') {
+    var nav = document.querySelector('nav') || document.querySelector('[role="navigation"]') || document.querySelector('header');
+    if (nav) {
+      var navDrop = { dragged: null };
+      var links = Array.prototype.slice.call(nav.querySelectorAll('a'));
+      links.forEach(function (a) {
+        a.setAttribute('contenteditable', 'true');
+        a.addEventListener('input', debouncedNotify);
+        a.addEventListener('blur', notify, true);
+        a.addEventListener('click', function (e) { e.preventDefault(); });
+        a.addEventListener('dblclick', function (e) {
+          e.preventDefault();
+          var next = window.prompt('URL de este enlace:', a.getAttribute('href') || '');
+          if (next !== null) { a.setAttribute('href', next); notify(); }
+        });
+
+        var del = document.createElement('span');
+        del.setAttribute('${INJECT_ATTR}', '1');
+        del.className = 'oliwan-nav-del';
+        del.textContent = '\\u00d7';
+        del.title = 'Eliminar este enlace';
+        del.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var host = a.closest('li') || a;
+          if (host.parentNode) host.parentNode.removeChild(host);
+          notify();
+        });
+        a.insertAdjacentElement('afterend', del);
+
+        var item = a.closest('li') || a;
+        enableDrag(item, navDrop);
+      });
+
+      var addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.setAttribute('${INJECT_ATTR}', '1');
+      addBtn.className = 'oliwan-nav-add';
+      addBtn.textContent = '+ agregar enlace';
+      addBtn.addEventListener('click', function () {
+        var label = window.prompt('Texto del enlace:');
+        if (!label) return;
+        var href = window.prompt('URL:', '#') || '#';
+        var proto = links.length ? links[links.length - 1] : null;
+        var a2 = proto ? proto.cloneNode(false) : document.createElement('a');
+        a2.textContent = label;
+        a2.setAttribute('href', href);
+        a2.removeAttribute('${INJECT_ATTR}');
+        var protoHost = proto ? (proto.closest('li') || proto) : null;
+        if (protoHost && protoHost.tagName === 'LI' && protoHost.parentNode) {
+          var li = document.createElement('li');
+          li.appendChild(a2);
+          protoHost.parentNode.appendChild(li);
+        } else if (protoHost && protoHost.parentNode) {
+          protoHost.parentNode.appendChild(a2);
+        } else {
+          nav.appendChild(a2);
+        }
+        notify();
+      });
+      nav.appendChild(addBtn);
+    }
+  }
 })();`;
 
 const EDIT_STYLE = `[draggable="true"]{cursor:grab;}
 [draggable="true"]:hover{outline:2px dashed rgba(99,102,241,.5);outline-offset:2px;}
 .oliwan-drag-over{outline:2px solid #6366f1 !important;outline-offset:2px;}
-[contenteditable="true"]:focus{outline:none;}`;
+[contenteditable="true"]:focus{outline:none;}
+.oliwan-nav-del{display:inline-block;margin-left:4px;padding:0 5px;font:700 13px/1.4 sans-serif;color:#ef4444;cursor:pointer;user-select:none;border-radius:3px;}
+.oliwan-nav-del:hover{background:rgba(239,68,68,.15);}
+.oliwan-nav-add{margin-left:10px;padding:2px 10px;font:600 12px sans-serif;border:1px dashed #6366f1;color:#6366f1;background:transparent;border-radius:5px;cursor:pointer;}`;
 
 /**
  * Same document as `buildVerbatimDocument`, plus an editing bridge that only
@@ -147,11 +232,41 @@ const EDIT_STYLE = `[draggable="true"]{cursor:grab;}
  * stripped back out (see `snapshot()` above) before any edit is reported
  * back to the parent page via `postMessage`.
  */
-export function buildVerbatimEditDocument(html: string, css: string): string {
+export function buildVerbatimEditDocument(html: string, css: string, mode: VerbatimEditMode = "text"): string {
   const doc = buildVerbatimDocument(html, css);
-  const injected = `<style ${INJECT_ATTR}="1">${EDIT_STYLE}</style><script ${INJECT_ATTR}="1">${EDIT_SCRIPT}</script>`;
+  const injected = `<script ${INJECT_ATTR}="1">window.__oliwanMode=${JSON.stringify(mode)};</script><style ${INJECT_ATTR}="1">${EDIT_STYLE}</style><script ${INJECT_ATTR}="1">${EDIT_SCRIPT}</script>`;
   if (/<\/body>/i.test(doc)) return doc.replace(/<\/body>/i, `${injected}</body>`);
   return `${doc}${injected}`;
+}
+
+const NAV_BLOCK = /<nav\b[\s\S]*?<\/nav>/i;
+const HEADER_BLOCK = /<header\b[\s\S]*?<\/header>/i;
+
+/** Whether a page has a `<nav>` (or a `<header>` to fall back to) worth
+ *  showing a "Menú" editor for. */
+export function hasNavBlock(html: string): boolean {
+  return NAV_BLOCK.test(html ?? "") || HEADER_BLOCK.test(html ?? "");
+}
+
+/**
+ * Multi-page verbatim sites usually repeat the same nav markup on every
+ * page — editing it once and re-editing it four more times by hand is
+ * exactly the kind of busywork this builder exists to avoid. Lifts the
+ * `<nav>` (or `<header>`, if that's what has the links) out of `sourceHtml`
+ * and swaps it into the same spot in `targetHtml`, leaving everything else
+ * about the target page untouched.
+ */
+export function replaceNavBlock(targetHtml: string, sourceHtml: string): string {
+  const block = (h: string) => {
+    const nav = NAV_BLOCK.exec(h);
+    if (nav) return { text: nav[0], re: NAV_BLOCK };
+    const header = HEADER_BLOCK.exec(h);
+    return header ? { text: header[0], re: HEADER_BLOCK } : null;
+  };
+  const src = block(sourceHtml ?? "");
+  const dst = block(targetHtml ?? "");
+  if (!src || !dst) return targetHtml;
+  return targetHtml.replace(dst.re, src.text);
 }
 
 export interface CssColorVar {

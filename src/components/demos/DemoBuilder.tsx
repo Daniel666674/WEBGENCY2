@@ -18,7 +18,7 @@ import { CoachTips } from "./CoachTips";
 import { TEMPLATES, getTemplate } from "@/lib/demo/templates";
 import { FONT_PAIRS } from "@/lib/demo/fonts";
 import { renderDemo } from "@/lib/demo/render";
-import { buildVerbatimEditDocument, extractRootColorVars, setRootColorVar } from "@/lib/demo/verbatim";
+import { buildVerbatimEditDocument, extractRootColorVars, hasNavBlock, replaceNavBlock, setRootColorVar, type VerbatimEditMode } from "@/lib/demo/verbatim";
 import { SectionEditor } from "./SectionEditor";
 import { MediaPicker } from "./MediaPicker";
 import { NavEditor, FooterEditor } from "./NavFooterEditor";
@@ -171,18 +171,24 @@ function normalizeHex(v: string): string {
 }
 
 /** Click-to-edit preview for a "diseño original" page: the same iframe as the
- *  read-only preview, but with the body made `contentEditable` and its
- *  top-level blocks made draggable (see `buildVerbatimEditDocument`). Changes
- *  come back via `postMessage`, already stripped of the editing scaffolding,
- *  so they merge straight into `html` the same as a code edit would. */
-function VerbatimVisualEditor({ html, css, onCommit }: { html: string; css: string; onCommit: (html: string) => void }) {
-  // Regenerated only on mount and on an explicit "Recargar vista" click —
-  // not on every edit the iframe reports back, or the reload would fight
-  // the person editing it.
+ *  read-only preview, but with the body (mode "text") or the page's own
+ *  `<nav>` (mode "menu") made editable in place — text via `contentEditable`,
+ *  order via native drag-and-drop, and (menu mode only) a link's URL via a
+ *  double-click prompt plus add/remove controls (see `buildVerbatimEditDocument`).
+ *  Changes come back via `postMessage`, already stripped of the editing
+ *  scaffolding, so they merge straight into `html` the same as a code edit would. */
+function VerbatimLiveEditor({
+  html, css, mode, hint, onCommit,
+}: {
+  html: string; css: string; mode: VerbatimEditMode; hint: string; onCommit: (html: string) => void;
+}) {
+  // Regenerated only on mount, when the mode changes, and on an explicit
+  // "Recargar vista" click — not on every edit the iframe reports back, or
+  // the reload would fight the person editing it.
   const [version, setVersion] = useState(0);
-  const [doc, setDoc] = useState(() => buildVerbatimEditDocument(html, css));
+  const [doc, setDoc] = useState(() => buildVerbatimEditDocument(html, css, mode));
   function reload() {
-    setDoc(buildVerbatimEditDocument(html, css));
+    setDoc(buildVerbatimEditDocument(html, css, mode));
     setVersion((v) => v + 1);
   }
 
@@ -198,9 +204,7 @@ function VerbatimVisualEditor({ html, css, onCommit }: { html: string; css: stri
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="flex items-center justify-between gap-2 border-b border-border p-2">
-        <p className="text-[11px] text-muted-foreground">
-          Hacé clic para escribir. Arrastrá un bloque para reordenarlo.
-        </p>
+        <p className="text-[11px] text-muted-foreground">{hint}</p>
         <button
           type="button"
           onClick={reload}
@@ -237,15 +241,20 @@ function VerbatimEditor({
   page,
   onChange,
   multiPage,
+  onApplyNavToAllPages,
 }: {
   page: { html: string; css: string } | undefined;
   onChange: (next: { html: string; css: string }) => void;
   multiPage: boolean;
+  /** Copies this page's `<nav>`/`<header>` into every other verbatim page in
+   *  the demo — present only when there's more than one page to spread it to. */
+  onApplyNavToAllPages?: () => void;
 }) {
-  const [sub, setSub] = useState<"visual" | "colors" | "html" | "css">("visual");
+  const [sub, setSub] = useState<"visual" | "menu" | "colors" | "html" | "css">("visual");
   const [html, setHtml] = useState(page?.html ?? "");
   const [css, setCss] = useState(page?.css ?? "");
   const [dirty, setDirty] = useState(false);
+  const showMenuTab = hasNavBlock(html);
 
   function commit() {
     if (!dirty) return;
@@ -260,15 +269,16 @@ function VerbatimEditor({
           <Lock className="h-3.5 w-3.5 text-muted-foreground" /> Diseño original
         </p>
         <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-          Es el HTML y el CSS del sitio importado, así que se sigue viendo igual. Cambiá colores, texto y el orden
-          de los bloques en <strong>Visual</strong>, o editá el código directamente.
-          {multiPage && " Afecta solo a esta página."}
+          Es el HTML y el CSS del sitio importado, así que se sigue viendo igual. Cambiá colores, texto, el menú y
+          el orden de los bloques desde acá, o editá el código directamente.
+          {multiPage && " Los cambios afectan solo a esta página, salvo el menú."}
         </p>
       </div>
 
-      <div className="flex gap-1 border-b border-border p-2">
+      <div className="flex flex-wrap gap-1 border-b border-border p-2">
         {([
           { id: "visual" as const, label: "Visual" },
+          ...(showMenuTab ? [{ id: "menu" as const, label: "Menú" }] : []),
           { id: "colors" as const, label: "Colores" },
           { id: "html" as const, label: "HTML" },
           { id: "css" as const, label: "CSS" },
@@ -287,14 +297,42 @@ function VerbatimEditor({
       </div>
 
       {sub === "visual" && (
-        <VerbatimVisualEditor
+        <VerbatimLiveEditor
           html={html}
           css={css}
+          mode="text"
+          hint="Hacé clic para escribir. Arrastrá un bloque para reordenarlo."
           onCommit={(next) => {
             setHtml(next);
             onChange({ html: next, css });
           }}
         />
+      )}
+
+      {sub === "menu" && (
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <VerbatimLiveEditor
+            html={html}
+            css={css}
+            mode="menu"
+            hint="Clic para editar el texto · doble clic para la URL · × para eliminar · arrastrá para reordenar."
+            onCommit={(next) => {
+              setHtml(next);
+              onChange({ html: next, css });
+            }}
+          />
+          {multiPage && onApplyNavToAllPages && (
+            <div className="border-t border-border p-2">
+              <button
+                type="button"
+                onClick={onApplyNavToAllPages}
+                className="w-full rounded-md border border-dashed border-primary/50 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/5"
+              >
+                Aplicar este menú a todas las páginas
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       {sub === "colors" && (
@@ -1154,6 +1192,20 @@ export function DemoBuilder({
               page={cfg.verbatim![activePage.slug]}
               onChange={(next) => update({ verbatim: { ...cfg.verbatim, [activePage.slug]: next } })}
               multiPage={isMultiPage}
+              onApplyNavToAllPages={
+                isMultiPage
+                  ? () => {
+                      const source = cfg.verbatim![activePage.slug];
+                      if (!source) return;
+                      const next = { ...cfg.verbatim };
+                      for (const slug of Object.keys(next)) {
+                        if (slug === activePage.slug) continue;
+                        next[slug] = { ...next[slug], html: replaceNavBlock(next[slug].html, source.html) };
+                      }
+                      update({ verbatim: next });
+                    }
+                  : undefined
+              }
             />
           ) : (
             <>
