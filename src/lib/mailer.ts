@@ -19,8 +19,14 @@ export function getDigestEmail(): string | undefined {
   return process.env.DIGEST_EMAIL || process.env.GMAIL_USER || undefined;
 }
 
-export async function sendMail(subject: string, html: string): Promise<MailResult> {
-  const to = getDigestEmail();
+/**
+ * `recipients` overrides the env default, so the digest can be addressed from
+ * Settings > Notificaciones (both partners, an assistant) without touching
+ * DIGEST_EMAIL and redeploying.
+ */
+export async function sendMail(subject: string, html: string, recipients?: string[]): Promise<MailResult> {
+  const list = (recipients ?? []).map((r) => r.trim()).filter(Boolean);
+  const to = list.length > 0 ? list.join(",") : getDigestEmail();
   if (!to) {
     return {
       ok: false,
@@ -58,7 +64,7 @@ export async function sendMail(subject: string, html: string): Promise<MailResul
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendKey}` },
         body: JSON.stringify({
           from: process.env.DIGEST_FROM || "OLIWAN <onboarding@resend.dev>",
-          to: [to],
+          to: to.split(","),
           subject,
           html,
         }),

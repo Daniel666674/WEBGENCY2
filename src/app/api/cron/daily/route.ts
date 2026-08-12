@@ -5,6 +5,11 @@ import { gt } from "drizzle-orm";
 import { computeNextBestActions, urgencyOf, type NextBestAction } from "@/lib/nba";
 import { sendMail, getDigestEmail } from "@/lib/mailer";
 import { formatCurrency } from "@/lib/constants";
+import { getAutomationsConfig } from "@/lib/automations";
+import { loadAutomationInput } from "@/lib/automationData";
+import { applyAutomations, planAutomations } from "@/lib/automationEngine";
+import { getBusinessProfile } from "@/lib/businessConfig";
+import { getNotificationConfig } from "@/lib/notificationConfig";
 import {
   getPaymentAutomationConfig,
   isWhatsAppConfigured,
@@ -52,6 +57,23 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
+  // ── Automations run first ─────────────────────────────
+  // Deliberately before the NBA snapshot below: a follow-up the engine
+  // creates this morning should show up in this morning's digest, not
+  // tomorrow's.
+  const [automationsConfig, notifications, business] = await Promise.all([
+    getAutomationsConfig(),
+    getNotificationConfig(),
+    getBusinessProfile(),
+  ]);
+  let automation = { applied: [] as { label: string }[], alerts: [] as { channel: string; text: string }[] };
+  if (automationsConfig.masterEnabled) {
+    const input = await loadAutomationInput();
+    const plan = planAutomations(input, automationsConfig);
+    const res = await applyAutomations(plan, { now: input.now });
+    automation = { applied: res.applied.map((a) => ({ label: a.label })), alerts: res.alerts };
+  }
+
   const [allContacts, allDeals, allActivities, allProposals, allProjects, allTasks, stages, demos, dismissed] =
     await Promise.all([
       db.select().from(contacts).all(),
@@ -90,44 +112,71 @@ export async function GET(request: NextRequest) {
     demos: demos.map((d) => ({ ...d, published: !!d.published })),
   }).filter((a) => !hidden.has(a.id));
 
-  const result: Record<string, unknown> = { actions: actions.length };
+  const result: Record<string, unknown> = {
+    actions: actions.length,
+    automationsApplied: automation.applied.length,
+  };
 
   // ── Email: the top of the list ────────────────────────
   const top = actions.slice(0, 10);
-  if (top.length > 0 && getDigestEmail()) {
+  const weekend = [0, 6].includes(new Date().getUTCDay());
+  const hasRecipient = notifications.digestRecipients.length > 0 || !!getDigestEmail();
+  const worthSending = top.length > 0 || automation.applied.length > 0;
+
+  if (!notifications.digestEnabled) {
+    result.email = "digest apagado";
+  } else if (notifications.skipWeekends && weekend) {
+    result.email = "fin de semana";
+  } else if (!worthSending) {
+    result.email = "sin acciones";
+  } else if (!hasRecipient) {
+    result.email = "sin destinatario configurado";
+  } else {
     const critical = actions.filter((a) => urgencyOf(a.score) === "critical").length;
     const today = new Date().toLocaleDateString("es-CO", {
-      timeZone: "America/Bogota",
+      timeZone: business.timezone || "America/Bogota",
       weekday: "long",
       day: "numeric",
       month: "long",
     });
 
     const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:640px;margin:0 auto;padding:24px;">
-      <p style="margin:0 0 4px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#0d9a8a;font-weight:600;">OLIWAN</p>
+      <p style="margin:0 0 4px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#0d9a8a;font-weight:600;">${business.name}</p>
       <h1 style="margin:0 0 4px;font-size:22px;color:#111827;">Qué hacer hoy</h1>
       <p style="margin:0 0 20px;font-size:13px;color:#6b7280;text-transform:capitalize;">${today}</p>
       ${critical > 0 ? `<p style="margin:0 0 16px;padding:10px 12px;background:#fef2f2;border-left:3px solid #dc2626;font-size:13px;color:#991b1b;">${critical} ${critical === 1 ? "acción no puede esperar" : "acciones no pueden esperar"}.</p>` : ""}
       <table style="width:100%;border-collapse:collapse;">${top.map(actionRow).join("")}</table>
       ${actions.length > top.length ? `<p style="margin:16px 0 0;font-size:13px;color:#6b7280;">Y ${actions.length - top.length} más en el CRM.</p>` : ""}
+      ${notifications.includeAutomationSummary ? automationRows(automation.applied) : ""}
     </div>`;
 
-    const mail = await sendMail(`Qué hacer hoy · ${top.length} acciones`, html);
+    const mail = await sendMail(
+      `Qué hacer hoy · ${top.length} acciones`,
+      html,
+      notifications.digestRecipients
+    );
     result.email = mail.ok ? "enviado" : `falló: ${mail.error ?? "sin proveedor"}`;
-  } else {
-    result.email = top.length === 0 ? "sin acciones" : "sin DIGEST_EMAIL configurado";
   }
 
   // ── WhatsApp: only when money is actually late ────────
-  const overdue = actions.filter((a) => a.kind === "payment_overdue");
+  // Sourced from the automation engine rather than the NBA list so the
+  // cooldown applies: an overdue payment pings once, then stays quiet for a
+  // couple of days instead of buzzing every morning until it clears.
+  const overdue = notifications.whatsappAlerts
+    ? automation.alerts.filter((a) => a.channel === "both" || a.channel === "whatsapp")
+    : [];
   if (overdue.length > 0) {
     const cfg = await getPaymentAutomationConfig();
     if (isWhatsAppConfigured(cfg)) {
-      const total = overdue.reduce((sum, a) => sum + (a.valueCents ?? 0), 0);
+      const total = automationsConfig.masterEnabled
+        ? allContacts
+            .filter((c) => c.nextPaymentDate && c.nextPaymentDate < new Date() && !c.automationsSuspended)
+            .reduce((sum, c) => sum + (c.monthlyPayment ?? 0), 0)
+        : 0;
       await sendWhatsAppToNotifyNumbers(cfg, [
         `${overdue.length} ${overdue.length === 1 ? "pago vencido" : "pagos vencidos"}`,
         formatCurrency(total),
-        overdue.map((a) => a.entity.name).join(", ").slice(0, 200),
+        overdue.map((a) => a.text).join(" · ").slice(0, 200),
       ]);
       result.whatsapp = `${overdue.length} avisados`;
     } else {
@@ -136,4 +185,18 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json({ ok: true, ...result });
+}
+
+/** What the engine did on its own, so the morning email is never a surprise. */
+function automationRows(applied: { label: string }[]): string {
+  if (applied.length === 0) return "";
+  return `<div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;">
+    <p style="margin:0 0 8px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;font-weight:600;">
+      El CRM hizo esto por ustedes
+    </p>
+    <ul style="margin:0;padding-left:18px;font-size:13px;color:#374151;line-height:1.7;">
+      ${applied.slice(0, 12).map((a) => `<li>${a.label}</li>`).join("")}
+    </ul>
+    ${applied.length > 12 ? `<p style="margin:8px 0 0;font-size:12px;color:#6b7280;">Y ${applied.length - 12} más.</p>` : ""}
+  </div>`;
 }

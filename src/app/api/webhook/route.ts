@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { contacts, activities, crmSettings } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { getNotificationConfig } from "@/lib/notificationConfig";
+import { getBusinessProfile } from "@/lib/businessConfig";
+import { sendMail } from "@/lib/mailer";
 
 // Field name mapping: common variations → standard field
 const FIELD_MAP: Record<string, string> = {
@@ -141,6 +144,32 @@ export async function POST(request: NextRequest) {
         createdAt: now,
       })
       .run();
+
+    // A lead that arrives at 11pm shouldn't wait for the 7am digest. Failures
+    // here are swallowed on purpose — the lead is already saved, and losing
+    // the notification is not a reason to hand the form a 500 and have it
+    // retry into a duplicate.
+    try {
+      const notifications = await getNotificationConfig();
+      if (notifications.notifyOnNewLead) {
+        const business = await getBusinessProfile();
+        await sendMail(
+          `Lead nuevo: ${contact.name}`,
+          `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:520px;padding:24px;">
+            <p style="margin:0 0 4px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#0d9a8a;font-weight:600;">${business.name}</p>
+            <h1 style="margin:0 0 12px;font-size:20px;color:#111827;">Lead nuevo</h1>
+            <p style="margin:0 0 6px;font-size:15px;"><strong>${contact.name}</strong></p>
+            ${contact.company ? `<p style="margin:0 0 4px;font-size:14px;color:#374151;">${contact.company}</p>` : ""}
+            ${contact.email ? `<p style="margin:0 0 4px;font-size:14px;color:#374151;">${contact.email}</p>` : ""}
+            ${contact.phone ? `<p style="margin:0 0 4px;font-size:14px;color:#374151;">${contact.phone}</p>` : ""}
+            ${contact.notes ? `<p style="margin:12px 0 0;font-size:14px;color:#6b7280;line-height:1.6;">${contact.notes}</p>` : ""}
+          </div>`,
+          notifications.digestRecipients
+        );
+      }
+    } catch {
+      // Notification is best-effort; the lead is what matters.
+    }
 
     return NextResponse.json(
       {

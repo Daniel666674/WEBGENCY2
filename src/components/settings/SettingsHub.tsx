@@ -24,12 +24,12 @@ import {
 const CATEGORIES = [
   { href: "/settings/perfil", icon: User, title: "Perfil", description: "Administra tu informacion personal y preferencias de cuenta." },
   { href: "/settings/apariencia", icon: Palette, title: "Apariencia", description: "Personaliza el tema, colores dia/noche de la interfaz." },
-  { href: "/settings/negocio", icon: Briefcase, title: "Negocio", description: "Informacion y preferencias de tu negocio." },
+  { href: "/settings/negocio", icon: Briefcase, title: "Negocio", description: "Los datos de tu empresa: identidad, moneda, zona horaria." },
   { href: "/settings/usuarios", icon: Users, title: "Usuarios", description: "Gestiona los usuarios del equipo." },
-  { href: "/settings/pipeline", icon: Kanban, title: "Pipeline", description: "Consulta las etapas de tu pipeline de ventas." },
-  { href: "/settings/integraciones", icon: Plug, title: "Integraciones", description: "Conecta Google, WhatsApp y mas herramientas.", badge: "Próximamente" },
-  { href: "/settings/automatizaciones", icon: Zap, title: "Automatizaciones", description: "Webhooks y flujos automaticos del CRM." },
-  { href: "/settings/notificaciones", icon: Bell, title: "Notificaciones", description: "Configura como y cuando recibes avisos." },
+  { href: "/settings/pipeline", icon: Kanban, title: "Pipeline", description: "Crea, renombra, reordena y colorea las etapas de venta." },
+  { href: "/settings/integraciones", icon: Plug, title: "Integraciones", description: "Estado real de Google, email, WhatsApp y pagos." },
+  { href: "/settings/automatizaciones", icon: Zap, title: "Automatizaciones", description: "Las reglas que el CRM ejecuta solo cada mañana." },
+  { href: "/settings/notificaciones", icon: Bell, title: "Notificaciones", description: "Quién recibe el resumen diario y por qué canal." },
   { href: "/settings/comandos", icon: Terminal, title: "Comandos", description: "Comandos de Claude Code disponibles en el proyecto." },
 ];
 

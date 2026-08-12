@@ -88,6 +88,16 @@ El schema se crea solo (`ensureSchema()` en `src/instrumentation.ts`) al arranca
 | `/api/webhook` | POST | Recibir leads de formularios externos (Typeform, Tally, etc.) |
 | `/api/export` | GET | Exportar contactos o deals como CSV (?type=contacts o deals) |
 | `/api/digest` | POST | Enviar resumen diario por email (requiere RESEND_API_KEY) |
+| `/api/pipeline/stages` | GET, POST, PUT, DELETE | CRUD de etapas (DELETE exige `?moveTo=` si la etapa tiene deals) |
+| `/api/automations/run` | GET, POST | Historial del motor; ejecutar (`{"dryRun":true}` por defecto) |
+| `/api/settings/automations` | GET, PUT | Reglas del motor de automatizaciones |
+| `/api/settings/business` | GET, PUT | Perfil de tu propia empresa |
+| `/api/settings/notifications` | GET, PUT | Destinatarios y canales de aviso |
+| `/api/settings/integrations` | GET | Estado real de cada integracion (solo booleanos, nunca secretos) |
+| `/api/cron/daily` | GET | Corre automatizaciones + envia el resumen. Requiere `CRON_SECRET` |
+| `/api/demo-pages/import` | POST | HTML → demo editable (`dryRun: true` por defecto: analiza sin guardar) |
+| `/api/settings/github` | GET, PUT, DELETE | Token de GitHub. El GET nunca devuelve el token |
+| `/api/integrations/github` | GET | `?action=repos\|files\|file` para el importador de demos |
 
 ## Configuracion del negocio
 
@@ -95,6 +105,82 @@ El archivo `crm-config.json` (raiz del proyecto) tiene la configuracion personal
 Se genera con `/setup` y se modifica con `/customize`.
 
 El archivo en `public/crm-config.json` es la copia por defecto (template).
+
+La configuracion que se edita desde la app vive en la tabla `crm_settings` (key/value), no en
+archivos — asi se cambia sin redeploy. Claves actuales: `business_profile`, `automations_config`,
+`notification_config`, `payment_automation_config`.
+
+## Motor de automatizaciones
+
+`src/lib/automations.ts` (config) + `src/lib/automationEngine.ts` (planificar y aplicar).
+Corre una vez al dia desde `/api/cron/daily` y se configura en Settings > Automatizaciones.
+
+- **Planificar es una funcion pura** — sin escrituras. El mismo codigo alimenta el simulacro
+  ("Probar") y la corrida real, asi que la vista previa muestra exactamente lo que va a pasar.
+- **Cada accion lleva una `dedupeKey` estable** (regla + entidad) y se registra en `automation_runs`.
+  Una accion cuya clave ya se escribio dentro del `cooldownDays` de su regla se omite — por eso
+  correr el job dos veces la misma manana no duplica nada.
+- **Nada es destructivo**: el motor crea trabajo y baja la temperatura de un lead. Nunca borra,
+  nunca cierra un deal, nunca le escribe directo al cliente.
+- Reglas que solo avisan (`notifyOnly`) no escriben registros; devuelven texto para que el cron
+  lo entregue por email o WhatsApp.
+
+Al agregar una regla nueva: definirla en `RULE_META` + `DEFAULT_RULES` (`automations.ts`) y
+emitir su accion en `planAutomations()`. `normalizeConfig()` hace que una regla nueva llegue
+activada en instalaciones existentes en vez de faltar.
+
+## Importador de HTML (demos)
+
+`src/lib/demo/import/` convierte una pagina HTML en un `DemoConfig` editable. Se usa desde
+Demos > Importar HTML, con dos entradas: subir un `.html` o elegirlo de un repo de GitHub.
+
+Pipeline, cuatro pasos puros sin efectos secundarios:
+
+1. `parse.ts` — corta el body en bloques y **mide** cada uno (titulos, parrafos, imagenes,
+   links, grupos repetidos). Las mediciones son por forma, nunca por nombres de clase: una
+   grilla de tres tarjetas se detecta igual venga de `<section>` semanticas, de div-soup con
+   Tailwind, o de tablas.
+2. `classify.ts` — bloque → `SectionType`. Reglas ordenadas por que tan distintiva es su
+   evidencia; la primera que coincide gana.
+3. `extract.ts` — bloque → campos de la `Section`. **Trunca a los limites del schema**, porque
+   validate.ts *rechaza* strings largos en vez de recortarlos.
+4. `index.ts` — arma marca, nav, footer y el config final.
+
+Tres invariantes que hay que mantener al tocarlo:
+
+- **Nada se descarta en silencio.** La ultima regla de `classify.ts` no tiene condicion y
+  devuelve `columns` (texto libre). Un bloque mal clasificado le cuesta al usuario cambiar un
+  dropdown; un bloque perdido le cuesta contenido que quiza no note que falta.
+- **El importador no tiene responsabilidades de seguridad.** Puede emitir un href
+  `javascript:` que encontro en el original; `validateDemoConfig()` lo descarta igual que si
+  lo hubieran tipeado a mano. Por eso esta funcion no agrega superficie de ataque a
+  `/demo/[slug]`.
+- **Toda medicion de texto usa `visibleText()`**, no `.text`. El parser concatena sin espacios,
+  asi que `<p>12</p><p>años</p>` sale como `"12años"` y rompe cualquier regla que cuente
+  palabras o mire el primer token.
+
+Para agregar una heuristica: sumar la regla en `classifyBlock()` (antes del catch-all) y su
+caso en el `switch` de `extractSection()`. Conviene probar contra los tres tipos de HTML —
+semantico, div-soup y hostil — antes de darla por buena.
+
+GitHub se conecta con un **fine-grained PAT** (`Contents: read`) guardado en `crm_settings`,
+no con OAuth: la identidad de la app es Google via NextAuth, y esto es una credencial de
+integracion. El token nunca vuelve al cliente — `GET /api/settings/github` devuelve solo
+`{ configured, hint }`. Conectarlo es `ownerOnly`; **usarlo** (listar repos, leer un archivo)
+lo puede hacer cualquiera del equipo, igual que el resto de Demos.
+
+## Permisos siempre concedidos
+
+`ALWAYS_GRANTED` en `src/lib/permissions.ts` lista las paginas que cualquier usuario logueado
+abre, sin importar lo que tenga guardado. Hoy: `demos`.
+
+Se chequea antes de los permisos guardados dentro de `hasPermission()`, asi que alcanza al
+Sidebar, al `PermissionGuard` y a las 13 rutas de API de demos desde un solo lugar. Agregar una
+pagina aca es una decision de producto ("esto es espacio de trabajo compartido"), no una
+comodidad: dinero, cuentas de clientes y configuracion siguen cerrados.
+
+`PermissionPicker` las muestra tildadas y bloqueadas — un checkbox que se puede destildar pero
+no cambia nada es peor que no tenerlo.
 
 ## Reglas de codigo
 

@@ -42,6 +42,8 @@ const TABLES = [
   "CREATE TABLE IF NOT EXISTS users (\n    id TEXT PRIMARY KEY,\n    name TEXT NOT NULL,\n    color TEXT NOT NULL DEFAULT '#0d9a8a',\n    is_hers INTEGER NOT NULL DEFAULT 0,\n    avatar TEXT,\n    created_at INTEGER NOT NULL\n  , email text, email_verified integer, image text, role text NOT NULL DEFAULT 'member', permissions text NOT NULL DEFAULT '[]');",
   "CREATE TABLE IF NOT EXISTS allowed_emails (\n    id TEXT PRIMARY KEY,\n    email TEXT NOT NULL UNIQUE,\n    role TEXT NOT NULL DEFAULT 'member',\n    permissions TEXT NOT NULL DEFAULT '[]',\n    invited_by_user_id TEXT REFERENCES users(id),\n    created_at INTEGER NOT NULL\n  );",
   "CREATE TABLE IF NOT EXISTS nba_dismissals (\n    id TEXT PRIMARY KEY,\n    action_id TEXT NOT NULL,\n    user_id TEXT REFERENCES users(id),\n    reason TEXT NOT NULL DEFAULT 'done',\n    hidden_until INTEGER NOT NULL,\n    created_at INTEGER NOT NULL\n  );",
+  "CREATE TABLE IF NOT EXISTS automation_runs (\n    id TEXT PRIMARY KEY,\n    rule_id TEXT NOT NULL,\n    dedupe_key TEXT NOT NULL,\n    entity_type TEXT,\n    entity_id TEXT,\n    summary TEXT NOT NULL,\n    created_at INTEGER NOT NULL\n  );",
+  "CREATE INDEX IF NOT EXISTS automation_runs_dedupe_key ON automation_runs (dedupe_key);",
   "CREATE TABLE IF NOT EXISTS schema_migrations (\n    id TEXT PRIMARY KEY,\n    applied_at INTEGER NOT NULL\n  );",
   "CREATE TABLE IF NOT EXISTS `verificationTokens` (\n\t`identifier` text NOT NULL,\n\t`token` text NOT NULL,\n\t`expires` integer NOT NULL,\n\tPRIMARY KEY(`identifier`, `token`)\n);",
 ];

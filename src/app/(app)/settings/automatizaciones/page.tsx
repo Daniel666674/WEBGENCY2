@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Zap, Copy, Webhook, Clock, CreditCard, MessageCircle, CheckCircle2, Send } from "lucide-react";
+import { Zap, Copy, Webhook, CreditCard, MessageCircle, CheckCircle2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { SettingsHeader } from "@/components/settings/SettingsHeader";
+import { AutomationRules } from "@/components/settings/AutomationRules";
+import { AutomationLog } from "@/components/settings/AutomationLog";
 import type { PaymentAutomationConfig } from "@/lib/paymentAutomation";
 
 const EMPTY_CONFIG: PaymentAutomationConfig = {
@@ -283,20 +285,9 @@ export default function AutomatizacionesPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-dashed">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Clock className="h-4 w-4 text-muted-foreground" /> Motor de automatizaciones
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Próximamente: recordatorios automaticos de seguimiento, digest diario programado y reglas de negocio
-            (ej. mover un contacto a &quot;enfriando&quot; tras 14 dias sin actividad) corriendo en el servidor,
-            no solo mientras el CRM esta abierto en el navegador.
-          </p>
-        </CardContent>
-      </Card>
+      <AutomationRules />
+
+      <AutomationLog />
     </div>
   );
 }
