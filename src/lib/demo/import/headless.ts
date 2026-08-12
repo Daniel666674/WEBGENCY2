@@ -77,6 +77,58 @@ function sameOrigin(href: string, origin: string): boolean {
   }
 }
 
+/** IPv4 ranges that never belong on the public internet: loopback, RFC1918
+ *  private space, link-local, CGNAT (100.64/10), benchmarking (198.18/15),
+ *  the IETF protocol-assignment block, multicast and reserved (224–255). */
+function isPrivateIPv4(ip: string): boolean {
+  return (
+    ip === "0.0.0.0" ||
+    /^127\./.test(ip) ||
+    /^10\./.test(ip) ||
+    /^192\.168\./.test(ip) ||
+    /^169\.254\./.test(ip) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(ip) ||
+    /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(ip) ||
+    /^198\.(1[89])\./.test(ip) ||
+    /^192\.0\.0\./.test(ip) ||
+    /^(2[2-5]\d)\./.test(ip)
+  );
+}
+
+/**
+ * `validateTargetUrl`'s original blocklist only matched literal dotted-decimal
+ * hostnames. `new URL()` already normalizes alternate IPv4 encodings (decimal,
+ * hex, octal) into that form, so those were covered without realizing it —
+ * but IPv6 literals were not: an IPv4-mapped address like `::ffff:127.0.0.1`
+ * or a link-local/unique-local literal sailed straight through as "not a
+ * dotted-decimal string". This is the single check both `validateTargetUrl`
+ * (the URL typed into the dialog) and the per-request guard in
+ * `renderPages()` (every navigation and redirect Chromium actually makes)
+ * share, so a redirect chain can't route around the first check either.
+ */
+function isBlockedHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  if (host === "localhost" || host.endsWith(".local") || host.endsWith(".internal")) return true;
+
+  if (host.startsWith("[") && host.endsWith("]")) {
+    const v6 = host.slice(1, -1);
+    if (v6 === "::1" || v6 === "::" || v6 === "0:0:0:0:0:0:0:1" || v6 === "0:0:0:0:0:0:0:0") return true;
+    if (/^fe[89ab][0-9a-f]:/.test(v6)) return true; // fe80::/10 link-local
+    if (/^f[cd][0-9a-f]{2}:/.test(v6)) return true; // fc00::/7 unique-local
+    const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(v6);
+    if (mapped) return isPrivateIPv4(mapped[1]);
+    const mappedHex = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(v6);
+    if (mappedHex) {
+      const a = parseInt(mappedHex[1], 16);
+      const b = parseInt(mappedHex[2], 16);
+      return isPrivateIPv4([(a >> 8) & 0xff, a & 0xff, (b >> 8) & 0xff, b & 0xff].join("."));
+    }
+    return false;
+  }
+
+  return isPrivateIPv4(host);
+}
+
 export async function renderPages(urls: string[], max = 12): Promise<RenderedPage[]> {
   const targets = urls.slice(0, max);
   if (targets.length === 0) return [];
@@ -100,6 +152,25 @@ export async function renderPages(urls: string[], max = 12): Promise<RenderedPag
         // A hostile or broken page must not be able to hold the function open
         // with a dialog nobody can answer.
         page.on("dialog", (d) => void d.dismiss().catch(() => {}));
+
+        // `validateTargetUrl` only checks the URL the user typed. A page on
+        // that URL can still 302 to http://169.254.169.254/ or an internal
+        // host, and Chromium would follow that redirect on its own — this
+        // catches every request the page actually makes, redirects included,
+        // with the same host check rather than trusting the first hop alone.
+        await page.setRequestInterception(true);
+        page.on("request", (req) => {
+          try {
+            if (isBlockedHost(new URL(req.url()).hostname) && process.env.ALLOW_LOCAL_RENDER !== "true") {
+              void req.abort();
+              return;
+            }
+          } catch {
+            // Not a fatal condition — fall through and let the request go,
+            // same as any other request whose URL we can't parse.
+          }
+          void req.continue();
+        });
 
         await page.goto(url, { waitUntil: "networkidle2", timeout: NAV_TIMEOUT });
         // networkidle2 fires before a deferred script has painted its markup;
@@ -249,19 +320,7 @@ export function validateTargetUrl(raw: string): string {
   }
   // A server that can open any URL is a server that can be pointed at the
   // cloud provider's metadata endpoint or at something on the private network.
-  const host = url.hostname.toLowerCase();
-  const blocked =
-    host === "localhost" ||
-    host === "0.0.0.0" ||
-    host.endsWith(".local") ||
-    host.endsWith(".internal") ||
-    /^127\./.test(host) ||
-    /^10\./.test(host) ||
-    /^192\.168\./.test(host) ||
-    /^169\.254\./.test(host) ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
-    host === "[::1]";
-  if (blocked && process.env.ALLOW_LOCAL_RENDER !== "true") {
+  if (isBlockedHost(url.hostname) && process.env.ALLOW_LOCAL_RENDER !== "true") {
     throw new RenderError("No podemos renderizar direcciones internas.");
   }
   return url.href;

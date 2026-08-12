@@ -51,7 +51,7 @@ function shortLabel(text: string): boolean {
   return text.length > 0 && text.length <= 40;
 }
 
-export function classifyBlock(block: Block, isFirst: boolean): Classification {
+export function classifyBlock(block: Block, isFirst: boolean, heroClaimed = false): Classification {
   const { headings, paragraphs, images, repeated, embeds, text, bgImage } = block;
   const h1 = headings.find((h) => h.level === 1);
   const words = text.split(/\s+/).filter(Boolean).length;
@@ -74,8 +74,12 @@ export function classifyBlock(block: Block, isFirst: boolean): Classification {
   // Not necessarily block 0 — a rendered page can inject an announcement bar,
   // a cookie notice or a promo strip ahead of the real hero. Scanning ahead a
   // few blocks for the first h1 is what keeps that from bumping the headline,
-  // its lede and its buttons into a random middle section.
-  const isHero = isFirst || (block.index <= 2 && !!h1);
+  // its lede and its buttons into a random middle section. `heroClaimed`
+  // guards that lookahead so it only ever picks one: without it, an "about"
+  // or "stats" block at index 1 or 2 that happens to reuse <h1> for styling
+  // (common in scraped markup) qualified on its own and produced a second
+  // hero stacked under the first.
+  const isHero = isFirst || (!heroClaimed && block.index <= 2 && !!h1);
 
   // ── Video: the embed is unambiguous ────────────────────
   // Unless this is the hero with a background video: then the embed is the
