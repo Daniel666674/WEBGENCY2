@@ -18,6 +18,7 @@ import { CoachTips } from "./CoachTips";
 import { TEMPLATES, getTemplate } from "@/lib/demo/templates";
 import { FONT_PAIRS } from "@/lib/demo/fonts";
 import { renderDemo } from "@/lib/demo/render";
+import { buildVerbatimEditDocument, extractRootColorVars, setRootColorVar } from "@/lib/demo/verbatim";
 import { SectionEditor } from "./SectionEditor";
 import { MediaPicker } from "./MediaPicker";
 import { NavEditor, FooterEditor } from "./NavFooterEditor";
@@ -114,6 +115,124 @@ function StructureRow({
  * (tab away without blurring) and doubles as "show me now" for anyone who
  * doesn't intuitively expect blur to commit.
  */
+/** Color swatches for a page's `:root` CSS variables — the real, editable
+ *  palette of a site that themes itself with custom properties. */
+function VerbatimColors({ css, onCommit }: { css: string; onCommit: (next: string) => void }) {
+  const vars = useMemo(() => extractRootColorVars(css), [css]);
+
+  if (vars.length === 0) {
+    return (
+      <div className="p-3 text-[11px] leading-relaxed text-muted-foreground">
+        No encontramos variables de color en <code className="rounded bg-muted px-1">:root</code> de este CSS.
+        Si el sitio define sus colores de otra forma, cambialos directamente en la pestaña CSS.
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 space-y-1 overflow-y-auto p-3">
+      {vars.map((v) => (
+        <div key={v.name} className="flex items-center gap-2 rounded-md border border-border p-2">
+          {v.kind === "hex" ? (
+            <input
+              type="color"
+              value={normalizeHex(v.value)}
+              onChange={(e) => onCommit(setRootColorVar(css, v.name, e.target.value))}
+              className="h-7 w-7 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0"
+              aria-label={v.name}
+            />
+          ) : (
+            <span className="h-7 w-7 shrink-0 rounded border border-border" style={{ background: v.value }} />
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-mono text-[11px] text-muted-foreground">{v.name}</p>
+            <input
+              defaultValue={v.value}
+              key={v.value}
+              onBlur={(e) => {
+                if (e.target.value.trim() && e.target.value !== v.value) onCommit(setRootColorVar(css, v.name, e.target.value.trim()));
+              }}
+              spellCheck={false}
+              className="w-full bg-transparent font-mono text-xs outline-none"
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function normalizeHex(v: string): string {
+  // <input type="color"> only accepts #rrggbb — expand #rgb, drop alpha.
+  const hex = v.replace("#", "");
+  if (hex.length === 3) return `#${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`;
+  if (hex.length >= 6) return `#${hex.slice(0, 6)}`;
+  return "#000000";
+}
+
+/** Click-to-edit preview for a "diseño original" page: the same iframe as the
+ *  read-only preview, but with the body made `contentEditable` and its
+ *  top-level blocks made draggable (see `buildVerbatimEditDocument`). Changes
+ *  come back via `postMessage`, already stripped of the editing scaffolding,
+ *  so they merge straight into `html` the same as a code edit would. */
+function VerbatimVisualEditor({ html, css, onCommit }: { html: string; css: string; onCommit: (html: string) => void }) {
+  // Regenerated only on mount and on an explicit "Recargar vista" click —
+  // not on every edit the iframe reports back, or the reload would fight
+  // the person editing it.
+  const [version, setVersion] = useState(0);
+  const [doc, setDoc] = useState(() => buildVerbatimEditDocument(html, css));
+  function reload() {
+    setDoc(buildVerbatimEditDocument(html, css));
+    setVersion((v) => v + 1);
+  }
+
+  useEffect(() => {
+    function onMsg(e: MessageEvent) {
+      if (!e.data || e.data.source !== "oliwan-verbatim" || e.data.type !== "change") return;
+      onCommit(e.data.html);
+    }
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [onCommit]);
+
+  return (
+    <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex items-center justify-between gap-2 border-b border-border p-2">
+        <p className="text-[11px] text-muted-foreground">
+          Hacé clic para escribir. Arrastrá un bloque para reordenarlo.
+        </p>
+        <button
+          type="button"
+          onClick={reload}
+          className="shrink-0 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          Recargar vista
+        </button>
+      </div>
+      <iframe key={version} srcDoc={doc} title="Editor visual" className="min-h-0 flex-1 border-0 bg-white" sandbox="allow-scripts allow-same-origin" />
+    </div>
+  );
+}
+
+/**
+ * Code editor for a "diseño original" page.
+ *
+ * The trade that mode makes — the source's real HTML/CSS instead of a
+ * re-render from Section data — costs the visual, click-to-edit builder:
+ * there's no Section for a click to land on. It doesn't have to cost
+ * editing entirely. This is the same content, editable as what it actually
+ * is — real markup — rather than not editable at all.
+ *
+ * Commits on blur, not per keystroke: the change flows into `cfg` and
+ * reloads the preview iframe, and doing that on every keystroke of a
+ * multi-KB HTML document would make the panel feel like it's fighting the
+ * person typing in it. An explicit button covers the keyboard-only path
+ * (tab away without blurring) and doubles as "show me now" for anyone who
+ * doesn't intuitively expect blur to commit.
+ *
+ * "Visual" and "Colores" commit immediately instead — a color picker and a
+ * drag are already discrete, deliberate actions, not keystrokes to debounce.
+ */
 function VerbatimEditor({
   page,
   onChange,
@@ -123,7 +242,7 @@ function VerbatimEditor({
   onChange: (next: { html: string; css: string }) => void;
   multiPage: boolean;
 }) {
-  const [sub, setSub] = useState<"html" | "css">("html");
+  const [sub, setSub] = useState<"visual" | "colors" | "html" | "css">("visual");
   const [html, setHtml] = useState(page?.html ?? "");
   const [css, setCss] = useState(page?.css ?? "");
   const [dirty, setDirty] = useState(false);
@@ -138,53 +257,82 @@ function VerbatimEditor({
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="border-b border-border p-3">
         <p className="flex items-center gap-1.5 text-sm font-semibold">
-          <Lock className="h-3.5 w-3.5 text-muted-foreground" /> Diseño original — editar como código
+          <Lock className="h-3.5 w-3.5 text-muted-foreground" /> Diseño original
         </p>
         <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-          Esta página no tiene secciones para arrastrar: es el HTML y el CSS del sitio importado, y así se sigue
-          viendo igual. Editalo directamente acá — cambia el texto, ajustá el estilo, lo que haga falta.
+          Es el HTML y el CSS del sitio importado, así que se sigue viendo igual. Cambiá colores, texto y el orden
+          de los bloques en <strong>Visual</strong>, o editá el código directamente.
           {multiPage && " Afecta solo a esta página."}
         </p>
       </div>
 
       <div className="flex gap-1 border-b border-border p-2">
-        {(["html", "css"] as const).map((t) => (
+        {([
+          { id: "visual" as const, label: "Visual" },
+          { id: "colors" as const, label: "Colores" },
+          { id: "html" as const, label: "HTML" },
+          { id: "css" as const, label: "CSS" },
+        ]).map((t) => (
           <button
-            key={t}
+            key={t.id}
             type="button"
-            onClick={() => setSub(t)}
+            onClick={() => setSub(t.id)}
             className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
-              sub === t ? "bg-muted text-primary" : "text-muted-foreground hover:text-foreground"
+              sub === t.id ? "bg-muted text-primary" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            {t.toUpperCase()}
+            {t.label}
           </button>
         ))}
       </div>
 
-      <textarea
-        value={sub === "html" ? html : css}
-        onChange={(e) => {
-          if (sub === "html") setHtml(e.target.value);
-          else setCss(e.target.value);
-          setDirty(true);
-        }}
-        onBlur={commit}
-        spellCheck={false}
-        className="min-h-0 flex-1 resize-none border-0 bg-background p-3 font-mono text-[11px] leading-relaxed outline-none"
-        placeholder={sub === "html" ? "<section>...</section>" : ".clase { }"}
-      />
+      {sub === "visual" && (
+        <VerbatimVisualEditor
+          html={html}
+          css={css}
+          onCommit={(next) => {
+            setHtml(next);
+            onChange({ html: next, css });
+          }}
+        />
+      )}
 
-      <div className="flex items-center gap-2 border-t border-border p-2">
-        <button
-          type="button"
-          onClick={commit}
-          disabled={!dirty}
-          className="flex-1 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
-        >
-          {dirty ? "Aplicar cambios" : "Sin cambios"}
-        </button>
-      </div>
+      {sub === "colors" && (
+        <VerbatimColors
+          css={css}
+          onCommit={(next) => {
+            setCss(next);
+            onChange({ html, css: next });
+          }}
+        />
+      )}
+
+      {(sub === "html" || sub === "css") && (
+        <>
+          <textarea
+            value={sub === "html" ? html : css}
+            onChange={(e) => {
+              if (sub === "html") setHtml(e.target.value);
+              else setCss(e.target.value);
+              setDirty(true);
+            }}
+            onBlur={commit}
+            spellCheck={false}
+            className="min-h-0 flex-1 resize-none border-0 bg-background p-3 font-mono text-[11px] leading-relaxed outline-none"
+            placeholder={sub === "html" ? "<section>...</section>" : ".clase { }"}
+          />
+          <div className="flex items-center gap-2 border-t border-border p-2">
+            <button
+              type="button"
+              onClick={commit}
+              disabled={!dirty}
+              className="flex-1 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+            >
+              {dirty ? "Aplicar cambios" : "Sin cambios"}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

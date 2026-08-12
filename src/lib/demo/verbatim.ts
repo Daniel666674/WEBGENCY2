@@ -73,3 +73,119 @@ export function buildVerbatimDocument(html: string, css: string): string {
   // splice.
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${styleBlock}</head><body>${body}</body></html>`;
 }
+
+/**
+ * Marker attribute on everything this file injects for editing, so it can be
+ * stripped back out before the edited markup is ever stored — the same rule
+ * `render.ts` follows for its Section-mode `data-text`/`contenteditable`
+ * scaffolding, applied to a page that has no Sections to hang it on.
+ */
+const INJECT_ATTR = "data-oliwan-inject";
+
+/**
+ * The one piece of "drag and drop blocks" that's actually honest for raw
+ * HTML: there are no typed Sections to reorder here, only whatever elements
+ * happen to sit at the top of `<body>`. So that's what becomes draggable —
+ * whole top-level nodes, swapped with each other. It's not the Section
+ * builder's drag-and-drop, and page authors need to know that; it's the
+ * closest true equivalent that doesn't require inventing a block model for
+ * arbitrary markup.
+ */
+const EDIT_SCRIPT = `(function(){
+  function snapshot(){
+    var clone = document.documentElement.cloneNode(true);
+    var junk = clone.querySelectorAll('[${INJECT_ATTR}]');
+    for (var i = 0; i < junk.length; i++) junk[i].parentNode.removeChild(junk[i]);
+    var draggable = clone.querySelectorAll('[draggable]');
+    for (var j = 0; j < draggable.length; j++) draggable[j].removeAttribute('draggable');
+    var over = clone.querySelectorAll('.oliwan-drag-over');
+    for (var k = 0; k < over.length; k++) over[k].classList.remove('oliwan-drag-over');
+    return '<!DOCTYPE html>\\n' + clone.outerHTML;
+  }
+  function notify(){
+    try { parent.postMessage({ source: 'oliwan-verbatim', type: 'change', html: snapshot() }, '*'); } catch (err) {}
+  }
+  var timer;
+  function debouncedNotify(){ clearTimeout(timer); timer = setTimeout(notify, 400); }
+
+  document.body.setAttribute('contenteditable', 'true');
+  document.body.addEventListener('input', debouncedNotify);
+  document.body.addEventListener('blur', notify, true);
+
+  var dragged = null;
+  var blocks = Array.prototype.slice.call(document.body.children);
+  blocks.forEach(function (el) {
+    if (el.hasAttribute('${INJECT_ATTR}')) return;
+    el.setAttribute('draggable', 'true');
+    el.addEventListener('dragstart', function () { dragged = el; });
+    el.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      el.classList.add('oliwan-drag-over');
+    });
+    el.addEventListener('dragleave', function () { el.classList.remove('oliwan-drag-over'); });
+    el.addEventListener('drop', function (e) {
+      e.preventDefault();
+      el.classList.remove('oliwan-drag-over');
+      if (!dragged || dragged === el || !el.parentNode) return;
+      var siblings = Array.prototype.slice.call(el.parentNode.children);
+      var before = siblings.indexOf(dragged) < siblings.indexOf(el);
+      el.parentNode.insertBefore(dragged, before ? el.nextSibling : el);
+      dragged = null;
+      notify();
+    });
+  });
+})();`;
+
+const EDIT_STYLE = `[draggable="true"]{cursor:grab;}
+[draggable="true"]:hover{outline:2px dashed rgba(99,102,241,.5);outline-offset:2px;}
+.oliwan-drag-over{outline:2px solid #6366f1 !important;outline-offset:2px;}
+[contenteditable="true"]:focus{outline:none;}`;
+
+/**
+ * Same document as `buildVerbatimDocument`, plus an editing bridge that only
+ * ever lives inside the builder's preview iframe — never persisted, and
+ * stripped back out (see `snapshot()` above) before any edit is reported
+ * back to the parent page via `postMessage`.
+ */
+export function buildVerbatimEditDocument(html: string, css: string): string {
+  const doc = buildVerbatimDocument(html, css);
+  const injected = `<style ${INJECT_ATTR}="1">${EDIT_STYLE}</style><script ${INJECT_ATTR}="1">${EDIT_SCRIPT}</script>`;
+  if (/<\/body>/i.test(doc)) return doc.replace(/<\/body>/i, `${injected}</body>`);
+  return `${doc}${injected}`;
+}
+
+export interface CssColorVar {
+  name: string;
+  value: string;
+  /** Only "hex" gets a real color-swatch input; rgb()/hsl() etc. are edited as text. */
+  kind: "hex" | "other";
+}
+
+const ROOT_BLOCK = /:root\s*{([^}]*)}/i;
+const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+const COLOR_LIKE = /^(#[0-9a-f]{3,8}|rgba?\(|hsla?\()/i;
+
+/** Color custom properties declared in the page's own `:root` block — the
+ *  real palette of a site that uses CSS variables, which is how most modern
+ *  hand-built or generated sites theme themselves. */
+export function extractRootColorVars(css: string): CssColorVar[] {
+  const block = ROOT_BLOCK.exec(css ?? "");
+  if (!block) return [];
+  const out: CssColorVar[] = [];
+  const re = /(--[\w-]+)\s*:\s*([^;]+);/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(block[1]))) {
+    const value = m[2].trim();
+    if (COLOR_LIKE.test(value)) out.push({ name: m[1], value, kind: HEX_COLOR.test(value) ? "hex" : "other" });
+  }
+  return out;
+}
+
+/** Rewrites one `--var: value;` declaration inside `:root`, leaving
+ *  everything else in the stylesheet untouched. */
+export function setRootColorVar(css: string, name: string, value: string): string {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const decl = new RegExp(`(${escaped}\\s*:\\s*)[^;]+;`);
+  if (decl.test(css)) return css.replace(decl, `$1${value};`);
+  return css;
+}
