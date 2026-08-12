@@ -193,9 +193,20 @@ export function importVerbatim(rawFiles: VerbatimSourceFile[], opts: VerbatimImp
   let linksRewired = 0;
 
   const verbatim: Record<string, { html: string; css: string }> = {};
+  // A page whose markup *references* a stylesheet but whose captured `css`
+  // came back empty means the fetch failed somewhere upstream (a private
+  // repo, a network hiccup, a stylesheet path our own resolution got wrong)
+  // — not that the page is genuinely unstyled. In verbatim mode that
+  // difference matters enormously: there is no template palette to fall
+  // back to, so a lost stylesheet is a lost page, and it needs to say so
+  // rather than ship silently blank.
+  let missingCssPages = 0;
   for (const [i, f] of resolved.entries()) {
     const page = pages[i];
     const root = parseHtml(f.html, { comment: false });
+    const referencesStylesheet = root.querySelectorAll("link").some((l) =>
+      /stylesheet/i.test(l.getAttribute("rel") ?? "")
+    );
 
     for (const a of root.querySelectorAll("a[href]")) {
       const href = a.getAttribute("href") ?? "";
@@ -205,9 +216,12 @@ export function importVerbatim(rawFiles: VerbatimSourceFile[], opts: VerbatimImp
       linksRewired++;
     }
 
+    const css = sanitizeVerbatimCss((f.css ?? []).join("\n"));
+    if (referencesStylesheet && !css.trim()) missingCssPages++;
+
     verbatim[page.slug] = {
       html: sanitizeVerbatimHtml(root.toString()),
-      css: sanitizeVerbatimCss((f.css ?? []).join("\n")),
+      css,
     };
   }
 
@@ -233,6 +247,11 @@ export function importVerbatim(rawFiles: VerbatimSourceFile[], opts: VerbatimImp
   if (unresolvable > 0) {
     warnings.push(
       "Algunas páginas no tienen una URL de origen conocida — sus imágenes con rutas relativas pueden no cargar. Volvé a subirlas desde el builder si hace falta."
+    );
+  }
+  if (missingCssPages > 0) {
+    warnings.push(
+      `${missingCssPages} ${missingCssPages === 1 ? "página referencia una hoja de estilos que no pudimos traer" : "páginas referencian hojas de estilos que no pudimos traer"} — van a importar sin ese CSS. Si subiste los archivos a mano, sumá también el .css; si vinieron de GitHub, revisá el aviso de arriba sobre qué archivo falló.`
     );
   }
 
