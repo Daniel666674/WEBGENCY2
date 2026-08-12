@@ -482,6 +482,24 @@ function VerbatimEditor({
   const [dirty, setDirty] = useState(false);
   const showMenuTab = hasNavBlock(html);
 
+  // `page` changes for two reasons: our own edits round-tripping back down
+  // (already reflected in local state, so this is a no-op re-set) or an
+  // external one — undo/redo restoring an older `cfg.verbatim` snapshot.
+  // Without this, undo silently rewrote the config while the panel kept
+  // showing the pre-undo html/css until the page was switched and this
+  // component remounted. Adjusted during render (React's own pattern for
+  // "reset state when a prop changes") rather than in an effect, so the
+  // stale content never paints even for one frame.
+  const [syncedHtml, setSyncedHtml] = useState(page?.html);
+  const [syncedCss, setSyncedCss] = useState(page?.css);
+  if (page?.html !== syncedHtml || page?.css !== syncedCss) {
+    setSyncedHtml(page?.html);
+    setSyncedCss(page?.css);
+    setHtml(page?.html ?? "");
+    setCss(page?.css ?? "");
+    setDirty(false);
+  }
+
   function commit() {
     if (!dirty) return;
     onChange({ html, css });
