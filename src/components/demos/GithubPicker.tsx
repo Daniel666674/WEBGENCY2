@@ -107,10 +107,11 @@ export function GithubPicker({
       };
 
       // Stylesheets are fetched too, and they are not optional polish: a real
-      // site keeps its palette in a linked .css, so importing the HTML alone
-      // turns a black site into a white one. Cached across pages because a
+      // site keeps its palette — and in "diseño original" mode, its entire
+      // visual identity — in a linked .css. Cached across pages because a
       // site's pages share one stylesheet.
       const cssCache = new Map<string, string>();
+      const failedCss = new Set<string>();
       const loaded: { path: string; html: string; baseUrl: string; css: string[] }[] = [];
 
       for (const path of picked) {
@@ -125,9 +126,14 @@ export function GithubPicker({
             try {
               cssCache.set(cssPath, (await get(cssPath)).content);
             } catch {
-              // A missing or unreadable stylesheet costs colours, not the
-              // import — carry on with the template's palette.
+              // A missing/unreadable stylesheet used to be a shrug — "costs
+              // colours, not the import" — back when the fallback was the
+              // template's own palette. In "diseño original" mode there is
+              // no fallback: the page's only styling *is* this file, so
+              // silently swallowing the failure here is silently shipping
+              // an unstyled page. Tracked and surfaced below instead.
               cssCache.set(cssPath, "");
+              failedCss.add(cssPath);
             }
           }
           const text = cssCache.get(cssPath);
@@ -142,6 +148,11 @@ export function GithubPicker({
       // looking at the published demo. Say so now, not after publishing.
       if (repo.private) {
         toast.warning("El repositorio es privado: las imágenes con rutas relativas no van a cargar en el demo publicado.");
+      }
+      if (failedCss.size > 0) {
+        toast.warning(
+          `No pudimos traer ${failedCss.size === 1 ? "esta hoja de estilos" : "estas hojas de estilos"}: ${[...failedCss].join(", ")}. El demo va a importar sin ese CSS.`
+        );
       }
       onPick(loaded, repo.fullName.split("/").pop() ?? "Demo");
     } catch (e) {

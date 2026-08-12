@@ -54,10 +54,18 @@ async function launch(): Promise<Browser> {
   }
 
   const chromium = (await import("@sparticuz/chromium")).default;
+  // @sparticuz/chromium's own binary is the "headless_shell" build, not the
+  // full-browser build `headless: true` expects — its README's puppeteer
+  // example pairs `executablePath()` with `headless: "shell"` specifically,
+  // routed through `puppeteer.defaultArgs()` rather than passed bare. Using
+  // `headless: true` here (the mismatch this replaces) doesn't throw; it
+  // just launches against the wrong mode, which is the kind of failure that
+  // shows up as "the render silently produces nothing" rather than a
+  // logged error — exactly what made this easy to miss.
   return puppeteer.launch({
-    args: chromium.args,
+    args: await puppeteer.defaultArgs({ args: chromium.args, headless: "shell" }),
     executablePath: await chromium.executablePath(),
-    headless: true,
+    headless: "shell",
   });
 }
 
