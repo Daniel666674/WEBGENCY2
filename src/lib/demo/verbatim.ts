@@ -332,19 +332,49 @@ export function replaceNavBlock(targetHtml: string, sourceHtml: string): string 
   return targetHtml.replace(dst.re, src.text);
 }
 
+/**
+ * Splits an inline style attribute on top-level `;` only — one sitting
+ * inside `url(...)` or a quoted string doesn't count. A base64 `data:` URI
+ * (`background-image: url(data:image/png;base64,...)`) carries its own
+ * semicolons; splitting blindly on every `;` truncates it mid-payload and
+ * drops the rest of the declaration list along with it.
+ */
+function splitDeclarations(style: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let quote: string | null = null;
+  let start = 0;
+  for (let i = 0; i < style.length; i++) {
+    const c = style[i];
+    if (quote) {
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === '"' || c === "'") { quote = c; continue; }
+    if (c === "(") { depth++; continue; }
+    if (c === ")") { depth = Math.max(0, depth - 1); continue; }
+    if (c === ";" && depth === 0) {
+      out.push(style.slice(start, i));
+      start = i + 1;
+    }
+  }
+  out.push(style.slice(start));
+  return out;
+}
+
 /** Turns an inline `style="a: b; c: d"` attribute into a plain lookup —
  *  just enough to read and rewrite the handful of properties the style
  *  panel exposes, without needing a real CSS parser for a single element's
  *  attribute. */
 export function parseInlineStyle(style: string): Record<string, string> {
   const out: Record<string, string> = {};
-  (style ?? "").split(";").forEach((decl) => {
+  for (const decl of splitDeclarations(style ?? "")) {
     const idx = decl.indexOf(":");
-    if (idx === -1) return;
+    if (idx === -1) continue;
     const key = decl.slice(0, idx).trim().toLowerCase();
     const value = decl.slice(idx + 1).trim();
     if (key && value) out[key] = value;
-  });
+  }
   return out;
 }
 

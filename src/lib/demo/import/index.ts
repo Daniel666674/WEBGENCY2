@@ -215,6 +215,10 @@ export function importHtml(html: string, opts: ImportOptions = {}): ImportOutcom
   const warnings: string[] = [];
   const imported: ImportedSection[] = [];
   let emptyBlocks = 0;
+  // Guards classifyBlock's hero lookahead so at most one block in the whole
+  // page becomes the hero, even when a later block within its scan window
+  // also happens to carry an <h1>.
+  let heroClaimed = false;
 
   for (const block of doc.blocks) {
     // A block that survived parsing but carries neither words nor media has
@@ -224,7 +228,8 @@ export function importHtml(html: string, opts: ImportOptions = {}): ImportOutcom
       continue;
     }
 
-    const classification = classifyBlock(block, block.index === 0);
+    const classification = classifyBlock(block, block.index === 0, heroClaimed);
+    if (classification.type === "hero") heroClaimed = true;
     const section = extractSection(block, classification);
 
     imported.push({
