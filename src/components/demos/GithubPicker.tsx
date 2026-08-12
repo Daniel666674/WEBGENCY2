@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckSquare, FileCode, GitBranch, Loader2, Lock, Search, Settings, Square } from "lucide-react";
+import { CheckSquare, FileCode, GitBranch, Loader2, Lock, Palette, Search, Settings, Square } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/context/UserContext";
@@ -16,6 +16,7 @@ interface Repo {
 interface RepoFile {
   path: string;
   size: number;
+  kind: "html" | "css";
 }
 
 /**
@@ -92,7 +93,9 @@ export function GithubPicker({
   }
 
   async function importPicked() {
-    if (!repo || picked.size === 0) return;
+    const htmlPaths = [...picked].filter((p) => (files ?? []).find((f) => f.path === p)?.kind !== "css");
+    const cssPaths = [...picked].filter((p) => (files ?? []).find((f) => f.path === p)?.kind === "css");
+    if (!repo || htmlPaths.length === 0) return;
     setFetching(true);
     try {
       // Sequential on purpose: firing eight parallel requests at the GitHub
@@ -106,22 +109,35 @@ export function GithubPicker({
         return body as { content: string; rawBaseUrl: string };
       };
 
-      // Stylesheets are fetched too, and they are not optional polish: a real
-      // site keeps its palette — and in "diseño original" mode, its entire
-      // visual identity — in a linked .css. Cached across pages because a
-      // site's pages share one stylesheet.
+      // Stylesheets are fetched two ways, and both feed every selected page:
+      // auto-detected from each page's own <link rel="stylesheet">, and
+      // whatever the user checked by hand in the "Hojas de estilos" list
+      // below. The second exists because auto-detection can miss a real
+      // stylesheet — a bundler-generated filename, one injected by a script,
+      // one meant for a different page than the one that happens to link
+      // it — and there was previously no way to see or override that guess.
       const cssCache = new Map<string, string>();
       const failedCss = new Set<string>();
+
+      const chosenCss: string[] = [];
+      for (const path of cssPaths) {
+        try {
+          chosenCss.push((await get(path)).content);
+        } catch {
+          failedCss.add(path);
+        }
+      }
+
       const loaded: { path: string; html: string; baseUrl: string; css: string[] }[] = [];
 
-      for (const path of picked) {
+      for (const path of htmlPaths) {
         const file = await get(path);
         const dir = path.includes("/") ? path.slice(0, path.lastIndexOf("/") + 1) : "";
-        const css: string[] = [];
+        const css: string[] = [...chosenCss];
 
         for (const href of stylesheetHrefs(file.content).slice(0, 4)) {
           const cssPath = repoPath(href, dir);
-          if (!cssPath) continue;
+          if (!cssPath || cssPaths.includes(cssPath)) continue; // already fetched above
           if (!cssCache.has(cssPath)) {
             try {
               cssCache.set(cssPath, (await get(cssPath)).content);
@@ -220,7 +236,10 @@ export function GithubPicker({
     );
   }
 
-  const shownFiles = (files ?? []).filter((f) => f.path.toLowerCase().includes(filter.toLowerCase()));
+  const shown = (files ?? []).filter((f) => f.path.toLowerCase().includes(filter.toLowerCase()));
+  const shownHtml = shown.filter((f) => f.kind === "html");
+  const shownCss = shown.filter((f) => f.kind === "css");
+  const pickedHtml = [...picked].filter((p) => (files ?? []).find((f) => f.path === p)?.kind === "html");
 
   return (
     <div className="space-y-2">
@@ -242,7 +261,7 @@ export function GithubPicker({
 
       {files === null ? (
         <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Buscando archivos .html...
+          <Loader2 className="h-4 w-4 animate-spin" /> Buscando archivos .html y .css...
         </div>
       ) : files.length === 0 ? (
         <p className="p-6 text-center text-sm text-muted-foreground">
@@ -254,22 +273,30 @@ export function GithubPicker({
 
           <div className="flex items-center justify-between px-0.5 text-xs text-muted-foreground">
             <span>
-              {picked.size === 0
+              {pickedHtml.length === 0
                 ? "Elegí las páginas del sitio"
-                : `${picked.size} ${picked.size === 1 ? "página elegida" : "páginas elegidas"}`}
+                : `${pickedHtml.length} ${pickedHtml.length === 1 ? "página elegida" : "páginas elegidas"}`}
             </span>
             <button
               onClick={() =>
-                setPicked(picked.size === shownFiles.length ? new Set() : new Set(shownFiles.map((f) => f.path)))
+                setPicked((prev) => {
+                  const allOn = shownHtml.every((f) => prev.has(f.path));
+                  const next = new Set(prev);
+                  for (const f of shownHtml) {
+                    if (allOn) next.delete(f.path);
+                    else next.add(f.path);
+                  }
+                  return next;
+                })
               }
               className="text-primary hover:underline cursor-pointer"
             >
-              {picked.size === shownFiles.length ? "Ninguna" : "Todas"}
+              {shownHtml.length > 0 && shownHtml.every((f) => picked.has(f.path)) ? "Ninguna" : "Todas"}
             </button>
           </div>
 
-          <div className="max-h-64 space-y-1 overflow-y-auto">
-            {shownFiles.map((f) => {
+          <div className="max-h-56 space-y-1 overflow-y-auto">
+            {shownHtml.map((f) => {
               const on = picked.has(f.path);
               return (
                 <button
@@ -296,20 +323,63 @@ export function GithubPicker({
             })}
           </div>
 
+          {/* CSS is separate from the page list on purpose: it's not one
+              more thing to import, it's the styling that applies to
+              whichever pages get picked above. Auto-detected from each
+              page's own <link rel="stylesheet"> either way — checking one
+              here is for the cases that guess can't make: a bundler
+              filename, a sheet injected by a script, one meant for a page
+              that doesn't happen to link it. */}
+          {shownCss.length > 0 && (
+            <>
+              <p className="flex items-center gap-1.5 pt-1 text-xs font-medium text-muted-foreground">
+                <Palette className="h-3 w-3" /> Hojas de estilos
+                <span className="font-normal">— opcional, se detectan solas desde cada página</span>
+              </p>
+              <div className="max-h-32 space-y-1 overflow-y-auto">
+                {shownCss.map((f) => {
+                  const on = picked.has(f.path);
+                  return (
+                    <button
+                      key={f.path}
+                      disabled={busy || fetching}
+                      onClick={() => toggle(f.path)}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-lg border p-2.5 text-left text-sm transition-colors cursor-pointer disabled:opacity-50",
+                        on ? "border-primary/60 bg-primary/5" : "hover:border-primary/40"
+                      )}
+                    >
+                      {on ? (
+                        <CheckSquare className="h-3.5 w-3.5 shrink-0 text-primary" />
+                      ) : (
+                        <Square className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      )}
+                      <Palette className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      <span className="flex-1 truncate">{f.path}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {Math.max(1, Math.round(f.size / 1024))} KB
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
           <button
             onClick={() => void importPicked()}
-            disabled={busy || fetching || picked.size === 0}
+            disabled={busy || fetching || pickedHtml.length === 0}
             className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50 cursor-pointer"
           >
             {fetching && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             {fetching
               ? "Trayendo archivos..."
-              : picked.size > 1
-                ? `Analizar ${picked.size} páginas`
+              : pickedHtml.length > 1
+                ? `Analizar ${pickedHtml.length} páginas`
                 : "Analizar página"}
           </button>
 
-          {picked.size > 1 && (
+          {pickedHtml.length > 1 && (
             <p className="text-xs text-muted-foreground">
               La página <strong>index.html</strong> queda como inicio y el resto cuelgan de ella. Los enlaces entre
               páginas se reconectan solos.

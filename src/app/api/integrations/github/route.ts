@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApi } from "@/lib/apiAuth";
-import { GithubError, getFile, getGithubConfig, listHtmlFiles, listRepos } from "@/lib/github";
+import { GithubError, getFile, getGithubConfig, listRepoFiles, listRepos } from "@/lib/github";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
     if (action === "files") {
       return NextResponse.json(
-        { files: await listHtmlFiles(token, repo, ref) },
+        { files: await listRepoFiles(token, repo, ref) },
         { headers: { "Cache-Control": "no-store" } }
       );
     }
