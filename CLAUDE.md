@@ -88,6 +88,13 @@ El schema se crea solo (`ensureSchema()` en `src/instrumentation.ts`) al arranca
 | `/api/webhook` | POST | Recibir leads de formularios externos (Typeform, Tally, etc.) |
 | `/api/export` | GET | Exportar contactos o deals como CSV (?type=contacts o deals) |
 | `/api/digest` | POST | Enviar resumen diario por email (requiere RESEND_API_KEY) |
+| `/api/pipeline/stages` | GET, POST, PUT, DELETE | CRUD de etapas (DELETE exige `?moveTo=` si la etapa tiene deals) |
+| `/api/automations/run` | GET, POST | Historial del motor; ejecutar (`{"dryRun":true}` por defecto) |
+| `/api/settings/automations` | GET, PUT | Reglas del motor de automatizaciones |
+| `/api/settings/business` | GET, PUT | Perfil de tu propia empresa |
+| `/api/settings/notifications` | GET, PUT | Destinatarios y canales de aviso |
+| `/api/settings/integrations` | GET | Estado real de cada integracion (solo booleanos, nunca secretos) |
+| `/api/cron/daily` | GET | Corre automatizaciones + envia el resumen. Requiere `CRON_SECRET` |
 
 ## Configuracion del negocio
 
@@ -95,6 +102,29 @@ El archivo `crm-config.json` (raiz del proyecto) tiene la configuracion personal
 Se genera con `/setup` y se modifica con `/customize`.
 
 El archivo en `public/crm-config.json` es la copia por defecto (template).
+
+La configuracion que se edita desde la app vive en la tabla `crm_settings` (key/value), no en
+archivos — asi se cambia sin redeploy. Claves actuales: `business_profile`, `automations_config`,
+`notification_config`, `payment_automation_config`.
+
+## Motor de automatizaciones
+
+`src/lib/automations.ts` (config) + `src/lib/automationEngine.ts` (planificar y aplicar).
+Corre una vez al dia desde `/api/cron/daily` y se configura en Settings > Automatizaciones.
+
+- **Planificar es una funcion pura** — sin escrituras. El mismo codigo alimenta el simulacro
+  ("Probar") y la corrida real, asi que la vista previa muestra exactamente lo que va a pasar.
+- **Cada accion lleva una `dedupeKey` estable** (regla + entidad) y se registra en `automation_runs`.
+  Una accion cuya clave ya se escribio dentro del `cooldownDays` de su regla se omite — por eso
+  correr el job dos veces la misma manana no duplica nada.
+- **Nada es destructivo**: el motor crea trabajo y baja la temperatura de un lead. Nunca borra,
+  nunca cierra un deal, nunca le escribe directo al cliente.
+- Reglas que solo avisan (`notifyOnly`) no escriben registros; devuelven texto para que el cron
+  lo entregue por email o WhatsApp.
+
+Al agregar una regla nueva: definirla en `RULE_META` + `DEFAULT_RULES` (`automations.ts`) y
+emitir su accion en `planAutomations()`. `normalizeConfig()` hace que una regla nueva llegue
+activada en instalaciones existentes en vez de faltar.
 
 ## Reglas de codigo
 

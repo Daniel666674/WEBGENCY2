@@ -452,3 +452,31 @@ export const nbaDismissals = sqliteTable("nba_dismissals", {
     .notNull()
     .$defaultFn(() => new Date()),
 });
+
+/**
+ * Ledger of every action the automation engine has actually taken.
+ *
+ * This is what makes a daily job safe to run daily. The engine re-evaluates
+ * the same rules against the same data every morning, so without a record of
+ * what it already did, "propuesta sin abrir hace 3 días" would create a new
+ * follow-up every single day until someone opened it. Each action carries a
+ * stable `dedupeKey` (rule + entity); the engine skips any key it already
+ * wrote inside that rule's cooldown window.
+ *
+ * It doubles as the audit trail: automations act on their own, so being able
+ * to answer "why does this task exist and who created it?" is not optional.
+ */
+export const automationRuns = sqliteTable("automation_runs", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  ruleId: text("rule_id").notNull(),
+  dedupeKey: text("dedupe_key").notNull(),
+  entityType: text("entity_type"),
+  entityId: text("entity_id"),
+  /** Human-readable line for the run log in Settings. */
+  summary: text("summary").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
