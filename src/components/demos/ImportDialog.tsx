@@ -7,6 +7,8 @@ import {
   ArrowLeft,
   CheckCircle2,
   FileCode,
+  Home,
+  Link2,
   Loader2,
   Upload,
   X,
@@ -16,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { SECTION_LABELS } from "@/lib/demo/types";
 import type { SectionType } from "@/lib/demo/types";
 import { GithubPicker } from "./GithubPicker";
+import { UrlPicker } from "./UrlPicker";
 
 interface ReportSection {
   id: string;
@@ -27,11 +30,29 @@ interface ReportSection {
   heading: string;
 }
 
-interface Report {
+interface ReportPage {
+  id: string;
+  slug: string;
+  title: string;
+  path: string;
+  isHome: boolean;
   sections: ReportSection[];
+}
+
+interface Report {
+  multiPage: boolean;
+  pages: ReportPage[];
   warnings: string[];
   brand: { name: string; accent: string; detectedColors: boolean };
   images: number;
+  linksRewired: number;
+}
+
+interface SourceFile {
+  path: string;
+  html: string;
+  baseUrl?: string;
+  css?: string[];
 }
 
 const CONFIDENCE_STYLE: Record<ReportSection["confidence"], string> = {
@@ -47,31 +68,32 @@ const CONFIDENCE_LABEL: Record<ReportSection["confidence"], string> = {
 };
 
 /**
- * Import an HTML page and turn it into an editable demo.
+ * Import HTML pages and turn them into an editable demo.
  *
- * Two steps, and the second one is what makes this usable: the file is parsed
- * server-side without saving anything, and the result is shown section by
- * section before the demo exists. An importer that silently produced a
- * mangled demo would cost more time than building the page by hand.
+ * Two steps, and the second one is what makes this usable: the files are
+ * parsed server-side without saving anything, and the result is shown page by
+ * page and section by section before the demo exists. An importer that
+ * silently produced a mangled demo would cost more time than building the
+ * pages by hand.
  */
 export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [tab, setTab] = useState<"file" | "github">("file");
-  const [html, setHtml] = useState("");
-  const [sourceUrl, setSourceUrl] = useState("");
+  const [tab, setTab] = useState<"file" | "github" | "url">("file");
+  const [files, setFiles] = useState<SourceFile[]>([]);
   const [title, setTitle] = useState("");
   const [report, setReport] = useState<Report | null>(null);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
+  const [openPages, setOpenPages] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
 
   function reset() {
-    setHtml("");
-    setSourceUrl("");
+    setFiles([]);
     setTitle("");
     setReport(null);
     setExcluded(new Set());
+    setOpenPages(new Set());
     setDragging(false);
   }
 
@@ -80,35 +102,57 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
     onClose();
   }
 
-  async function analyze(source: string, url?: string, name?: string) {
+  async function analyze(sources: SourceFile[], name?: string) {
+    if (sources.length === 0) return;
     setBusy(true);
     try {
       const res = await fetch("/api/demo-pages/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ html: source, sourceUrl: url, title: name, dryRun: true }),
+        body: JSON.stringify({ files: sources, title: name, dryRun: true }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);
-      setHtml(source);
-      setSourceUrl(url ?? "");
+      setFiles(sources);
       setTitle(name ?? body.report.brand.name ?? "");
       setReport(body.report);
       setExcluded(new Set());
+      // Multi-page opens collapsed except home; a single page opens expanded,
+      // since there is nothing to scan past.
+      setOpenPages(
+        new Set(
+          body.report.multiPage
+            ? body.report.pages.filter((p: ReportPage) => p.isHome).map((p: ReportPage) => p.id)
+            : body.report.pages.map((p: ReportPage) => p.id)
+        )
+      );
     } catch (e) {
-      toast.error(e instanceof Error && e.message ? e.message : "No pudimos leer ese archivo");
+      toast.error(e instanceof Error && e.message ? e.message : "No pudimos leer esos archivos");
     } finally {
       setBusy(false);
     }
   }
 
-  async function takeFile(file: File | undefined) {
-    if (!file) return;
-    if (!/\.html?$/i.test(file.name) && file.type !== "text/html") {
-      return toast.error("Tiene que ser un archivo .html");
+  async function takeFiles(list: FileList | null) {
+    const all = [...(list ?? [])];
+    const chosen = all.filter((f) => /\.html?$/i.test(f.name) || f.type === "text/html");
+    if (chosen.length === 0) return toast.error("Tienen que ser archivos .html");
+
+    // A dropped .css comes along for the ride. It is the only way an upload
+    // can pick up the site's real palette — otherwise a black site imports
+    // white, because the colours were never in the HTML.
+    const css: string[] = [];
+    for (const f of all.filter((f) => /\.css$/i.test(f.name))) css.push(await f.text());
+
+    const sources: SourceFile[] = [];
+    for (const f of chosen) {
+      // webkitRelativePath is set when a whole folder is dropped, and it is
+      // what makes subfolder links resolve correctly.
+      const path = (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name;
+      sources.push({ path, html: await f.text(), css });
     }
-    const text = await file.text();
-    await analyze(text, undefined, file.name.replace(/\.html?$/i, ""));
+    const base = chosen[0].name.replace(/\.html?$/i, "");
+    await analyze(sources, sources.length > 1 ? undefined : base);
   }
 
   async function create() {
@@ -119,8 +163,7 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          html,
-          sourceUrl: sourceUrl || undefined,
+          files,
           title: title || undefined,
           dryRun: false,
           exclude: [...excluded],
@@ -128,7 +171,7 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);
-      toast.success("Demo importado");
+      toast.success(report.multiPage ? `Demo importado con ${report.pages.length} páginas` : "Demo importado");
       close();
       router.push(`/demos/${body.id}`);
     } catch (e) {
@@ -137,9 +180,32 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
     }
   }
 
+  function toggleSection(id: string) {
+    setExcluded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function togglePage(page: ReportPage) {
+    const ids = page.sections.map((s) => s.id);
+    const allOff = ids.every((id) => excluded.has(id));
+    setExcluded((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) {
+        if (allOff) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
+  }
+
   if (!open) return null;
 
-  const kept = report ? report.sections.filter((s) => !excluded.has(s.id)).length : 0;
+  const kept = report ? report.pages.flatMap((p) => p.sections).filter((s) => !excluded.has(s.id)).length : 0;
+  const livePages = report ? report.pages.filter((p) => p.sections.some((s) => !excluded.has(s.id))).length : 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={close}>
@@ -159,7 +225,7 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
               </button>
             )}
             <h2 className="text-base font-semibold">
-              {report ? "Revisá lo que encontramos" : "Importar una página HTML"}
+              {report ? "Revisá lo que encontramos" : "Importar páginas HTML"}
             </h2>
           </div>
           <button onClick={close} className="p-1 rounded text-muted-foreground hover:text-foreground cursor-pointer">
@@ -170,7 +236,7 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
         {!report ? (
           <div className="p-5 space-y-4">
             <div className="flex gap-1 rounded-lg bg-muted p-1">
-              {(["file", "github"] as const).map((t) => (
+              {(["file", "github", "url"] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
@@ -179,7 +245,7 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
                     tab === t ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  {t === "file" ? "Subir archivo" : "Desde GitHub"}
+                  {t === "file" ? "Subir archivos" : t === "github" ? "Desde GitHub" : "Desde una URL"}
                 </button>
               ))}
             </div>
@@ -192,7 +258,7 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
                   onDrop={(e) => {
                     e.preventDefault();
                     setDragging(false);
-                    void takeFile(e.dataTransfer.files[0]);
+                    void takeFiles(e.dataTransfer.files);
                   }}
                   onClick={() => fileRef.current?.click()}
                   className={cn(
@@ -206,23 +272,25 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
                     <Upload className="h-7 w-7 text-muted-foreground" />
                   )}
                   <p className="text-sm font-medium">
-                    {busy ? "Leyendo la página..." : "Arrastrá el archivo .html o hacé clic"}
+                    {busy ? "Leyendo las páginas..." : "Arrastrá los archivos .html o hacé clic"}
                   </p>
-                  <p className="text-xs text-muted-foreground">Hasta 2 MB</p>
+                  <p className="text-xs text-muted-foreground">
+                    Varios .html se importan como un solo demo con sus páginas. Sumá el .css para que viajen los colores.
+                  </p>
                 </div>
                 <input
                   ref={fileRef}
                   type="file"
-                  accept=".html,.htm,text/html"
+                  accept=".html,.htm,.css,text/html"
+                  multiple
                   className="hidden"
-                  onChange={(e) => void takeFile(e.target.files?.[0])}
+                  onChange={(e) => void takeFiles(e.target.files)}
                 />
               </>
+            ) : tab === "github" ? (
+              <GithubPicker busy={busy} onPick={(picked, name) => void analyze(picked, name)} />
             ) : (
-              <GithubPicker
-                busy={busy}
-                onPick={(content, url, name) => void analyze(content, url, name)}
-              />
+              <UrlPicker busy={busy} onPick={(picked, name) => void analyze(picked, name)} />
             )}
 
             <p className="text-xs text-muted-foreground">
@@ -241,6 +309,14 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
               />
             </label>
 
+            {report.multiPage && report.linksRewired > 0 && (
+              <p className="flex items-start gap-2 rounded-lg border border-green-100 bg-green-50 p-2.5 text-xs text-green-800">
+                <Link2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                Reconectamos {report.linksRewired} {report.linksRewired === 1 ? "enlace" : "enlaces"} entre páginas —
+                el menú va a navegar dentro del demo, no a archivos sueltos.
+              </p>
+            )}
+
             {report.warnings.map((w, i) => (
               <p
                 key={i}
@@ -251,56 +327,102 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
               </p>
             ))}
 
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">
-                  {report.sections.length} {report.sections.length === 1 ? "sección" : "secciones"}
-                </p>
-                <span className="text-xs text-muted-foreground">{report.images} imágenes</span>
-              </div>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">
+                {report.multiPage
+                  ? `${report.pages.length} páginas · ${kept} secciones`
+                  : `${kept} ${kept === 1 ? "sección" : "secciones"}`}
+              </p>
+              <span className="text-xs text-muted-foreground">{report.images} imágenes</span>
+            </div>
 
-              {report.sections.map((s) => {
-                const on = !excluded.has(s.id);
+            <div className="space-y-2">
+              {report.pages.map((page) => {
+                const isOpen = openPages.has(page.id);
+                const on = page.sections.filter((s) => !excluded.has(s.id)).length;
                 return (
-                  <label
-                    key={s.id}
-                    className={cn(
-                      "flex cursor-pointer items-start gap-3 rounded-lg border p-2.5 transition-colors",
-                      on ? "hover:border-primary/40" : "opacity-45"
-                    )}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={on}
-                      onChange={() =>
-                        setExcluded((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(s.id)) next.delete(s.id);
-                          else next.add(s.id);
-                          return next;
-                        })
-                      }
-                      className="mt-0.5 cursor-pointer"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-medium">{SECTION_LABELS[s.type]}</span>
-                        <span
-                          className={cn(
-                            "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                            CONFIDENCE_STYLE[s.confidence]
-                          )}
+                  <div key={page.id} className="rounded-lg border">
+                    {report.multiPage && (
+                      <div className="flex items-center gap-2 border-b px-3 py-2">
+                        <button
+                          onClick={() =>
+                            setOpenPages((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(page.id)) next.delete(page.id);
+                              else next.add(page.id);
+                              return next;
+                            })
+                          }
+                          className="flex min-w-0 flex-1 items-center gap-2 text-left cursor-pointer"
                         >
-                          {CONFIDENCE_LABEL[s.confidence]}
-                        </span>
-                        {s.itemCount > 0 && (
-                          <span className="text-xs text-muted-foreground">{s.itemCount} elementos</span>
+                          {page.isHome && <Home className="h-3.5 w-3.5 shrink-0 text-primary" />}
+                          <span className="truncate text-sm font-medium">{page.title}</span>
+                          <code className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                            {page.isHome ? "/" : `/${page.slug}`}
+                          </code>
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {on}/{page.sections.length}
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => togglePage(page)}
+                          className="shrink-0 text-xs text-primary hover:underline cursor-pointer"
+                        >
+                          {on === 0 ? "Incluir" : "Excluir"}
+                        </button>
+                      </div>
+                    )}
+
+                    {(isOpen || !report.multiPage) && (
+                      <div className="space-y-1.5 p-2">
+                        {page.sections.length === 0 ? (
+                          <p className="px-1 py-2 text-xs text-muted-foreground">
+                            No encontramos contenido importable en esta página.
+                          </p>
+                        ) : (
+                          page.sections.map((s) => {
+                            const kept = !excluded.has(s.id);
+                            return (
+                              <label
+                                key={s.id}
+                                className={cn(
+                                  "flex cursor-pointer items-start gap-3 rounded-lg border p-2.5 transition-colors",
+                                  kept ? "hover:border-primary/40" : "opacity-45"
+                                )}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={kept}
+                                  onChange={() => toggleSection(s.id)}
+                                  className="mt-0.5 cursor-pointer"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-sm font-medium">{SECTION_LABELS[s.type]}</span>
+                                    <span
+                                      className={cn(
+                                        "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                                        CONFIDENCE_STYLE[s.confidence]
+                                      )}
+                                    >
+                                      {CONFIDENCE_LABEL[s.confidence]}
+                                    </span>
+                                    {s.itemCount > 0 && (
+                                      <span className="text-xs text-muted-foreground">{s.itemCount} elementos</span>
+                                    )}
+                                  </div>
+                                  {s.heading && (
+                                    <p className="mt-0.5 truncate text-xs text-foreground/80">{s.heading}</p>
+                                  )}
+                                  <p className="mt-0.5 text-xs text-muted-foreground">{s.evidence}</p>
+                                </div>
+                              </label>
+                            );
+                          })
                         )}
                       </div>
-                      {s.heading && <p className="mt-0.5 truncate text-xs text-foreground/80">{s.heading}</p>}
-                      <p className="mt-0.5 text-xs text-muted-foreground">{s.evidence}</p>
-                    </div>
-                  </label>
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -312,13 +434,17 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
                 className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50 cursor-pointer"
               >
                 {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                {busy ? "Creando..." : `Crear demo con ${kept} ${kept === 1 ? "sección" : "secciones"}`}
+                {busy
+                  ? "Creando..."
+                  : report.multiPage
+                    ? `Crear demo · ${livePages} ${livePages === 1 ? "página" : "páginas"}`
+                    : `Crear demo con ${kept} ${kept === 1 ? "sección" : "secciones"}`}
               </button>
               <button
                 onClick={reset}
                 className="flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted cursor-pointer"
               >
-                <FileCode className="h-3.5 w-3.5" /> Otro archivo
+                <FileCode className="h-3.5 w-3.5" /> Otros archivos
               </button>
             </div>
           </div>

@@ -43,6 +43,8 @@ const CONTACT_HINT = /\b(tel[ée]fono|whatsapp|correo|email|direcci[óo]n|addres
 const STAT_VALUE = /^[+\-]?[\d.,]{1,6}\s*(?:%|k|m|\+|mil|millones)?$/i;
 /** Phone numbers open with a plus and digits exactly like a stat does. */
 const PHONE_LIKE = /^\+?\d[\d\s().-]{6,}$/;
+/** The bullet/star separators a scrolling announcement bar is built from. */
+const MARQUEE_SEP = /[✦•·|]/g;
 
 /** Words that mean "we made this up from very little". */
 function shortLabel(text: string): boolean {
@@ -54,8 +56,32 @@ export function classifyBlock(block: Block, isFirst: boolean): Classification {
   const h1 = headings.find((h) => h.level === 1);
   const words = text.split(/\s+/).filter(Boolean).length;
 
+  // ── Announcement strip ──────────────────────────────────
+  // A rendered page often has one of these ahead of the hero — a scrolling
+  // "free shipping ✦ 3 payments ✦ ..." bar. It has no heading and reads as a
+  // wall of bullet-separated fragments; classified before the hero check so
+  // it never steals block 0 from the real headline.
+  if (
+    headings.length === 0 &&
+    words <= 40 &&
+    (text.match(MARQUEE_SEP) ?? []).length >= 2 &&
+    images.length <= 1
+  ) {
+    return { type: "banner", variant: "solid", confidence: "medium", evidence: "Franja de anuncios en movimiento" };
+  }
+
+  // ── Hero: the first block that actually carries a title ─
+  // Not necessarily block 0 — a rendered page can inject an announcement bar,
+  // a cookie notice or a promo strip ahead of the real hero. Scanning ahead a
+  // few blocks for the first h1 is what keeps that from bumping the headline,
+  // its lede and its buttons into a random middle section.
+  const isHero = isFirst || (block.index <= 2 && !!h1);
+
   // ── Video: the embed is unambiguous ────────────────────
-  if (embeds.some((e) => VIDEO_HOST.test(e))) {
+  // Unless this is the hero with a background video: then the embed is the
+  // hero's backdrop, not a video section, and treating it as one drops the
+  // headline, the lede and the buttons sitting on top of it.
+  if (!(isHero && h1) && embeds.some((e) => VIDEO_HOST.test(e))) {
     return {
       type: "video",
       variant: headings.length > 0 ? "framed" : "full",
@@ -64,9 +90,11 @@ export function classifyBlock(block: Block, isFirst: boolean): Classification {
     };
   }
 
-  // ── Hero: first block carrying the page's main title ───
-  if (isFirst && (h1 || headings.length > 0) && words < 160) {
-    const variant = bgImage ? "cover" : images.length > 0 ? "split" : "stack";
+  if (isHero && (h1 || headings.length > 0) && words < 160) {
+    // A full-bleed video or background image both render as "cover"; the
+    // poster frame stands in for the video, which render.ts cannot play.
+    const backdrop = bgImage || block.posterImage;
+    const variant = backdrop ? "cover" : images.length > 0 ? "split" : "stack";
     return {
       type: "hero",
       variant,

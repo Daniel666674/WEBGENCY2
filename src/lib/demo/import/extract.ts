@@ -90,6 +90,7 @@ function mediaOf(img: ImgRef | undefined, kind: "image" | "video" = "image"): Me
 /** The image most likely to be the section's subject, not an icon. */
 function heroImage(block: Block): ImgRef | undefined {
   if (block.bgImage) return { src: block.bgImage, alt: "" };
+  if (block.posterImage) return { src: block.posterImage, alt: "" };
   return block.images.find((i) => i.src && !/icon|logo|sprite/i.test(i.src)) ?? block.images[0];
 }
 
@@ -171,7 +172,9 @@ export function extractSection(block: Block, c: Classification): Section {
         ctaText: cta?.text,
         ctaUrl: cta?.url,
         media: mediaOf(heroImage(block)),
-        style: block.bgImage ? { overlay: 45 } : undefined,
+        // A cover hero needs the overlay or the headline sits unreadable on
+        // top of a photo.
+        style: block.bgImage || block.posterImage ? { overlay: 45 } : undefined,
       };
     }
 
