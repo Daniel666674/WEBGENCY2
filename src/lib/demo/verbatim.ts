@@ -83,26 +83,17 @@ export function buildVerbatimDocument(html: string, css: string): string {
 const INJECT_ATTR = "data-oliwan-inject";
 
 /**
- * The one piece of "drag and drop blocks" that's actually honest for raw
- * HTML: there are no typed Sections to reorder here, only whatever elements
- * happen to sit at the top of `<body>`. So that's what becomes draggable —
- * whole top-level nodes, swapped with each other. It's not the Section
- * builder's drag-and-drop, and page authors need to know that; it's the
- * closest true equivalent that doesn't require inventing a block model for
- * arbitrary markup.
+ * "text": whole-page contentEditable + drag-reorder of top-level `<body>`
+ *   blocks. "menu": the same, scoped to the page's own `<nav>` links, plus
+ *   add/remove and a URL prompt. "style": click any element — header,
+ *   footer, a card, a button, the logo — to edit its inline style (or swap
+ *   its image) without touching anything else on the page.
+ *
+ * None of these invent a block or component model for arbitrary HTML; each
+ * one edits the real DOM node a click actually lands on. That's the honest
+ * ceiling for a page whose whole point is being the source's own markup.
  */
-export type VerbatimEditMode = "text" | "menu";
-
-/**
- * The one piece of "drag and drop blocks" that's actually honest for raw
- * HTML: there are no typed Sections to reorder here, only whatever elements
- * happen to sit at the top of `<body>` (mode "text"), or whatever `<a>`s sit
- * inside the page's own `<nav>` (mode "menu"). So that's what becomes
- * draggable — whole nodes, swapped with each other. It's not the Section
- * builder's drag-and-drop, and page authors need to know that; it's the
- * closest true equivalent that doesn't require inventing a block model for
- * arbitrary markup.
- */
+export type VerbatimEditMode = "text" | "menu" | "style";
 const EDIT_SCRIPT = `(function(){
   var MODE = window.__oliwanMode || 'text';
   function snapshot(){
@@ -113,6 +104,8 @@ const EDIT_SCRIPT = `(function(){
     for (var j = 0; j < draggable.length; j++) draggable[j].removeAttribute('draggable');
     var over = clone.querySelectorAll('.oliwan-drag-over');
     for (var k = 0; k < over.length; k++) over[k].classList.remove('oliwan-drag-over');
+    var marked = clone.querySelectorAll('.oliwan-hover, .oliwan-selected');
+    for (var m = 0; m < marked.length; m++) marked[m].classList.remove('oliwan-hover', 'oliwan-selected');
     return '<!DOCTYPE html>\\n' + clone.outerHTML;
   }
   function notify(){
@@ -216,6 +209,74 @@ const EDIT_SCRIPT = `(function(){
       nav.appendChild(addBtn);
     }
   }
+
+  if (MODE === 'style') {
+    function pathOf(el){
+      var path = [];
+      var node = el;
+      while (node && node !== document.body) {
+        var p = node.parentElement;
+        if (!p) break;
+        path.unshift(Array.prototype.indexOf.call(p.children, node));
+        node = p;
+      }
+      return path;
+    }
+    function elAt(path){
+      var node = document.body;
+      for (var i = 0; i < path.length; i++) {
+        if (!node || !node.children[path[i]]) return null;
+        node = node.children[path[i]];
+      }
+      return node;
+    }
+
+    var hovered = null;
+    document.body.addEventListener('mouseover', function (e) {
+      var el = e.target;
+      if (!el || el === document.body || el.hasAttribute('${INJECT_ATTR}')) return;
+      if (hovered && hovered !== el) hovered.classList.remove('oliwan-hover');
+      hovered = el;
+      el.classList.add('oliwan-hover');
+    });
+    document.body.addEventListener('mouseout', function () {
+      if (hovered) { hovered.classList.remove('oliwan-hover'); hovered = null; }
+    });
+    document.body.addEventListener('click', function (e) {
+      var el = e.target;
+      if (!el || el === document.body || el.hasAttribute('${INJECT_ATTR}')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      var prevSel = document.querySelector('.oliwan-selected');
+      if (prevSel) prevSel.classList.remove('oliwan-selected');
+      el.classList.add('oliwan-selected');
+      try {
+        parent.postMessage({
+          source: 'oliwan-verbatim',
+          type: 'select',
+          path: pathOf(el),
+          tag: el.tagName.toLowerCase(),
+          style: el.getAttribute('style') || '',
+          isImg: el.tagName === 'IMG',
+          src: el.tagName === 'IMG' ? el.getAttribute('src') : null
+        }, '*');
+      } catch (err) {}
+    }, true);
+
+    window.addEventListener('message', function (e) {
+      var d = e.data;
+      if (!d || d.source !== 'oliwan-editor-verbatim') return;
+      var el = elAt(d.path || []);
+      if (!el) return;
+      if (d.type === 'apply-style') {
+        el.setAttribute('style', d.style || '');
+        notify();
+      } else if (d.type === 'apply-src' && el.tagName === 'IMG') {
+        el.setAttribute('src', d.src || '');
+        notify();
+      }
+    });
+  }
 })();`;
 
 const EDIT_STYLE = `[draggable="true"]{cursor:grab;}
@@ -224,7 +285,9 @@ const EDIT_STYLE = `[draggable="true"]{cursor:grab;}
 [contenteditable="true"]:focus{outline:none;}
 .oliwan-nav-del{display:inline-block;margin-left:4px;padding:0 5px;font:700 13px/1.4 sans-serif;color:#ef4444;cursor:pointer;user-select:none;border-radius:3px;}
 .oliwan-nav-del:hover{background:rgba(239,68,68,.15);}
-.oliwan-nav-add{margin-left:10px;padding:2px 10px;font:600 12px sans-serif;border:1px dashed #6366f1;color:#6366f1;background:transparent;border-radius:5px;cursor:pointer;}`;
+.oliwan-nav-add{margin-left:10px;padding:2px 10px;font:600 12px sans-serif;border:1px dashed #6366f1;color:#6366f1;background:transparent;border-radius:5px;cursor:pointer;}
+.oliwan-hover{outline:2px dashed rgba(99,102,241,.6) !important;outline-offset:1px;cursor:pointer;}
+.oliwan-selected{outline:2px solid #6366f1 !important;outline-offset:1px;}`;
 
 /**
  * Same document as `buildVerbatimDocument`, plus an editing bridge that only
@@ -267,6 +330,29 @@ export function replaceNavBlock(targetHtml: string, sourceHtml: string): string 
   const dst = block(targetHtml ?? "");
   if (!src || !dst) return targetHtml;
   return targetHtml.replace(dst.re, src.text);
+}
+
+/** Turns an inline `style="a: b; c: d"` attribute into a plain lookup —
+ *  just enough to read and rewrite the handful of properties the style
+ *  panel exposes, without needing a real CSS parser for a single element's
+ *  attribute. */
+export function parseInlineStyle(style: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  (style ?? "").split(";").forEach((decl) => {
+    const idx = decl.indexOf(":");
+    if (idx === -1) return;
+    const key = decl.slice(0, idx).trim().toLowerCase();
+    const value = decl.slice(idx + 1).trim();
+    if (key && value) out[key] = value;
+  });
+  return out;
+}
+
+export function serializeInlineStyle(props: Record<string, string>): string {
+  return Object.entries(props)
+    .filter(([, v]) => v)
+    .map(([k, v]) => `${k}: ${v};`)
+    .join(" ");
 }
 
 export interface CssColorVar {
