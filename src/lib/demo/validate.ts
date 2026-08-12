@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { SectionType, DemoConfig, ElementKey } from "./types";
+import { MAX_VERBATIM_CSS, MAX_VERBATIM_HTML, stripDangerousHtml } from "./verbatim";
 
 // ─────────────────────────────────────────────────────────────
 // Safety primitives
@@ -272,6 +273,20 @@ const demoPageSchema = z.object({
   sections: z.array(sectionSchema).max(80),
 });
 
+// The real allowlist pass (sanitize-html) runs once, at the write
+// boundaries that actually accept untrusted content — see
+// verbatimSanitize.ts's file comment for why that's a separate, server-only
+// module rather than living in this schema. What runs here on every parse,
+// write or read, is the fast regex backstop: cheap enough to afford on a
+// public page view, and real insurance against a future write path that
+// forgets to call the real sanitizer, without pulling a DOM-based sanitizer
+// into whatever bundle this schema ends up in (render.ts, which needs
+// validateDemoConfig's neighbours, is imported by the client-side builder).
+const verbatimPageSchema = z.object({
+  html: z.string().max(MAX_VERBATIM_HTML).transform(stripDangerousHtml),
+  css: z.string().max(MAX_VERBATIM_CSS),
+});
+
 export const demoConfigSchema = z.object({
   template: z.string().max(40),
   fontPair: z.string().max(40),
@@ -281,20 +296,26 @@ export const demoConfigSchema = z.object({
   customCss: z.string().max(25_000).transform(safeCss).optional(),
   nav: navSchema.optional(),
   footer: footerSchema.optional(),
+  verbatim: z.record(z.string().max(60), verbatimPageSchema).optional(),
 }).superRefine((cfg, ctx) => {
-  if (!cfg.pages) return;
-  const slugs = new Set<string>();
-  for (const p of cfg.pages) {
-    if (slugs.has(p.slug)) {
-      ctx.addIssue({ code: "custom", path: ["pages"], message: `Slug de página repetido: "${p.slug || "(inicio)"}"` });
+  if (cfg.pages) {
+    const slugs = new Set<string>();
+    for (const p of cfg.pages) {
+      if (slugs.has(p.slug)) {
+        ctx.addIssue({ code: "custom", path: ["pages"], message: `Slug de página repetido: "${p.slug || "(inicio)"}"` });
+      }
+      slugs.add(p.slug);
     }
-    slugs.add(p.slug);
+  }
+  if (cfg.verbatim && Object.keys(cfg.verbatim).length > 12) {
+    ctx.addIssue({ code: "custom", path: ["verbatim"], message: "Máximo 12 páginas en diseño original." });
   }
 });
 
-/** Roughly 1 MB of JSON — generous for text, tight enough that nobody
- *  smuggles base64 images into the row instead of using Blob storage. */
-export const MAX_CONFIG_BYTES = 1_000_000;
+/** Generous for a section-only demo; a "diseño original" import with several
+ *  pages of real HTML+CSS needs real room — each page is capped on its own
+ *  (500KB html + 300KB css) but a handful of them together add up fast. */
+export const MAX_CONFIG_BYTES = 5_000_000;
 
 export type ValidationResult =
   | { ok: true; config: DemoConfig; bytes: number }

@@ -9,7 +9,7 @@ import {
   GripVertical, Eye, EyeOff, Monitor, Smartphone, Tablet, ArrowLeft,
   ExternalLink, Loader2, Globe, Check, Palette, Type, Layers, Plus,
   Undo2, Redo2, Code2, Menu, ChevronRight, Copy, Trash2, PanelsTopLeft, Files, SlidersHorizontal,
-  AlertTriangle, Lightbulb,
+  AlertTriangle, Lightbulb, Lock,
 } from "lucide-react";
 import type { DemoConfig, DemoPage, Section, SectionType, ButtonShape, ButtonFill, ElementKey, NavLink, DemoBrief } from "@/lib/demo/types";
 import { SECTION_LABELS, SECTION_CATEGORIES, newId, defaultNav, defaultFooter, defaultNavLinks, defaultPages } from "@/lib/demo/types";
@@ -148,6 +148,13 @@ export function DemoBuilder({
   const activePage = pages.find((p) => p.id === activePageId) ?? pages[0];
   const activeSections = activePage.sections;
   const isMultiPage = pages.length > 1;
+  // A page imported in "diseño original" mode has no Sections at all — its
+  // content is the html/css sitting in cfg.verbatim, and none of the
+  // section-editing UI below (structure list, add-section, click-to-edit on
+  // the canvas) has anything to act on for it. Keyed per page rather than
+  // per demo: a page added later with `addPage()` gets real sections and
+  // falls right back into normal editing, verbatim or not.
+  const isVerbatimPage = !!cfg.verbatim?.[activePage.slug];
 
   // The canvas renders from its own copy of the config. Typing inside the
   // canvas updates `cfg` (so it saves and lands in history) but deliberately
@@ -763,66 +770,81 @@ export function DemoBuilder({
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={() => { setSelected(null); setActiveSectionId(null); setGlobalTab("navfooter"); toCanvas({ type: "select", id: "__nav__" }); }}
-              className="mb-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] hover:bg-muted"
-            >
-              <Menu className="h-3.5 w-3.5 text-muted-foreground" /> Menú
-            </button>
+            {isVerbatimPage ? (
+              <div className="rounded-lg border border-dashed border-border p-3">
+                <p className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                  <Lock className="h-3.5 w-3.5 text-muted-foreground" /> Diseño original conservado
+                </p>
+                <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                  Esta página guardó el HTML y el CSS del sitio original tal cual, para que se vea exactamente
+                  igual. No tiene secciones que editar visualmente — el menú, el pie de página y el texto son
+                  parte de esa misma página.
+                </p>
+              </div>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => { setSelected(null); setActiveSectionId(null); setGlobalTab("navfooter"); toCanvas({ type: "select", id: "__nav__" }); }}
+                  className="mb-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] hover:bg-muted"
+                >
+                  <Menu className="h-3.5 w-3.5 text-muted-foreground" /> Menú
+                </button>
 
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onSectionDragEnd}>
-              <SortableContext items={activeSections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-                <div className="flex flex-col gap-0.5">
-                  {activeSections.map((s) => (
-                    <StructureRow
-                      key={s.id}
-                      section={s}
-                      active={activeSectionId === s.id}
-                      onSelect={() => selectSection(s.id)}
-                      onToggleEnabled={() => toggleSectionEnabled(s)}
-                    />
-                  ))}
-                </div>
-              </SortableContext>
-            </DndContext>
-
-            <button
-              type="button"
-              onClick={() => { setSelected(null); setActiveSectionId(null); setGlobalTab("navfooter"); toCanvas({ type: "select", id: "__footer__" }); }}
-              className="mt-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] hover:bg-muted"
-            >
-              <Layers className="h-3.5 w-3.5 text-muted-foreground" /> Pie de página
-            </button>
-
-            <div className="mt-2 border-t border-border pt-2">
-              <button
-                type="button"
-                onClick={() => setAddPickerOpen((v) => !v)}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-xs font-medium text-primary hover:bg-primary/5"
-              >
-                <Plus className="h-3.5 w-3.5" /> Agregar sección
-              </button>
-              {addPickerOpen && (
-                <div className="mt-2 flex flex-col gap-2.5 rounded-lg border border-border p-2">
-                  {SECTION_CATEGORIES.map((cat) => (
-                    <div key={cat.label}>
-                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{cat.label}</p>
-                      <div className="flex flex-wrap gap-1">
-                        {cat.types.map((t) => (
-                          <button
-                            key={t} type="button" onClick={() => addSection(t)}
-                            className="rounded border border-border px-1.5 py-0.5 text-[10px] font-medium hover:border-primary hover:text-primary"
-                          >
-                            {SECTION_LABELS[t]}
-                          </button>
-                        ))}
-                      </div>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onSectionDragEnd}>
+                  <SortableContext items={activeSections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+                    <div className="flex flex-col gap-0.5">
+                      {activeSections.map((s) => (
+                        <StructureRow
+                          key={s.id}
+                          section={s}
+                          active={activeSectionId === s.id}
+                          onSelect={() => selectSection(s.id)}
+                          onToggleEnabled={() => toggleSectionEnabled(s)}
+                        />
+                      ))}
                     </div>
-                  ))}
+                  </SortableContext>
+                </DndContext>
+
+                <button
+                  type="button"
+                  onClick={() => { setSelected(null); setActiveSectionId(null); setGlobalTab("navfooter"); toCanvas({ type: "select", id: "__footer__" }); }}
+                  className="mt-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] hover:bg-muted"
+                >
+                  <Layers className="h-3.5 w-3.5 text-muted-foreground" /> Pie de página
+                </button>
+
+                <div className="mt-2 border-t border-border pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setAddPickerOpen((v) => !v)}
+                    className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-xs font-medium text-primary hover:bg-primary/5"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Agregar sección
+                  </button>
+                  {addPickerOpen && (
+                    <div className="mt-2 flex flex-col gap-2.5 rounded-lg border border-border p-2">
+                      {SECTION_CATEGORIES.map((cat) => (
+                        <div key={cat.label}>
+                          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{cat.label}</p>
+                          <div className="flex flex-wrap gap-1">
+                            {cat.types.map((t) => (
+                              <button
+                                key={t} type="button" onClick={() => addSection(t)}
+                                className="rounded border border-border px-1.5 py-0.5 text-[10px] font-medium hover:border-primary hover:text-primary"
+                              >
+                                {SECTION_LABELS[t]}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </>
+            )}
           </div>
         </aside>
 
@@ -887,6 +909,21 @@ export function DemoBuilder({
                 <SectionEditor section={activeSection} onChange={updateSection} />
               </div>
             </>
+          ) : isVerbatimPage ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
+              <Lock className="h-6 w-6 text-muted-foreground" />
+              <p className="text-sm font-semibold">Diseño original conservado</p>
+              <p className="max-w-[240px] text-[12px] leading-relaxed text-muted-foreground">
+                Esta página se ve exactamente como el sitio importado. Diseño, Marca, Menú y CSS avanzado no la
+                afectan — su HTML y CSS son propios. Podés renombrarla, publicarla o borrarla como cualquier otra
+                página.
+              </p>
+              {isMultiPage && (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Agregá otra página para volver a tener el editor visual completo ahí.
+                </p>
+              )}
+            </div>
           ) : (
             <>
               <div className="grid grid-cols-5 gap-1 border-b border-border p-2">
