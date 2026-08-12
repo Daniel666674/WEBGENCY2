@@ -5,6 +5,7 @@ import Link from "next/link";
 import { FileCode, GitBranch, Loader2, Lock, Search, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useUser } from "@/context/UserContext";
 
 interface Repo {
   fullName: string;
@@ -31,6 +32,8 @@ export function GithubPicker({
   busy: boolean;
   onPick: (html: string, baseUrl: string, name: string) => void;
 }) {
+  const { activeUser } = useUser();
+  const isOwner = activeUser?.role === "owner";
   const [repos, setRepos] = useState<Repo[] | null>(null);
   const [notConnected, setNotConnected] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -111,15 +114,20 @@ export function GithubPicker({
         <GitBranch className="h-7 w-7 text-muted-foreground" />
         <p className="text-sm font-medium">GitHub no está conectado</p>
         <p className="max-w-sm text-xs text-muted-foreground">
-          Se conecta una sola vez con un token de acceso de GitHub con permiso de lectura. Lo hace el owner desde
-          Configuración.
+          {isOwner
+            ? "Se conecta una sola vez con un token de acceso de GitHub con permiso de lectura."
+            : "Se conecta una sola vez, y solo el owner puede hacerlo. Mientras tanto podés subir el archivo .html desde la otra pestaña."}
         </p>
-        <Link
-          href="/settings/integraciones"
-          className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium hover:bg-muted"
-        >
-          <Settings className="h-3.5 w-3.5" /> Ir a Integraciones
-        </Link>
+        {/* Only the owner gets the link: Configuración is permission-gated, so
+            sending anyone else there is a trip to a lock screen. */}
+        {isOwner && (
+          <Link
+            href="/settings/integraciones"
+            className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium hover:bg-muted"
+          >
+            <Settings className="h-3.5 w-3.5" /> Ir a Integraciones
+          </Link>
+        )}
       </div>
     );
   }

@@ -166,7 +166,21 @@ semantico, div-soup y hostil — antes de darla por buena.
 GitHub se conecta con un **fine-grained PAT** (`Contents: read`) guardado en `crm_settings`,
 no con OAuth: la identidad de la app es Google via NextAuth, y esto es una credencial de
 integracion. El token nunca vuelve al cliente — `GET /api/settings/github` devuelve solo
-`{ configured, hint }`.
+`{ configured, hint }`. Conectarlo es `ownerOnly`; **usarlo** (listar repos, leer un archivo)
+lo puede hacer cualquiera del equipo, igual que el resto de Demos.
+
+## Permisos siempre concedidos
+
+`ALWAYS_GRANTED` en `src/lib/permissions.ts` lista las paginas que cualquier usuario logueado
+abre, sin importar lo que tenga guardado. Hoy: `demos`.
+
+Se chequea antes de los permisos guardados dentro de `hasPermission()`, asi que alcanza al
+Sidebar, al `PermissionGuard` y a las 13 rutas de API de demos desde un solo lugar. Agregar una
+pagina aca es una decision de producto ("esto es espacio de trabajo compartido"), no una
+comodidad: dinero, cuentas de clientes y configuracion siguen cerrados.
+
+`PermissionPicker` las muestra tildadas y bloqueadas — un checkbox que se puede destildar pero
+no cambia nada es peor que no tenerlo.
 
 ## Reglas de codigo
 

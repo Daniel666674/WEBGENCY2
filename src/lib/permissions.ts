@@ -107,8 +107,28 @@ const LEGACY_SECTION_EXPANSION: Record<string, string[]> = Object.fromEntries(
 
 export const ALL_PERMISSIONS: string[] = [...PERMISSION_KEYS];
 
+/**
+ * Pages every signed-in user reaches, whatever their stored permissions say.
+ *
+ * Demos are shared workspace, not privileged data: building one, importing an
+ * HTML page into one and editing it is the job of whoever is doing the work
+ * that day. Gating that behind a grant meant a new teammate — who starts with
+ * `dashboard` and nothing else — hit a lock screen on the one tool they were
+ * hired to use, and the owner had to notice and fix it before they could
+ * start.
+ *
+ * This is checked before stored permissions in `hasPermission()`, so it
+ * reaches the Sidebar, the navigation guard and all thirteen demo API routes
+ * from one place rather than thirteen edits that could drift apart.
+ *
+ * Deliberately narrow. Money, client accounts and settings stay gated —
+ * nothing lands here just because it is convenient.
+ */
+export const ALWAYS_GRANTED: readonly string[] = ["demos"];
+
 /** A brand-new member starts minimal — the owner grants pages deliberately
- *  rather than a new teammate landing with the whole CRM open by default. */
+ *  rather than a new teammate landing with the whole CRM open by default.
+ *  ALWAYS_GRANTED pages come on top of this, without being stored. */
 export const DEFAULT_NEW_USER_PERMISSIONS: string[] = ["dashboard"];
 
 /**
@@ -148,6 +168,7 @@ export function hasPermission(
 ): boolean {
   if (!user) return false;
   if (user.role === "owner") return true;
+  if (ALWAYS_GRANTED.includes(key)) return true;
   return parsePermissions(user.permissions).includes(key);
 }
 
@@ -160,7 +181,11 @@ export function hasSectionPermission(
   if (!user) return false;
   if (user.role === "owner") return true;
   const perms = parsePermissions(user.permissions);
-  return (LEGACY_SECTION_EXPANSION[section] ?? []).some((page) => perms.includes(page));
+  // An always-granted page has to open its section header too, or the link
+  // the user is allowed to click sits inside a group that never renders.
+  return (LEGACY_SECTION_EXPANSION[section] ?? []).some(
+    (page) => perms.includes(page) || ALWAYS_GRANTED.includes(page)
+  );
 }
 
 // Longest href first so /settings/perfil resolves to "settings" rather than
