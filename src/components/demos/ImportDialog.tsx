@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { SECTION_LABELS } from "@/lib/demo/types";
 import type { SectionType } from "@/lib/demo/types";
 import { GithubPicker } from "./GithubPicker";
+import { UrlPicker } from "./UrlPicker";
 
 interface ReportSection {
   id: string;
@@ -78,7 +79,7 @@ const CONFIDENCE_LABEL: Record<ReportSection["confidence"], string> = {
 export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [tab, setTab] = useState<"file" | "github">("file");
+  const [tab, setTab] = useState<"file" | "github" | "url">("file");
   const [files, setFiles] = useState<SourceFile[]>([]);
   const [title, setTitle] = useState("");
   const [report, setReport] = useState<Report | null>(null);
@@ -235,7 +236,7 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
         {!report ? (
           <div className="p-5 space-y-4">
             <div className="flex gap-1 rounded-lg bg-muted p-1">
-              {(["file", "github"] as const).map((t) => (
+              {(["file", "github", "url"] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
@@ -244,7 +245,7 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
                     tab === t ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  {t === "file" ? "Subir archivos" : "Desde GitHub"}
+                  {t === "file" ? "Subir archivos" : t === "github" ? "Desde GitHub" : "Desde una URL"}
                 </button>
               ))}
             </div>
@@ -286,8 +287,10 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
                   onChange={(e) => void takeFiles(e.target.files)}
                 />
               </>
-            ) : (
+            ) : tab === "github" ? (
               <GithubPicker busy={busy} onPick={(picked, name) => void analyze(picked, name)} />
+            ) : (
+              <UrlPicker busy={busy} onPick={(picked, name) => void analyze(picked, name)} />
             )}
 
             <p className="text-xs text-muted-foreground">

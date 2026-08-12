@@ -169,6 +169,25 @@ integracion. El token nunca vuelve al cliente — `GET /api/settings/github` dev
 `{ configured, hint }`. Conectarlo es `ownerOnly`; **usarlo** (listar repos, leer un archivo)
 lo puede hacer cualquiera del equipo, igual que el resto de Demos.
 
+El importador soporta sitios completos, no solo una pagina: `src/lib/demo/import/multipage.ts`
+mapea varios archivos a `DemoConfig.pages` y reescribe los enlaces entre ellos (incluidas las
+anclas, que `NavLink.page` no puede expresar). `normalizePath()` colapsa una URL a algo con
+forma de path de repo antes de derivar el slug, asi que un import por URL y uno por GitHub
+producen la misma forma.
+
+**Paletas reales**: los colores casi nunca estan en el HTML — viven en una hoja de estilos
+enlazada. `parseSource()` solo mira declaraciones `:root`/`:host` (nunca una regla de
+componente 400 lineas abajo, que seria un override local, no la paleta del sitio), y el
+picker de GitHub descarga esas hojas con el mismo token antes de importar.
+
+**Sitios armados con JavaScript** (categorias, header, footer que un archivo estatico no
+muestra) necesitan `src/lib/demo/import/headless.ts`: renderiza la pagina en Chromium real
+antes de parsearla, asi el importador ve el DOM que ve un visitante. Es lo que resuelve la
+pestaña "Desde una URL" del dialogo — la via correcta para un sitio publicado, a diferencia
+de leer el archivo crudo del repo. `parseSource()` detecta los contenedores que un script
+llena en runtime (marcados con id/class, vacios en el archivo que se parseo) y lo dice
+explicito en el reporte en vez de dejar que la seccion salga vacia sin explicacion.
+
 ## Permisos siempre concedidos
 
 `ALWAYS_GRANTED` en `src/lib/permissions.ts` lista las paginas que cualquier usuario logueado

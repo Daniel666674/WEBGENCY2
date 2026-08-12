@@ -59,6 +59,25 @@ const MAX_PAGES = 12;
 
 const isIndex = (path: string) => /(?:^|\/)index\.html?$/i.test(path);
 
+/**
+ * Normalizes a file's `path` to something slug-worthy.
+ *
+ * A repo import already gives a clean repo-relative path ("armar.html"). A
+ * live-URL import does not — the only path-like thing available is the
+ * page's own URL — so this collapses `https://site.com/nosotros.html?x=1` to
+ * `nosotros.html` the same way a repo file would arrive, rather than letting
+ * the whole URL flatten into a slug like "https-site-com-nosotros-html".
+ */
+function normalizePath(path: string): string {
+  try {
+    const url = new URL(path);
+    const pathname = decodeURIComponent(url.pathname).replace(/^\//, "");
+    return pathname && !pathname.endsWith("/") ? pathname : "index.html";
+  } catch {
+    return path;
+  }
+}
+
 /** Folder the file lives in, with a trailing slash ("" at the repo root). */
 function dirOf(path: string): string {
   const i = path.lastIndexOf("/");
@@ -160,9 +179,10 @@ function titleFor(path: string, docTitle: string, isHome: boolean): string {
   return (words.charAt(0).toUpperCase() + words.slice(1)).slice(0, 120) || "Página";
 }
 
-export function importHtmlPages(files: SourceFile[], opts: ImportOptions = {}): MultiPageOutcome {
-  if (files.length === 0) throw new Error("No hay archivos para importar");
+export function importHtmlPages(rawFiles: SourceFile[], opts: ImportOptions = {}): MultiPageOutcome {
+  if (rawFiles.length === 0) throw new Error("No hay archivos para importar");
 
+  const files = rawFiles.map((f) => ({ ...f, path: normalizePath(f.path) }));
   const selected = files.slice(0, MAX_PAGES);
 
   // The home page is the root index.html when there is one — otherwise the
