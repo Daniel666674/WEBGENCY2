@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { FileCode, GitBranch, Loader2, Lock, Search, Settings } from "lucide-react";
+import { CheckSquare, FileCode, GitBranch, Loader2, Lock, Search, Settings, Square } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/context/UserContext";
@@ -19,18 +19,22 @@ interface RepoFile {
 }
 
 /**
- * Repo → branch → .html file.
+ * Repo → branch → the .html files that make up the site.
  *
- * Loads the file's contents and hands them up; the parent runs the same
- * analysis it runs for an uploaded file, so both entry paths land in the same
- * review step.
+ * Multi-select, because a site in a repo is `index.html` plus the pages it
+ * links to. Importing them one at a time would produce unrelated demos whose
+ * menus point at dead `.html` files; imported together they become one demo
+ * with real pages and working navigation.
+ *
+ * Loads the contents and hands them up; the parent runs the same analysis it
+ * runs for an uploaded file, so both entry paths land in the same review step.
  */
 export function GithubPicker({
   busy,
   onPick,
 }: {
   busy: boolean;
-  onPick: (html: string, baseUrl: string, name: string) => void;
+  onPick: (files: { path: string; html: string; baseUrl: string }[], name: string) => void;
 }) {
   const { activeUser } = useUser();
   const isOwner = activeUser?.role === "owner";
@@ -41,7 +45,8 @@ export function GithubPicker({
   const [ref, setRef] = useState("");
   const [files, setFiles] = useState<RepoFile[] | null>(null);
   const [filter, setFilter] = useState("");
-  const [fetching, setFetching] = useState<string | null>(null);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [fetching, setFetching] = useState(false);
 
   useEffect(() => {
     fetch("/api/integrations/github?action=repos")
@@ -63,6 +68,7 @@ export function GithubPicker({
     setRef(r.defaultBranch);
     setFiles(null);
     setFilter("");
+    setPicked(new Set());
     try {
       const res = await fetch(
         `/api/integrations/github?action=files&repo=${encodeURIComponent(r.fullName)}&ref=${encodeURIComponent(r.defaultBranch)}`
@@ -76,15 +82,30 @@ export function GithubPicker({
     }
   }
 
-  async function pick(path: string) {
-    if (!repo) return;
-    setFetching(path);
+  function toggle(path: string) {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }
+
+  async function importPicked() {
+    if (!repo || picked.size === 0) return;
+    setFetching(true);
     try {
-      const res = await fetch(
-        `/api/integrations/github?action=file&repo=${encodeURIComponent(repo.fullName)}&path=${encodeURIComponent(path)}&ref=${encodeURIComponent(ref)}`
-      );
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error);
+      // Sequential on purpose: firing eight parallel requests at the GitHub
+      // API through one token is the fastest way to get rate-limited.
+      const loaded: { path: string; html: string; baseUrl: string }[] = [];
+      for (const path of picked) {
+        const res = await fetch(
+          `/api/integrations/github?action=file&repo=${encodeURIComponent(repo.fullName)}&path=${encodeURIComponent(path)}&ref=${encodeURIComponent(ref)}`
+        );
+        const body = await res.json();
+        if (!res.ok) throw new Error(`${path}: ${body.error}`);
+        loaded.push({ path, html: body.content, baseUrl: body.rawBaseUrl });
+      }
 
       // Relative image paths resolve to raw.githubusercontent.com, which needs
       // auth on a private repo — so those images would 404 for the client
@@ -92,11 +113,11 @@ export function GithubPicker({
       if (repo.private) {
         toast.warning("El repositorio es privado: las imágenes con rutas relativas no van a cargar en el demo publicado.");
       }
-      onPick(body.content, body.rawBaseUrl, path.split("/").pop()!.replace(/\.html?$/i, ""));
+      onPick(loaded, repo.fullName.split("/").pop() ?? "Demo");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "No pudimos traer el archivo");
+      toast.error(e instanceof Error ? e.message : "No pudimos traer los archivos");
     } finally {
-      setFetching(null);
+      setFetching(false);
     }
   }
 
@@ -189,27 +210,70 @@ export function GithubPicker({
       ) : (
         <>
           <SearchBox value={filter} onChange={setFilter} placeholder="Filtrar archivos..." />
-          <div className="max-h-72 space-y-1 overflow-y-auto">
-            {shownFiles.map((f) => (
-              <button
-                key={f.path}
-                disabled={busy || fetching !== null}
-                onClick={() => void pick(f.path)}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-lg border p-2.5 text-left text-sm transition-colors cursor-pointer",
-                  "hover:border-primary/40 disabled:opacity-50"
-                )}
-              >
-                {fetching === f.path ? (
-                  <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
-                ) : (
-                  <FileCode className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                )}
-                <span className="flex-1 truncate">{f.path}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">{Math.max(1, Math.round(f.size / 1024))} KB</span>
-              </button>
-            ))}
+
+          <div className="flex items-center justify-between px-0.5 text-xs text-muted-foreground">
+            <span>
+              {picked.size === 0
+                ? "Elegí las páginas del sitio"
+                : `${picked.size} ${picked.size === 1 ? "página elegida" : "páginas elegidas"}`}
+            </span>
+            <button
+              onClick={() =>
+                setPicked(picked.size === shownFiles.length ? new Set() : new Set(shownFiles.map((f) => f.path)))
+              }
+              className="text-primary hover:underline cursor-pointer"
+            >
+              {picked.size === shownFiles.length ? "Ninguna" : "Todas"}
+            </button>
           </div>
+
+          <div className="max-h-64 space-y-1 overflow-y-auto">
+            {shownFiles.map((f) => {
+              const on = picked.has(f.path);
+              return (
+                <button
+                  key={f.path}
+                  disabled={busy || fetching}
+                  onClick={() => toggle(f.path)}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-lg border p-2.5 text-left text-sm transition-colors cursor-pointer disabled:opacity-50",
+                    on ? "border-primary/60 bg-primary/5" : "hover:border-primary/40"
+                  )}
+                >
+                  {on ? (
+                    <CheckSquare className="h-3.5 w-3.5 shrink-0 text-primary" />
+                  ) : (
+                    <Square className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  )}
+                  <FileCode className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="flex-1 truncate">{f.path}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {Math.max(1, Math.round(f.size / 1024))} KB
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={() => void importPicked()}
+            disabled={busy || fetching || picked.size === 0}
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50 cursor-pointer"
+          >
+            {fetching && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {fetching
+              ? "Trayendo archivos..."
+              : picked.size > 1
+                ? `Analizar ${picked.size} páginas`
+                : "Analizar página"}
+          </button>
+
+          {picked.size > 1 && (
+            <p className="text-xs text-muted-foreground">
+              La página <strong>index.html</strong> queda como inicio y el resto cuelgan de ella. Los enlaces entre
+              páginas se reconectan solos.
+            </p>
+          )}
         </>
       )}
     </div>

@@ -47,6 +47,8 @@ export interface ImportReport {
   images: number;
   /** Blocks the parser saw but that held nothing worth importing. */
   emptyBlocks: number;
+  /** The source's raw <title>. Names the page in a multi-page import. */
+  docTitle: string;
 }
 
 export interface ImportOutcome {
@@ -269,6 +271,9 @@ export function importHtml(html: string, opts: ImportOptions = {}): ImportOutcom
       brand: { name: brand.name, accent: brand.accent, detectedColors: detected },
       images: doc.blocks.reduce((n, b) => n + b.images.length, 0),
       emptyBlocks,
+      docTitle: doc.title,
     },
   };
 }
+
+export { importHtmlPages, type SourceFile, type MultiPageOutcome, type PageReport } from "./multipage";
