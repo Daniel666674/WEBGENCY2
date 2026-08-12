@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { analyticsProperties } from "@/db/schema";
 import { requireApi } from "@/lib/apiAuth";
+import { getGithubStatus } from "@/lib/github";
 import { getPaymentAutomationConfig, isGatewayConfigured, isWhatsAppConfigured } from "@/lib/paymentAutomation";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +22,7 @@ export async function GET() {
   if (denied) return denied;
 
   const payment = await getPaymentAutomationConfig();
+  const github = await getGithubStatus();
   const analytics = await db
     .select({ ga4: analyticsProperties.ga4PropertyId, gsc: analyticsProperties.gscSiteUrl })
     .from(analyticsProperties)
@@ -59,6 +61,10 @@ export async function GET() {
       cron: {
         connected: !!process.env.CRON_SECRET,
         detail: "Automatizaciones y resumen diario programados.",
+      },
+      github: {
+        connected: github.configured,
+        detail: github.configured ? `Token ${github.hint}` : "Sin token",
       },
     },
     { headers: { "Cache-Control": "no-store" } }

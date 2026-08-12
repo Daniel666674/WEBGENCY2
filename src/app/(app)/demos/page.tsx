@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MonitorSmartphone, Plus, ExternalLink, Trash2, FileEdit, Loader2, Copy } from "lucide-react";
+import { MonitorSmartphone, Plus, ExternalLink, Trash2, FileEdit, Loader2, Copy, FileUp } from "lucide-react";
 import { TEMPLATES } from "@/lib/demo/templates";
+import { ImportDialog } from "@/components/demos/ImportDialog";
 
 interface DemoRow {
   id: string;
@@ -23,6 +24,7 @@ export default function DemosPage() {
   const [demos, setDemos] = useState<DemoRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -95,14 +97,24 @@ export default function DemosPage() {
             <p className="text-xs text-muted-foreground">Sitios de demostración para tus prospectos</p>
           </div>
         </div>
-        <button
-          onClick={create}
-          disabled={creating}
-          className="flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
-        >
-          {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Nuevo demo
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setImporting(true)}
+            className="flex items-center gap-2 rounded-lg border px-3.5 py-2 text-sm font-medium transition-colors hover:bg-muted cursor-pointer"
+          >
+            <FileUp className="h-4 w-4" /> Importar HTML
+          </button>
+          <button
+            onClick={create}
+            disabled={creating}
+            className="flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+          >
+            {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Nuevo demo
+          </button>
+        </div>
       </div>
+
+      <ImportDialog open={importing} onClose={() => setImporting(false)} />
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">

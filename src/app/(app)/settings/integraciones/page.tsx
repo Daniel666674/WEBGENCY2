@@ -8,6 +8,7 @@ import {
   Bot,
   Clock,
   CreditCard,
+  GitBranch,
   Loader2,
   Mail,
   MessageCircle,
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SettingsHeader } from "@/components/settings/SettingsHeader";
+import { GithubConnection } from "@/components/settings/GithubConnection";
 
 interface Status {
   connected: boolean;
@@ -60,6 +62,13 @@ const INTEGRATIONS: {
     name: "Pasarela de pagos",
     description: "Registra el cobro apenas la pasarela confirma el pago.",
     href: "/settings/automatizaciones",
+  },
+  {
+    key: "github",
+    icon: GitBranch,
+    name: "GitHub",
+    description: "Importar páginas HTML de tus repositorios al builder de demos.",
+    href: "#github",
   },
   {
     key: "cron",
@@ -161,6 +170,10 @@ export default function IntegracionesPage() {
           })}
         </div>
       )}
+
+      <div id="github" className="scroll-mt-6">
+        <GithubConnection />
+      </div>
 
       <p className="text-xs text-muted-foreground">
         Lo que se configura con variables de entorno (IA, proveedor de email, secreto del cron) necesita un

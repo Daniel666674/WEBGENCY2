@@ -95,6 +95,9 @@ El schema se crea solo (`ensureSchema()` en `src/instrumentation.ts`) al arranca
 | `/api/settings/notifications` | GET, PUT | Destinatarios y canales de aviso |
 | `/api/settings/integrations` | GET | Estado real de cada integracion (solo booleanos, nunca secretos) |
 | `/api/cron/daily` | GET | Corre automatizaciones + envia el resumen. Requiere `CRON_SECRET` |
+| `/api/demo-pages/import` | POST | HTML → demo editable (`dryRun: true` por defecto: analiza sin guardar) |
+| `/api/settings/github` | GET, PUT, DELETE | Token de GitHub. El GET nunca devuelve el token |
+| `/api/integrations/github` | GET | `?action=repos\|files\|file` para el importador de demos |
 
 ## Configuracion del negocio
 
@@ -125,6 +128,45 @@ Corre una vez al dia desde `/api/cron/daily` y se configura en Settings > Automa
 Al agregar una regla nueva: definirla en `RULE_META` + `DEFAULT_RULES` (`automations.ts`) y
 emitir su accion en `planAutomations()`. `normalizeConfig()` hace que una regla nueva llegue
 activada en instalaciones existentes en vez de faltar.
+
+## Importador de HTML (demos)
+
+`src/lib/demo/import/` convierte una pagina HTML en un `DemoConfig` editable. Se usa desde
+Demos > Importar HTML, con dos entradas: subir un `.html` o elegirlo de un repo de GitHub.
+
+Pipeline, cuatro pasos puros sin efectos secundarios:
+
+1. `parse.ts` — corta el body en bloques y **mide** cada uno (titulos, parrafos, imagenes,
+   links, grupos repetidos). Las mediciones son por forma, nunca por nombres de clase: una
+   grilla de tres tarjetas se detecta igual venga de `<section>` semanticas, de div-soup con
+   Tailwind, o de tablas.
+2. `classify.ts` — bloque → `SectionType`. Reglas ordenadas por que tan distintiva es su
+   evidencia; la primera que coincide gana.
+3. `extract.ts` — bloque → campos de la `Section`. **Trunca a los limites del schema**, porque
+   validate.ts *rechaza* strings largos en vez de recortarlos.
+4. `index.ts` — arma marca, nav, footer y el config final.
+
+Tres invariantes que hay que mantener al tocarlo:
+
+- **Nada se descarta en silencio.** La ultima regla de `classify.ts` no tiene condicion y
+  devuelve `columns` (texto libre). Un bloque mal clasificado le cuesta al usuario cambiar un
+  dropdown; un bloque perdido le cuesta contenido que quiza no note que falta.
+- **El importador no tiene responsabilidades de seguridad.** Puede emitir un href
+  `javascript:` que encontro en el original; `validateDemoConfig()` lo descarta igual que si
+  lo hubieran tipeado a mano. Por eso esta funcion no agrega superficie de ataque a
+  `/demo/[slug]`.
+- **Toda medicion de texto usa `visibleText()`**, no `.text`. El parser concatena sin espacios,
+  asi que `<p>12</p><p>años</p>` sale como `"12años"` y rompe cualquier regla que cuente
+  palabras o mire el primer token.
+
+Para agregar una heuristica: sumar la regla en `classifyBlock()` (antes del catch-all) y su
+caso en el `switch` de `extractSection()`. Conviene probar contra los tres tipos de HTML —
+semantico, div-soup y hostil — antes de darla por buena.
+
+GitHub se conecta con un **fine-grained PAT** (`Contents: read`) guardado en `crm_settings`,
+no con OAuth: la identidad de la app es Google via NextAuth, y esto es una credencial de
+integracion. El token nunca vuelve al cliente — `GET /api/settings/github` devuelve solo
+`{ configured, hint }`.
 
 ## Reglas de codigo
 
