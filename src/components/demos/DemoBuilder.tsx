@@ -18,7 +18,10 @@ import { CoachTips } from "./CoachTips";
 import { TEMPLATES, getTemplate } from "@/lib/demo/templates";
 import { FONT_PAIRS } from "@/lib/demo/fonts";
 import { renderDemo } from "@/lib/demo/render";
-import { buildVerbatimEditDocument, extractRootColorVars, hasNavBlock, replaceNavBlock, setRootColorVar, type VerbatimEditMode } from "@/lib/demo/verbatim";
+import {
+  buildVerbatimEditDocument, extractRootColorVars, hasNavBlock, parseInlineStyle, replaceNavBlock,
+  serializeInlineStyle, setRootColorVar, type VerbatimEditMode,
+} from "@/lib/demo/verbatim";
 import { SectionEditor } from "./SectionEditor";
 import { MediaPicker } from "./MediaPicker";
 import { NavEditor, FooterEditor } from "./NavFooterEditor";
@@ -218,6 +221,229 @@ function VerbatimLiveEditor({
   );
 }
 
+const SHADOW_PRESETS = [
+  { id: "none", label: "Ninguna", value: "" },
+  { id: "soft", label: "Suave", value: "0 2px 8px rgba(0,0,0,.08)" },
+  { id: "medium", label: "Media", value: "0 8px 24px rgba(0,0,0,.14)" },
+  { id: "strong", label: "Fuerte", value: "0 16px 40px rgba(0,0,0,.22)" },
+];
+const RADIUS_PRESETS = [
+  { id: "0px", label: "Cuadrado" },
+  { id: "8px", label: "Suave" },
+  { id: "16px", label: "Redondeado" },
+  { id: "9999px", label: "Píldora" },
+];
+
+interface VerbatimSelection {
+  path: number[];
+  tag: string;
+  style: string;
+  isImg: boolean;
+  src: string | null;
+}
+
+/** Best-effort hex for the color-input swatch — the panel only round-trips
+ *  colors it wrote itself (always hex); a color the source page set as
+ *  `rgb()`/a named color just starts the picker at white until touched. */
+function styleColorHex(v: string | undefined): string {
+  if (v && /^#[0-9a-f]{3,8}$/i.test(v)) return normalizeHex(v);
+  return "#ffffff";
+}
+
+/**
+ * Click-anything style editor for a "diseño original" page: header, footer,
+ * a card, a CTA button, the logo — whatever a click lands on. Edits are
+ * written as that element's own inline `style`, which wins over the page's
+ * stylesheet without having to find (or invent) a CSS selector for it, and
+ * — for an `<img>` — a straight `src` swap via the existing media picker.
+ *
+ * This is the honest ceiling for arbitrary HTML: there is no "the card
+ * component" to redesign once, only the specific card someone clicked, and
+ * no authored-animation editor — "Animación" is a single on/off switch, not
+ * a timeline.
+ */
+function VerbatimStyleEditor({ html, css, onCommit }: { html: string; css: string; onCommit: (html: string) => void }) {
+  const [version, setVersion] = useState(0);
+  const [doc, setDoc] = useState(() => buildVerbatimEditDocument(html, css, "style"));
+  const [selected, setSelected] = useState<VerbatimSelection | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  function reload() {
+    setDoc(buildVerbatimEditDocument(html, css, "style"));
+    setVersion((v) => v + 1);
+    setSelected(null);
+  }
+
+  useEffect(() => {
+    function onMsg(e: MessageEvent) {
+      if (!e.data || e.data.source !== "oliwan-verbatim") return;
+      if (e.data.type === "change") onCommit(e.data.html);
+      else if (e.data.type === "select") setSelected(e.data as VerbatimSelection);
+    }
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [onCommit]);
+
+  function send(msg: Record<string, unknown>) {
+    iframeRef.current?.contentWindow?.postMessage({ source: "oliwan-editor-verbatim", ...msg }, "*");
+  }
+
+  function patch(props: Record<string, string>) {
+    if (!selected) return;
+    const style = serializeInlineStyle({ ...parseInlineStyle(selected.style), ...props });
+    setSelected({ ...selected, style });
+    send({ type: "apply-style", path: selected.path, style });
+  }
+
+  const current = selected ? parseInlineStyle(selected.style) : {};
+  const noAnim = current.animation === "none" || current.transition === "none";
+
+  return (
+    <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex items-center justify-between gap-2 border-b border-border p-2">
+          <p className="text-[11px] text-muted-foreground">
+            Hacé clic en cualquier elemento — encabezado, pie, una tarjeta, un botón, el logo — para editarlo.
+          </p>
+          <button
+            type="button"
+            onClick={reload}
+            className="shrink-0 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            Recargar vista
+          </button>
+        </div>
+        <iframe
+          ref={iframeRef}
+          key={version}
+          srcDoc={doc}
+          title="Editor de estilos"
+          className="min-h-0 flex-1 border-0 bg-white"
+          sandbox="allow-scripts allow-same-origin"
+        />
+      </div>
+
+      <div className="w-56 shrink-0 overflow-y-auto border-l border-border p-3">
+        {!selected ? (
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            Elegí un elemento en la vista previa para editar su estilo acá.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            <p className="font-mono text-[11px] text-muted-foreground">&lt;{selected.tag}&gt;</p>
+
+            {selected.isImg && (
+              <div>
+                <p className="mb-1 text-xs font-medium text-muted-foreground">Imagen</p>
+                <MediaPicker
+                  accept="image"
+                  value={selected.src ? { url: selected.src, kind: "image" } : undefined}
+                  onChange={(m) => {
+                    if (!m?.url) return;
+                    setSelected({ ...selected, src: m.url });
+                    send({ type: "apply-src", path: selected.path, src: m.url });
+                  }}
+                />
+              </div>
+            )}
+
+            <div>
+              <p className="mb-1 text-xs font-medium text-muted-foreground">Fondo</p>
+              <input
+                type="color"
+                value={styleColorHex(current["background-color"])}
+                onChange={(e) => patch({ "background-color": e.target.value })}
+                className="h-8 w-full cursor-pointer rounded border border-border bg-transparent p-0"
+              />
+            </div>
+
+            <div>
+              <p className="mb-1 text-xs font-medium text-muted-foreground">Texto</p>
+              <input
+                type="color"
+                value={styleColorHex(current.color)}
+                onChange={(e) => patch({ color: e.target.value })}
+                className="h-8 w-full cursor-pointer rounded border border-border bg-transparent p-0"
+              />
+            </div>
+
+            <div>
+              <p className="mb-1 text-xs font-medium text-muted-foreground">Bordes redondeados</p>
+              <div className="grid grid-cols-4 gap-1">
+                {RADIUS_PRESETS.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => patch({ "border-radius": r.id })}
+                    className={`rounded-md border px-1 py-1.5 text-[10px] font-medium ${
+                      current["border-radius"] === r.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                    }`}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-1 text-xs font-medium text-muted-foreground">Sombra</p>
+              <div className="grid grid-cols-2 gap-1">
+                {SHADOW_PRESETS.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => patch({ "box-shadow": s.value })}
+                    className={`rounded-md border px-1 py-1.5 text-[10px] font-medium ${
+                      (current["box-shadow"] ?? "") === s.value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-1 text-xs font-medium text-muted-foreground">Tamaño de texto (px)</p>
+              <input
+                type="number"
+                min={8}
+                max={96}
+                defaultValue={parseInt(current["font-size"] || "", 10) || undefined}
+                key={selected.path.join(",")}
+                onBlur={(e) => { if (e.target.value) patch({ "font-size": `${e.target.value}px` }); }}
+                className={inputCls}
+                placeholder="auto"
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-muted-foreground">Animación</p>
+              <button
+                type="button"
+                onClick={() => patch(noAnim ? { animation: "", transition: "" } : { animation: "none", transition: "none" })}
+                className={`rounded-md border px-2 py-1 text-[10px] font-medium ${
+                  noAnim ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                }`}
+              >
+                {noAnim ? "Desactivada" : "Activa"}
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSelected(null)}
+              className="w-full rounded-md border border-border px-2 py-1.5 text-[11px] text-muted-foreground hover:bg-muted"
+            >
+              Deseleccionar
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Code editor for a "diseño original" page.
  *
@@ -250,7 +476,7 @@ function VerbatimEditor({
    *  the demo — present only when there's more than one page to spread it to. */
   onApplyNavToAllPages?: () => void;
 }) {
-  const [sub, setSub] = useState<"visual" | "menu" | "colors" | "html" | "css">("visual");
+  const [sub, setSub] = useState<"visual" | "menu" | "style" | "colors" | "html" | "css">("visual");
   const [html, setHtml] = useState(page?.html ?? "");
   const [css, setCss] = useState(page?.css ?? "");
   const [dirty, setDirty] = useState(false);
@@ -269,8 +495,10 @@ function VerbatimEditor({
           <Lock className="h-3.5 w-3.5 text-muted-foreground" /> Diseño original
         </p>
         <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-          Es el HTML y el CSS del sitio importado, así que se sigue viendo igual. Cambiá colores, texto, el menú y
-          el orden de los bloques desde acá, o editá el código directamente.
+          Es el HTML y el CSS del sitio importado, así que se sigue viendo igual. En <strong>Estilos</strong> hacé
+          clic en cualquier elemento — encabezado, pie de página, una tarjeta, un botón, el logo — para cambiar su
+          fondo, color, bordes, sombra o animación. También podés cambiar texto, el menú, colores globales y el
+          orden de los bloques, o editar el código directamente.
           {multiPage && " Los cambios afectan solo a esta página, salvo el menú."}
         </p>
       </div>
@@ -279,6 +507,7 @@ function VerbatimEditor({
         {([
           { id: "visual" as const, label: "Visual" },
           ...(showMenuTab ? [{ id: "menu" as const, label: "Menú" }] : []),
+          { id: "style" as const, label: "Estilos" },
           { id: "colors" as const, label: "Colores" },
           { id: "html" as const, label: "HTML" },
           { id: "css" as const, label: "CSS" },
@@ -333,6 +562,17 @@ function VerbatimEditor({
             </div>
           )}
         </div>
+      )}
+
+      {sub === "style" && (
+        <VerbatimStyleEditor
+          html={html}
+          css={css}
+          onCommit={(next) => {
+            setHtml(next);
+            onChange({ html: next, css });
+          }}
+        />
       )}
 
       {sub === "colors" && (
