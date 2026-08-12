@@ -98,6 +98,97 @@ function StructureRow({
   );
 }
 
+/**
+ * Code editor for a "diseño original" page.
+ *
+ * The trade that mode makes — the source's real HTML/CSS instead of a
+ * re-render from Section data — costs the visual, click-to-edit builder:
+ * there's no Section for a click to land on. It doesn't have to cost
+ * editing entirely. This is the same content, editable as what it actually
+ * is — real markup — rather than not editable at all.
+ *
+ * Commits on blur, not per keystroke: the change flows into `cfg` and
+ * reloads the preview iframe, and doing that on every keystroke of a
+ * multi-KB HTML document would make the panel feel like it's fighting the
+ * person typing in it. An explicit button covers the keyboard-only path
+ * (tab away without blurring) and doubles as "show me now" for anyone who
+ * doesn't intuitively expect blur to commit.
+ */
+function VerbatimEditor({
+  page,
+  onChange,
+  multiPage,
+}: {
+  page: { html: string; css: string } | undefined;
+  onChange: (next: { html: string; css: string }) => void;
+  multiPage: boolean;
+}) {
+  const [sub, setSub] = useState<"html" | "css">("html");
+  const [html, setHtml] = useState(page?.html ?? "");
+  const [css, setCss] = useState(page?.css ?? "");
+  const [dirty, setDirty] = useState(false);
+
+  function commit() {
+    if (!dirty) return;
+    onChange({ html, css });
+    setDirty(false);
+  }
+
+  return (
+    <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="border-b border-border p-3">
+        <p className="flex items-center gap-1.5 text-sm font-semibold">
+          <Lock className="h-3.5 w-3.5 text-muted-foreground" /> Diseño original — editar como código
+        </p>
+        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+          Esta página no tiene secciones para arrastrar: es el HTML y el CSS del sitio importado, y así se sigue
+          viendo igual. Editalo directamente acá — cambia el texto, ajustá el estilo, lo que haga falta.
+          {multiPage && " Afecta solo a esta página."}
+        </p>
+      </div>
+
+      <div className="flex gap-1 border-b border-border p-2">
+        {(["html", "css"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setSub(t)}
+            className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+              sub === t ? "bg-muted text-primary" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t.toUpperCase()}
+          </button>
+        ))}
+      </div>
+
+      <textarea
+        value={sub === "html" ? html : css}
+        onChange={(e) => {
+          if (sub === "html") setHtml(e.target.value);
+          else setCss(e.target.value);
+          setDirty(true);
+        }}
+        onBlur={commit}
+        spellCheck={false}
+        className="min-h-0 flex-1 resize-none border-0 bg-background p-3 font-mono text-[11px] leading-relaxed outline-none"
+        placeholder={sub === "html" ? "<section>...</section>" : ".clase { }"}
+      />
+
+      <div className="flex items-center gap-2 border-t border-border p-2">
+        <button
+          type="button"
+          onClick={commit}
+          disabled={!dirty}
+          className="flex-1 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+        >
+          {dirty ? "Aplicar cambios" : "Sin cambios"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function DemoBuilder({
   demoId, initialConfig, initialTitle, initialPublished, initialVersion, slug, isNew = false,
 }: {
@@ -777,8 +868,8 @@ export function DemoBuilder({
                 </p>
                 <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
                   Esta página guardó el HTML y el CSS del sitio original tal cual, para que se vea exactamente
-                  igual. No tiene secciones que editar visualmente — el menú, el pie de página y el texto son
-                  parte de esa misma página.
+                  igual. No tiene secciones que arrastrar, pero se edita como código en el panel de la derecha —
+                  el menú, el pie de página y el texto son parte de ese mismo HTML.
                 </p>
               </div>
             ) : (
@@ -910,20 +1001,12 @@ export function DemoBuilder({
               </div>
             </>
           ) : isVerbatimPage ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
-              <Lock className="h-6 w-6 text-muted-foreground" />
-              <p className="text-sm font-semibold">Diseño original conservado</p>
-              <p className="max-w-[240px] text-[12px] leading-relaxed text-muted-foreground">
-                Esta página se ve exactamente como el sitio importado. Diseño, Marca, Menú y CSS avanzado no la
-                afectan — su HTML y CSS son propios. Podés renombrarla, publicarla o borrarla como cualquier otra
-                página.
-              </p>
-              {isMultiPage && (
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Agregá otra página para volver a tener el editor visual completo ahí.
-                </p>
-              )}
-            </div>
+            <VerbatimEditor
+              key={activePage.id}
+              page={cfg.verbatim![activePage.slug]}
+              onChange={(next) => update({ verbatim: { ...cfg.verbatim, [activePage.slug]: next } })}
+              multiPage={isMultiPage}
+            />
           ) : (
             <>
               <div className="grid grid-cols-5 gap-1 border-b border-border p-2">

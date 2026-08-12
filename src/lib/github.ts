@@ -142,30 +142,45 @@ export async function listRepos(token: string): Promise<RepoRef[]> {
 export interface RepoFile {
   path: string;
   size: number;
+  kind: "html" | "css";
 }
 
 /**
- * Every .html file in the repo, in one request.
+ * Every .html and .css file in the repo, in one request.
  *
  * The recursive tree API beats walking the Contents API directory by
  * directory — one call instead of one per folder, which matters on a repo
  * with any real structure.
+ *
+ * CSS is listed alongside HTML, not fetched implicitly and hidden, because
+ * "diseño original" mode already auto-detects `<link rel="stylesheet">` in
+ * each page and fetches it — but silent auto-detection is exactly the kind
+ * of thing you can't verify by looking at it. Listing the .css files lets
+ * the picker show what it found (or didn't) and lets the user pick a
+ * stylesheet by hand when a site's build doesn't reference one the obvious
+ * way — a bundler-generated path, a stylesheet injected by JS, one meant for
+ * print. See GithubPicker.tsx for how the two lists come together.
  */
-export async function listHtmlFiles(token: string, repo: string, ref: string): Promise<RepoFile[]> {
+export async function listRepoFiles(token: string, repo: string, ref: string): Promise<RepoFile[]> {
   const res = await gh(`/repos/${repo}/git/trees/${encodeURIComponent(ref)}?recursive=1`, token);
   const body = (await res.json()) as { tree?: { path: string; type: string; size?: number }[]; truncated?: boolean };
 
   return (body.tree ?? [])
-    .filter((n) => n.type === "blob" && /\.html?$/i.test(n.path))
+    .filter((n) => n.type === "blob" && /\.(?:html?|css)$/i.test(n.path))
     .filter((n) => !/(?:^|\/)(?:node_modules|dist|build|\.next|coverage)\//.test(n.path))
-    .map((n) => ({ path: n.path, size: n.size ?? 0 }))
+    .map((n): RepoFile => ({
+      path: n.path,
+      size: n.size ?? 0,
+      kind: /\.css$/i.test(n.path) ? "css" : "html",
+    }))
     .sort((a, b) => {
-      // index.html first — it is the page people mean by default.
-      const ai = /(?:^|\/)index\.html?$/i.test(a.path) ? 0 : 1;
-      const bi = /(?:^|\/)index\.html?$/i.test(b.path) ? 0 : 1;
-      return ai - bi || a.path.localeCompare(b.path);
+      // index.html first — it is the page people mean by default. CSS after
+      // every HTML page, since picking a page is almost always the first
+      // decision and CSS is secondary, usually auto-detected anyway.
+      const rank = (f: RepoFile) => (f.kind === "css" ? 2 : /(?:^|\/)index\.html?$/i.test(f.path) ? 0 : 1);
+      return rank(a) - rank(b) || a.path.localeCompare(b.path);
     })
-    .slice(0, 300);
+    .slice(0, 400);
 }
 
 export interface FetchedFile {
