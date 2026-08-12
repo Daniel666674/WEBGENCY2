@@ -28,6 +28,8 @@ export interface SourceFile {
   html: string;
   /** Base URL for the page's own images. */
   baseUrl?: string;
+  /** This page's linked stylesheets, already fetched. */
+  css?: string[];
 }
 
 export interface PageReport {
@@ -174,7 +176,7 @@ export function importHtmlPages(files: SourceFile[], opts: ImportOptions = {}): 
   const ordered = [home, ...selected.filter((f) => f !== home)];
 
   const imported = ordered.map((file) => {
-    const outcome = importHtml(file.html, { ...opts, baseUrl: file.baseUrl, title: undefined });
+    const outcome = importHtml(file.html, { ...opts, baseUrl: file.baseUrl, css: file.css, title: undefined });
     return { file, ...outcome };
   });
 
@@ -274,10 +276,26 @@ export function importHtmlPages(files: SourceFile[], opts: ImportOptions = {}): 
       "No encontramos enlaces entre las páginas del original, así que el menú quedó con los enlaces tal cual venían. Podés apuntarlos a cada página desde el editor de menú."
     );
   }
-  // Per-page warnings, deduped: "no encontramos los colores" repeated six
-  // times is noise, not information.
+  // Per-page warnings, deduped with the numbers blanked out: the same warning
+  // carries a different count on each page ("arma 9 bloques", "arma 8
+  // bloques"), so comparing the text as-is lets five near-identical lines
+  // through. Five warnings that say one thing is how a review step stops
+  // being read at all.
+  const seenWarnings = new Set<string>();
   for (const { report } of imported) {
-    for (const w of report.warnings) if (!warnings.includes(w)) warnings.push(w);
+    for (const w of report.warnings) {
+      const key = w.replace(/\d+/g, "#").slice(0, 60);
+      if (seenWarnings.has(key)) continue;
+      seenWarnings.add(key);
+      warnings.push(w);
+    }
+  }
+
+  const mountedPages = imported.filter(({ report }) => report.scriptMounts >= 2).length;
+  if (mountedPages > 1) {
+    warnings.push(
+      `Esto pasa en ${mountedPages} de las ${pages.length} páginas: el sitio original arma buena parte del contenido con JavaScript, y eso no viaja en el archivo.`
+    );
   }
 
   return {

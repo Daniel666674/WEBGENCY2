@@ -34,7 +34,7 @@ export function GithubPicker({
   onPick,
 }: {
   busy: boolean;
-  onPick: (files: { path: string; html: string; baseUrl: string }[], name: string) => void;
+  onPick: (files: { path: string; html: string; baseUrl: string; css: string[] }[], name: string) => void;
 }) {
   const { activeUser } = useUser();
   const isOwner = activeUser?.role === "owner";
@@ -97,14 +97,44 @@ export function GithubPicker({
     try {
       // Sequential on purpose: firing eight parallel requests at the GitHub
       // API through one token is the fastest way to get rate-limited.
-      const loaded: { path: string; html: string; baseUrl: string }[] = [];
-      for (const path of picked) {
+      const get = async (path: string) => {
         const res = await fetch(
           `/api/integrations/github?action=file&repo=${encodeURIComponent(repo.fullName)}&path=${encodeURIComponent(path)}&ref=${encodeURIComponent(ref)}`
         );
         const body = await res.json();
         if (!res.ok) throw new Error(`${path}: ${body.error}`);
-        loaded.push({ path, html: body.content, baseUrl: body.rawBaseUrl });
+        return body as { content: string; rawBaseUrl: string };
+      };
+
+      // Stylesheets are fetched too, and they are not optional polish: a real
+      // site keeps its palette in a linked .css, so importing the HTML alone
+      // turns a black site into a white one. Cached across pages because a
+      // site's pages share one stylesheet.
+      const cssCache = new Map<string, string>();
+      const loaded: { path: string; html: string; baseUrl: string; css: string[] }[] = [];
+
+      for (const path of picked) {
+        const file = await get(path);
+        const dir = path.includes("/") ? path.slice(0, path.lastIndexOf("/") + 1) : "";
+        const css: string[] = [];
+
+        for (const href of stylesheetHrefs(file.content).slice(0, 4)) {
+          const cssPath = repoPath(href, dir);
+          if (!cssPath) continue;
+          if (!cssCache.has(cssPath)) {
+            try {
+              cssCache.set(cssPath, (await get(cssPath)).content);
+            } catch {
+              // A missing or unreadable stylesheet costs colours, not the
+              // import — carry on with the template's palette.
+              cssCache.set(cssPath, "");
+            }
+          }
+          const text = cssCache.get(cssPath);
+          if (text) css.push(text);
+        }
+
+        loaded.push({ path, html: file.content, baseUrl: file.rawBaseUrl, css });
       }
 
       // Relative image paths resolve to raw.githubusercontent.com, which needs
@@ -278,6 +308,30 @@ export function GithubPicker({
       )}
     </div>
   );
+}
+
+/** `<link rel="stylesheet" href="...">` hrefs, minus the font CDNs. */
+function stylesheetHrefs(html: string): string[] {
+  const out: string[] = [];
+  for (const [, tag] of html.matchAll(/<link\b([^>]*)>/gi)) {
+    if (!/rel\s*=\s*["']?stylesheet/i.test(tag)) continue;
+    const href = /href\s*=\s*["']([^"']+)["']/i.exec(tag)?.[1];
+    if (href && !/fonts\.googleapis|fonts\.gstatic|^https?:/i.test(href)) out.push(href);
+  }
+  return out;
+}
+
+/** Resolves a stylesheet href to a repo path, or "" if it is not in the repo. */
+function repoPath(href: string, fromDir: string): string {
+  const clean = href.split(/[?#]/)[0];
+  const segments = clean.startsWith("/") ? clean.slice(1).split("/") : (fromDir + clean).split("/");
+  const out: string[] = [];
+  for (const seg of segments) {
+    if (!seg || seg === ".") continue;
+    if (seg === "..") out.pop();
+    else out.push(seg);
+  }
+  return out.join("/");
 }
 
 function SearchBox({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {

@@ -47,6 +47,10 @@ export interface ImportReport {
   images: number;
   /** Blocks the parser saw but that held nothing worth importing. */
   emptyBlocks: number;
+  /** Containers a script fills at runtime, empty in the file we parsed. */
+  scriptMounts: number;
+  /** Linked stylesheets, so the caller can fetch them and import again. */
+  styleHrefs: string[];
   /** The source's raw <title>. Names the page in a multi-page import. */
   docTitle: string;
 }
@@ -192,6 +196,8 @@ function footerFrom(el: HTMLElement | null): FooterConfig | undefined {
 export interface ImportOptions {
   /** Resolves relative URLs. A file upload has none; a GitHub import does. */
   baseUrl?: string;
+  /** Contents of the page's linked stylesheets, fetched by the caller. */
+  css?: string[];
   /** Overrides the template guessed from the source. */
   template?: string;
   /** Overrides the brand name taken from <title>. */
@@ -199,7 +205,7 @@ export interface ImportOptions {
 }
 
 export function importHtml(html: string, opts: ImportOptions = {}): ImportOutcome {
-  const doc = parseSource(html, opts.baseUrl);
+  const doc = parseSource(html, opts.baseUrl, opts.css ?? []);
   const template = getTemplate(opts.template ?? "editorial");
   const defaults = template.defaults();
 
@@ -239,6 +245,11 @@ export function importHtml(html: string, opts: ImportOptions = {}): ImportOutcom
       "Algunas imágenes usan rutas relativas y no se pueden resolver sin la URL del sitio. Vas a tener que volver a subirlas desde el builder."
     );
   }
+  if (doc.scriptMounts >= 2) {
+    warnings.push(
+      `Esta página arma ${doc.scriptMounts} bloques con JavaScript (productos, menús, listados). Esos contenedores están vacíos en el archivo, así que llegan como secciones con título y sin contenido — hay que llenarlas en el builder.`
+    );
+  }
   const lowConfidence = imported.filter((s) => s.confidence === "low").length;
   if (lowConfidence > 0) {
     warnings.push(
@@ -246,7 +257,11 @@ export function importHtml(html: string, opts: ImportOptions = {}): ImportOutcom
     );
   }
   if (!detected) {
-    warnings.push("No encontramos los colores del original — se aplicaron los de la plantilla.");
+    warnings.push(
+      doc.styleHrefs.length > 0 && (opts.css ?? []).length === 0
+        ? "Los colores del original están en una hoja de estilos aparte que no pudimos leer — se aplicaron los de la plantilla. Importá desde GitHub para que la traigamos."
+        : "No encontramos los colores del original — se aplicaron los de la plantilla."
+    );
   }
 
   const sections = imported.map((s) => s.section);
@@ -271,6 +286,8 @@ export function importHtml(html: string, opts: ImportOptions = {}): ImportOutcom
       brand: { name: brand.name, accent: brand.accent, detectedColors: detected },
       images: doc.blocks.reduce((n, b) => n + b.images.length, 0),
       emptyBlocks,
+      scriptMounts: doc.scriptMounts,
+      styleHrefs: doc.styleHrefs,
       docTitle: doc.title,
     },
   };

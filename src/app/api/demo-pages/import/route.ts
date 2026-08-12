@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     /** Single page. Kept for the plain file upload. */
     html?: string;
     /** Multi-page: a whole site's worth of files, home resolved from paths. */
-    files?: { path?: string; html?: string; baseUrl?: string }[];
+    files?: { path?: string; html?: string; baseUrl?: string; css?: string[] }[];
     sourceUrl?: string;
     title?: string;
     contactId?: string;
@@ -56,8 +56,13 @@ export async function POST(request: NextRequest) {
   // same code path whether one file arrived or eight.
   const files: SourceFile[] = Array.isArray(body.files) && body.files.length > 0
     ? body.files
-        .filter((f): f is { path: string; html: string; baseUrl?: string } => !!f?.html?.trim())
-        .map((f) => ({ path: (f.path || "index.html").trim(), html: f.html, baseUrl: f.baseUrl }))
+        .filter((f): f is { path: string; html: string; baseUrl?: string; css?: string[] } => !!f?.html?.trim())
+        .map((f) => ({
+          path: (f.path || "index.html").trim(),
+          html: f.html,
+          baseUrl: f.baseUrl,
+          css: Array.isArray(f.css) ? f.css.filter((c) => typeof c === "string").slice(0, 4) : undefined,
+        }))
     : typeof body.html === "string" && body.html.trim()
       ? [{ path: "index.html", html: body.html, baseUrl: body.sourceUrl }]
       : [];

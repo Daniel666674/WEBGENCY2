@@ -55,7 +55,11 @@ export function classifyBlock(block: Block, isFirst: boolean): Classification {
   const words = text.split(/\s+/).filter(Boolean).length;
 
   // ── Video: the embed is unambiguous ────────────────────
-  if (embeds.some((e) => VIDEO_HOST.test(e))) {
+  // Unless it is the page's opening block with the main title over it: that
+  // is a hero with a background video, and calling it a video section drops
+  // the headline, the lede and the buttons sitting on top of it.
+  const heroWithVideo = isFirst && !!h1;
+  if (!heroWithVideo && embeds.some((e) => VIDEO_HOST.test(e))) {
     return {
       type: "video",
       variant: headings.length > 0 ? "framed" : "full",
@@ -66,7 +70,10 @@ export function classifyBlock(block: Block, isFirst: boolean): Classification {
 
   // ── Hero: first block carrying the page's main title ───
   if (isFirst && (h1 || headings.length > 0) && words < 160) {
-    const variant = bgImage ? "cover" : images.length > 0 ? "split" : "stack";
+    // A full-bleed video or background image both render as "cover"; the
+    // poster frame stands in for the video, which render.ts cannot play.
+    const backdrop = bgImage || block.posterImage;
+    const variant = backdrop ? "cover" : images.length > 0 ? "split" : "stack";
     return {
       type: "hero",
       variant,

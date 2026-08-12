@@ -51,6 +51,7 @@ interface SourceFile {
   path: string;
   html: string;
   baseUrl?: string;
+  css?: string[];
 }
 
 const CONFIDENCE_STYLE: Record<ReportSection["confidence"], string> = {
@@ -132,15 +133,22 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
   }
 
   async function takeFiles(list: FileList | null) {
-    const chosen = [...(list ?? [])].filter((f) => /\.html?$/i.test(f.name) || f.type === "text/html");
+    const all = [...(list ?? [])];
+    const chosen = all.filter((f) => /\.html?$/i.test(f.name) || f.type === "text/html");
     if (chosen.length === 0) return toast.error("Tienen que ser archivos .html");
+
+    // A dropped .css comes along for the ride. It is the only way an upload
+    // can pick up the site's real palette — otherwise a black site imports
+    // white, because the colours were never in the HTML.
+    const css: string[] = [];
+    for (const f of all.filter((f) => /\.css$/i.test(f.name))) css.push(await f.text());
 
     const sources: SourceFile[] = [];
     for (const f of chosen) {
       // webkitRelativePath is set when a whole folder is dropped, and it is
       // what makes subfolder links resolve correctly.
       const path = (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name;
-      sources.push({ path, html: await f.text() });
+      sources.push({ path, html: await f.text(), css });
     }
     const base = chosen[0].name.replace(/\.html?$/i, "");
     await analyze(sources, sources.length > 1 ? undefined : base);
@@ -266,13 +274,13 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
                     {busy ? "Leyendo las páginas..." : "Arrastrá los archivos .html o hacé clic"}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Podés elegir varios: se importan como un solo demo con sus páginas
+                    Varios .html se importan como un solo demo con sus páginas. Sumá el .css para que viajen los colores.
                   </p>
                 </div>
                 <input
                   ref={fileRef}
                   type="file"
-                  accept=".html,.htm,text/html"
+                  accept=".html,.htm,.css,text/html"
                   multiple
                   className="hidden"
                   onChange={(e) => void takeFiles(e.target.files)}

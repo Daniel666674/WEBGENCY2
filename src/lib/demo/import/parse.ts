@@ -45,6 +45,8 @@ export interface Block {
   text: string;
   /** A background image declared inline, which markup hides from `images`. */
   bgImage: string;
+  /** A <video>'s poster frame — the only still a background video offers. */
+  posterImage: string;
 }
 
 export interface SourceDoc {
@@ -57,8 +59,18 @@ export interface SourceDoc {
   cssVars: Record<string, string>;
   /** Google Fonts families referenced by the document. */
   fonts: string[];
+  /** Linked stylesheet URLs, resolved. The caller fetches and re-imports. */
+  styleHrefs: string[];
   /** Relative URLs could not be resolved (no base given). */
   unresolvedUrls: boolean;
+  /**
+   * Empty containers that carry an id or a class — the shape of a mount point
+   * a script fills in at runtime (`<div id="home-cats"></div>`). We parse the
+   * file as it sits in the repo, so whatever those hold in a browser is not
+   * in the input at all. Counting them is the difference between "the
+   * importer missed your products" and "your products are not in this file".
+   */
+  scriptMounts: number;
 }
 
 const BLOCK_TAGS = new Set(["section", "header", "article", "div", "main", "aside"]);
@@ -217,6 +229,7 @@ function measure(el: HTMLElement, index: number, base: string | undefined, doc: 
     .map((f) => resolve(f.getAttribute("src") ?? f.querySelector("source")?.getAttribute("src")))
     .filter(Boolean);
 
+  const poster = el.querySelector("video")?.getAttribute("poster");
   const styleAttr = el.getAttribute("style") ?? "";
   const bgMatch = /background(?:-image)?\s*:[^;]*url\((['"]?)([^'")]+)\1\)/i.exec(styleAttr);
 
@@ -233,6 +246,7 @@ function measure(el: HTMLElement, index: number, base: string | undefined, doc: 
     repeated: findRepeated(el),
     text: visibleText(el),
     bgImage: bgMatch ? resolve(bgMatch[2]) : "",
+    posterImage: poster ? resolve(poster) : "",
   };
 }
 
@@ -305,7 +319,12 @@ function splitByHeadings(container: HTMLElement): HTMLElement[] {
   return groups.filter(hasContent);
 }
 
-export function parseSource(html: string, baseUrl?: string): SourceDoc {
+/**
+ * @param css Contents of the page's linked stylesheets, already fetched.
+ *   A real site keeps its palette in an external file, not in a `<style>`
+ *   tag — reading only inline CSS is how a black site imports as a white one.
+ */
+export function parseSource(html: string, baseUrl?: string, css: string[] = []): SourceDoc {
   const root = parse(html, { comment: false, blockTextElements: { script: false, style: true } });
 
   const meta: Record<string, string> = {};
@@ -317,12 +336,20 @@ export function parseSource(html: string, baseUrl?: string): SourceDoc {
 
   // Colours live in :root custom properties far more reliably than anywhere
   // else, and they survive even when the rest of the CSS is unreachable.
+  // Only :root / :host declarations count. A `--x` set inside some component
+  // rule 400 lines down is that component's local override, not the site's
+  // palette, and treating it as one produces confident nonsense.
   const cssVars: Record<string, string> = {};
-  for (const style of root.querySelectorAll("style")) {
-    for (const [, name, value] of style.text.matchAll(/--([\w-]+)\s*:\s*([^;}]+)/g)) {
-      cssVars[name.toLowerCase()] = value.trim();
+  const collectVars = (source: string) => {
+    for (const [, block] of source.matchAll(/(?::root|:host)[^{]*\{([^}]*)\}/g)) {
+      for (const [, name, value] of block.matchAll(/--([\w-]+)\s*:\s*([^;]+)/g)) {
+        const key = name.toLowerCase();
+        if (!(key in cssVars)) cssVars[key] = value.trim();
+      }
     }
-  }
+  };
+  for (const style of root.querySelectorAll("style")) collectVars(style.text);
+  for (const sheet of css) collectVars(sheet);
 
   const fonts: string[] = [];
   for (const link of root.querySelectorAll('link[href*="fonts.googleapis"]')) {
@@ -330,6 +357,22 @@ export function parseSource(html: string, baseUrl?: string): SourceDoc {
       fonts.push(decodeURIComponent(family.replace(/\+/g, " ")));
     }
   }
+  // `--display: "Oswald", sans-serif` names the heading face even when the
+  // Google Fonts link lists four families and says nothing about their roles.
+  for (const key of ["display", "font-display", "heading", "font-heading"]) {
+    const first = /["']?([A-Za-z][\w\s-]{1,40})["']?/.exec(cssVars[key] ?? "");
+    if (first) fonts.unshift(first[1].trim());
+  }
+
+  // Handed back so the caller can fetch them and re-import: a real site keeps
+  // its palette in a linked stylesheet, and reading only inline <style> is how
+  // a black site imports as a white one.
+  const styleHrefs = root
+    .querySelectorAll("link")
+    .filter((l) => /stylesheet/i.test(l.getAttribute("rel") ?? ""))
+    .map((l) => resolveUrl(l.getAttribute("href"), baseUrl).url)
+    .filter((u) => u && !/fonts\.googleapis|fonts\.gstatic/.test(u))
+    .slice(0, 6);
 
   let nav = root.querySelector("nav") ?? root.querySelector("header nav");
   const footers = root.querySelectorAll("footer");
@@ -377,6 +420,12 @@ export function parseSource(html: string, baseUrl?: string): SourceDoc {
   const state = { unresolved: false };
   const blocks = candidates.map((el, i) => measure(el, i, baseUrl, state));
 
+  let scriptMounts = 0;
+  for (const el of body.querySelectorAll("div,section,ul,ol")) {
+    const marked = el.getAttribute("id") || el.getAttribute("class");
+    if (marked && !hasContent(el)) scriptMounts++;
+  }
+
   return {
     title: clean(root.querySelector("title")?.text ?? ""),
     meta,
@@ -385,6 +434,8 @@ export function parseSource(html: string, baseUrl?: string): SourceDoc {
     blocks,
     cssVars,
     fonts,
+    styleHrefs,
     unresolvedUrls: state.unresolved,
+    scriptMounts,
   };
 }
