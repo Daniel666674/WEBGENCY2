@@ -19,7 +19,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // database is reachable and cannot tell a real token from an invented one.
   // Without this, anyone could hand-craft that cookie and load the whole CRM.
   if (process.env.AUTH_ENABLED === "true") {
-    const session = await auth();
+    let session;
+    try {
+      session = await auth();
+    } catch {
+      redirect("/login");
+    }
     if (!session?.user) redirect("/login");
   }
 

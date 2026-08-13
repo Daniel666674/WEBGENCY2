@@ -74,7 +74,7 @@ export function authConfigProblems(): AuthConfigProblem[] {
 /** Auth.js `error=` query values, mapped to something a human can act on. */
 const ERROR_MESSAGES: Record<string, string> = {
   Configuration:
-    "El servidor no tiene bien configurado el inicio de sesion con Google. Revisa las variables de entorno (AUTH_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET).",
+    "Hubo un error temporal al procesar el inicio de sesion. Intenta de nuevo; si persiste, revisa las variables de entorno (AUTH_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET).",
   AccessDenied:
     "Esa cuenta de Google no esta autorizada. Pedile al owner que te invite desde Configuracion > Usuarios, usando exactamente ese email.",
   Verification: "El enlace de acceso expiro o ya fue usado. Intenta iniciar sesion de nuevo.",
