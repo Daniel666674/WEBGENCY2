@@ -24,6 +24,18 @@ export default async function LoginPage({
       if (err && typeof err === "object" && "digest" in err) throw err;
       console.error("[login] no se pudo leer la sesion:", err);
     }
+
+    // Auth.js lumps every internal error (database column missing, adapter
+    // crash, etc.) under error=Configuration. When the env vars ARE present
+    // the generic message is misleading — expose the real symptom instead.
+    if (error === "Configuration") {
+      try {
+        const { ensureSchema } = await import("@/db");
+        await ensureSchema();
+      } catch (schemaErr) {
+        console.error("[login] ensureSchema fallo:", schemaErr);
+      }
+    }
   }
   // Credentials mode's own "already logged in" check happens via proxy.ts —
   // if this page is reachable, the signed cookie is missing or expired.

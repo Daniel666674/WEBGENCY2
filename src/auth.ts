@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
-import { db } from "@/db";
+import { db, rawClient } from "@/db";
 import { users, accounts, sessions, verificationTokens, authenticators, allowedEmails } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { ALL_PERMISSIONS } from "@/lib/permissions";
@@ -182,7 +182,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async signIn({ user }) {
       if (!user.id) return;
       try {
-        await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id)).run();
+        await rawClient.execute({
+          sql: "UPDATE users SET last_login_at = ? WHERE id = ?",
+          args: [Date.now(), user.id],
+        });
       } catch (err) {
         console.error("[auth] no se pudo actualizar el ultimo acceso:", err);
       }

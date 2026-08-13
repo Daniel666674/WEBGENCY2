@@ -211,3 +211,4 @@ export function checkpointDb(): void {}
 export async function persistNow(): Promise<void> {}
 
 export const db = drizzle(client, { schema });
+export { client as rawClient };
