@@ -176,6 +176,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         console.error("[auth] no se pudo aplicar permisos al usuario nuevo:", err);
       }
     },
+    // Fires once per real sign-in (unlike the `session` callback above, which
+    // re-runs on every session check) — the right moment to stamp "último
+    // acceso" for Settings > Usuarios.
+    async signIn({ user }) {
+      if (!user.id) return;
+      try {
+        await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id)).run();
+      } catch (err) {
+        console.error("[auth] no se pudo actualizar el ultimo acceso:", err);
+      }
+    },
   },
   pages: {
     signIn: "/login",

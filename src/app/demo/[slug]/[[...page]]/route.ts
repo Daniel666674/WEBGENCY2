@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { demoPages } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { renderDemo } from "@/lib/demo/render";
 import { validateDemoConfig } from "@/lib/demo/validate";
 
@@ -30,6 +30,12 @@ export async function GET(
   if (!row || !row.published) {
     return shell("No disponible", "404", "Este demo no está disponible.", 404);
   }
+
+  // Fire-and-forget: a real visit to a published demo, never a builder
+  // preview (which reads render.ts directly, not this route) or a draft.
+  // Atomic increment (not read-modify-write) so concurrent visits don't
+  // lose a count to each other.
+  void db.update(demoPages).set({ views: sql`${demoPages.views} + 1` }).where(eq(demoPages.id, row.id)).run().catch(() => {});
 
   // Serve the snapshot taken at publish time, so edits in progress never
   // leak to a client mid-review. Rows published before the draft/published

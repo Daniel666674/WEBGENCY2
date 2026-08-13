@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
       slug: demoPages.slug,
       template: demoPages.template,
       published: demoPages.published,
+      views: demoPages.views,
       createdAt: demoPages.createdAt,
       updatedAt: demoPages.updatedAt,
       contactName: contacts.name,

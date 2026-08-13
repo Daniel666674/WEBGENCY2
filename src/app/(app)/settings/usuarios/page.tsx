@@ -65,16 +65,7 @@ export default function UsuariosPage() {
   const isOwner = activeUser && !activeUser.isHers;
 
   if (authEnabled) {
-    return (
-      <div className="space-y-6 max-w-2xl mx-auto">
-        <SettingsHeader
-          icon={Users}
-          title="Usuarios"
-          description="Invita usuarios con su cuenta de Google y asigna que secciones puede ver cada uno."
-        />
-        <UsuariosAllowlist />
-      </div>
-    );
+    return <UsuariosAllowlist />;
   }
 
   return (
