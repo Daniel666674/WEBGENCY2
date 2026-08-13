@@ -12,6 +12,9 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const limitParam = searchParams.get("limit");
   const limit = Math.min(Number(limitParam) || 100, 500);
+  // Settings > Usuarios uses this to show one person's activity — everything
+  // else uses the unfiltered feed.
+  const userId = searchParams.get("userId");
 
   const rows = await db
     .select({
@@ -29,6 +32,7 @@ export async function GET(request: NextRequest) {
     })
     .from(auditLogs)
     .leftJoin(users, eq(auditLogs.userId, users.id))
+    .where(userId ? eq(auditLogs.userId, userId) : undefined)
     .orderBy(desc(auditLogs.createdAt))
     .limit(limit)
     .all();

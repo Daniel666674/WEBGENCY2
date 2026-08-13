@@ -37,7 +37,7 @@ export async function GET() {
 
   const rows = await db.select().from(allowedEmails).all();
   const registered = await db
-    .select({ id: users.id, email: users.email, name: users.name, image: users.image })
+    .select({ id: users.id, email: users.email, name: users.name, image: users.image, lastLoginAt: users.lastLoginAt })
     .from(users)
     .all();
 
@@ -46,6 +46,7 @@ export async function GET() {
       ...r,
       permissions: parsePermissions(r.permissions),
       registeredUser: registered.find((u) => (u.email ?? "").toLowerCase() === r.email) ?? null,
+      invitedByName: registered.find((u) => u.id === r.invitedByUserId)?.name ?? null,
     }))
   );
 }

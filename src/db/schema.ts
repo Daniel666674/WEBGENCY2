@@ -156,6 +156,10 @@ export const users = sqliteTable("users", {
   // who always has full access. Set from allowed_emails.permissions at
   // sign-in and kept in sync with it from there on.
   permissions: text("permissions").notNull().default("[]"),
+  // Stamped from Auth.js's `signIn` event — a real completed sign-in, not
+  // every session refresh (that would fire on nearly every request). Null
+  // means invited but never signed in yet.
+  lastLoginAt: integer("last_login_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -391,6 +395,10 @@ export const demoPages = sqliteTable("demo_pages", {
   // a mismatch means another tab (or an out-of-order autosave) already wrote,
   // so the stale request is rejected instead of silently clobbering.
   version: integer("version").notNull().default(0),
+  // Incremented on every real visit to the published /demo/[slug] page —
+  // never on a builder preview or an unpublished page, since those aren't a
+  // prospect looking at the site.
+  views: integer("views").notNull().default(0),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
