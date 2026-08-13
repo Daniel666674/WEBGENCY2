@@ -2,11 +2,16 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import { ArrowRight, Eye, EyeOff, Lock, Moon, ShieldCheck, Sun, User, BadgeCheck } from "lucide-react";
 
-const display = Space_Grotesk({ subsets: ["latin"], weight: ["500", "700"] });
-const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"] });
+// Plain system stacks instead of next/font/google: that fetches Space
+// Grotesk/JetBrains Mono from Google's CDN at build time, and a build
+// machine that can't reach it (seen in production — "module-not-found" on
+// the generated font CSS module) fails the entire deploy over two fonts
+// used only on this one screen. No network dependency, no single point of
+// failure for the whole app's build.
+const display = { className: "font-[system-ui,-apple-system,'Segoe_UI',Roboto,sans-serif]" };
+const mono = { className: "font-[ui-monospace,'SFMono-Regular',Menlo,Consolas,'Liberation_Mono',monospace]" };
 
 const TRUST_ITEMS = [
   { icon: Lock, label: "Seguro y encriptado" },
