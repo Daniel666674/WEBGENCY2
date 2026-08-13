@@ -32,7 +32,7 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
-  const denied = await requireApi("settings");
+  const denied = await requireApi("settings", { ownerOnly: true });
   if (denied) return denied;
 
 
