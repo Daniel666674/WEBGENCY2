@@ -84,8 +84,8 @@ export default function CalculatorPage() {
   const [proposals, setProposals] = useState<ProposalRow[]>([]);
 
   useEffect(() => {
-    fetch("/api/contacts").then((r) => r.json()).then(setContacts).catch(() => {});
-    fetch("/api/proposals").then((r) => r.json()).then(setProposals).catch(() => {});
+    fetch("/api/contacts").then((r) => r.json()).then((d) => { if (Array.isArray(d)) setContacts(d); }).catch(() => {});
+    fetch("/api/proposals").then((r) => r.json()).then((d) => { if (Array.isArray(d)) setProposals(d); }).catch(() => {});
   }, []);
 
   const proposalsCount = proposals.length;
