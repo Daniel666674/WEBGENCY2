@@ -9,9 +9,9 @@ import {
   GripVertical, Eye, EyeOff, Monitor, Smartphone, Tablet, ArrowLeft,
   ExternalLink, Loader2, Globe, Check, Palette, Type, Layers, Plus,
   Undo2, Redo2, Code2, Menu, ChevronRight, Copy, Trash2, PanelsTopLeft, Files, SlidersHorizontal,
-  AlertTriangle, Lightbulb, Lock,
+  AlertTriangle, Lightbulb, Lock, MousePointer2, ImageIcon, TypeIcon, RectangleHorizontal,
 } from "lucide-react";
-import type { DemoConfig, DemoPage, Section, SectionType, ButtonShape, ButtonFill, ElementKey, NavLink, DemoBrief } from "@/lib/demo/types";
+import type { DemoConfig, DemoPage, Section, SectionType, ButtonShape, ButtonFill, ElementKey, NavLink, DemoBrief, CanvasElement, CanvasElementKind } from "@/lib/demo/types";
 import { SECTION_LABELS, SECTION_CATEGORIES, newId, defaultNav, defaultFooter, defaultNavLinks, defaultPages } from "@/lib/demo/types";
 import { isItemDriven, starterItems } from "@/lib/demo/coach";
 import { CoachTips } from "./CoachTips";
@@ -777,7 +777,9 @@ export function DemoBuilder({
       ? { ...starter, id: newId(), enabled: true, heading: "Nueva página" }
       : { id: newId(), type: "columns", variant: "single", enabled: true, heading: "Nueva página" };
     const page: DemoPage = { id: newId(), slug, title: "Nueva página", sections: [seedSection] };
-    update({ pages: [...pages, page] });
+    const link: NavLink = { id: newId(), label: page.title, url: "", page: page.id };
+    const nav = cfg.nav ?? { ...defaultNav(), links: [] };
+    update({ pages: [...pages, page], nav: { ...nav, links: [...nav.links, link] } });
     setActivePageId(page.id);
   }
 
@@ -840,6 +842,69 @@ export function DemoBuilder({
     setCfg({ ...current, pages: nextPages, sections: nextPages[0].sections }, false);
   }, [setCfg]);
 
+  const applyCanvasStyle = useCallback((sectionId: string, elKey: string, patch: Record<string, string | undefined>) => {
+    const current = cfgRef.current;
+    const typedKey = elKey as ElementKey;
+    const patchSection = (sec: Section): Section => {
+      if (sec.id !== sectionId) return sec;
+      const cur = sec.elements?.[typedKey] ?? {};
+      const next = { ...cur, ...patch } as Record<string, unknown>;
+      for (const k of Object.keys(next)) { if (next[k] === undefined) delete next[k]; }
+      const elements: Section["elements"] = { ...(sec.elements ?? {}), [typedKey]: next };
+      if (Object.keys(next).length === 0) delete elements[typedKey];
+      return { ...sec, elements };
+    };
+    const currentPages = current.pages?.length ? current.pages : defaultPages(current.sections);
+    const nextPages = currentPages.map((p) => ({ ...p, sections: p.sections.map(patchSection) }));
+    dirty.current = true;
+    setSaved(false);
+    setUnpublishedChanges(true);
+    setCfg({ ...current, pages: nextPages, sections: nextPages[0].sections });
+  }, [setCfg]);
+
+  const moveCanvasElement = useCallback((elId: string, x: number, y: number) => {
+    const current = cfgRef.current;
+    const currentPages = current.pages?.length ? current.pages : defaultPages(current.sections);
+    const nextPages = currentPages.map((p) => ({
+      ...p,
+      canvasElements: (p.canvasElements ?? []).map((ce) =>
+        ce.id === elId ? { ...ce, x, y } : ce
+      ),
+    }));
+    dirty.current = true;
+    setSaved(false);
+    setUnpublishedChanges(true);
+    setCfg({ ...current, pages: nextPages, sections: nextPages[0].sections });
+  }, [setCfg]);
+
+  function addCanvasElement(kind: CanvasElementKind) {
+    const el: CanvasElement = {
+      id: newId(),
+      kind,
+      x: 100,
+      y: 300,
+      width: kind === "text" ? 300 : kind === "button" ? 200 : 200,
+      height: kind === "text" ? 80 : kind === "button" ? 50 : 150,
+      text: kind === "text" ? "Texto libre" : kind === "button" ? "Botón" : undefined,
+      zIndex: 10,
+    };
+    if (kind === "logo" && cfg.brand.logo) el.media = cfg.brand.logo;
+    const currentPages = pages.map((p) =>
+      p.id === activePage.id
+        ? { ...p, canvasElements: [...(p.canvasElements ?? []), el] }
+        : p
+    );
+    update({ pages: currentPages, sections: activePage.id === pages[0].id ? currentPages[0].sections : cfg.sections });
+  }
+
+  function removeCanvasElement(elId: string) {
+    const currentPages = pages.map((p) => ({
+      ...p,
+      canvasElements: (p.canvasElements ?? []).filter((ce) => ce.id !== elId),
+    }));
+    update({ pages: currentPages, sections: activePage.id === pages[0].id ? currentPages[0].sections : cfg.sections });
+  }
+
   const undo = useCallback(() => {
     if (historyIndex.current <= 0) return;
     historyIndex.current -= 1;
@@ -888,6 +953,7 @@ export function DemoBuilder({
       const data = e.data as {
         source?: string; type?: string; id?: string; key?: string;
         field?: string; value?: string; rich?: boolean; text?: string; tone?: string;
+        patch?: Record<string, string | undefined>;
       } | undefined;
       if (!data || data.source !== "oliwan-demo") return;
 
@@ -923,6 +989,17 @@ export function DemoBuilder({
         return;
       }
 
+      if (data.type === "style-change" && data.id && data.key && data.patch) {
+        applyCanvasStyle(data.id, data.key, data.patch);
+        return;
+      }
+
+      if (data.type === "canvas-move" && data.id) {
+        const msg = e.data as { id: string; x: number; y: number };
+        moveCanvasElement(msg.id, msg.x, msg.y);
+        return;
+      }
+
       if (data.type === "select-element" && data.id && data.key) {
         setSelected({ id: data.id, key: data.key as ElementKey });
         setActiveSectionId(data.id);
@@ -944,7 +1021,7 @@ export function DemoBuilder({
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [applyCanvasText]);
+  }, [applyCanvasText, applyCanvasStyle, moveCanvasElement]);
 
   const toCanvas = useCallback((msg: Record<string, unknown>) => {
     frameRef.current?.contentWindow?.postMessage({ source: "oliwan-editor", ...msg }, "*");
@@ -1373,6 +1450,36 @@ export function DemoBuilder({
                               </button>
                             ))}
                           </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-2 border-t border-border pt-2">
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Elementos libres</p>
+                  <div className="flex flex-wrap gap-1">
+                    <button type="button" onClick={() => addCanvasElement("text")} className="flex items-center gap-1 rounded border border-border px-1.5 py-1 text-[10px] font-medium hover:border-primary hover:text-primary">
+                      <TypeIcon className="h-3 w-3" /> Texto
+                    </button>
+                    <button type="button" onClick={() => addCanvasElement("image")} className="flex items-center gap-1 rounded border border-border px-1.5 py-1 text-[10px] font-medium hover:border-primary hover:text-primary">
+                      <ImageIcon className="h-3 w-3" /> Imagen
+                    </button>
+                    <button type="button" onClick={() => addCanvasElement("button")} className="flex items-center gap-1 rounded border border-border px-1.5 py-1 text-[10px] font-medium hover:border-primary hover:text-primary">
+                      <RectangleHorizontal className="h-3 w-3" /> Botón
+                    </button>
+                    <button type="button" onClick={() => addCanvasElement("logo")} className="flex items-center gap-1 rounded border border-border px-1.5 py-1 text-[10px] font-medium hover:border-primary hover:text-primary">
+                      <MousePointer2 className="h-3 w-3" /> Logo
+                    </button>
+                  </div>
+                  {(activePage.canvasElements ?? []).length > 0 && (
+                    <div className="mt-1.5 flex flex-col gap-0.5">
+                      {(activePage.canvasElements ?? []).map((cel) => (
+                        <div key={cel.id} className="group flex items-center justify-between rounded px-1.5 py-1 text-[11px] text-muted-foreground hover:bg-muted">
+                          <span className="truncate">{cel.kind === "text" ? (cel.text?.slice(0, 20) || "Texto") : cel.kind === "button" ? (cel.text || "Botón") : cel.kind === "logo" ? "Logo" : "Imagen"}</span>
+                          <button type="button" onClick={() => removeCanvasElement(cel.id)} className="rounded p-0.5 opacity-0 hover:text-red-500 group-hover:opacity-100">
+                            <Trash2 className="h-3 w-3" />
+                          </button>
                         </div>
                       ))}
                     </div>

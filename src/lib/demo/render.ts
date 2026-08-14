@@ -1,4 +1,4 @@
-import type { DemoConfig, Section, MediaRef, SectionWidth, SectionPad, NavConfig, FooterConfig, NavLink, NavSize, FooterSize, ElementKey } from "./types";
+import type { DemoConfig, Section, MediaRef, SectionWidth, SectionPad, NavConfig, FooterConfig, NavLink, NavSize, FooterSize, ElementKey, CanvasElement } from "./types";
 import { getTemplate } from "./templates";
 import { getFontPair } from "./fonts";
 import { defaultNav, defaultFooter, defaultNavLinks, ELEMENT_LABELS, SECTION_ANCHORS } from "./types";
@@ -710,6 +710,41 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
   // data-demo-section-id lets the builder's canvas click-to-select feature
   // (postMessage from the iframe) map a click anywhere on the page back to
   // the exact section/nav/footer editor panel in the sidebar.
+  // ── Canvas elements (free-form overlays) ──────────────────
+  const canvasEls: CanvasElement[] = activePage?.canvasElements ?? [];
+
+  function renderCanvasElement(el: CanvasElement): string {
+    const s = el.style ?? {};
+    const family = s.fontFamily === "heading" ? `var(--f-heading)` : `var(--f-body)`;
+    const base = `position:absolute;left:${el.x}px;top:${el.y}px;width:${el.width}px;height:${el.height}px;z-index:${el.zIndex ?? 10};`;
+    const typo = `font-family:${family};${s.fontSize ? `font-size:${s.fontSize}px;` : ""}${s.fontWeight ? `font-weight:${s.fontWeight};` : ""}${s.color ? `color:${safeColor(s.color)};` : ""}`;
+    const box = `${s.bg ? `background:${safeColor(s.bg)};` : ""}${s.radius ? `border-radius:${s.radius}px;` : ""}`;
+    const dataAttr = editMode ? ` data-canvas-el="${el.id}"` : "";
+    const dragHandle = editMode ? `<div class="canvas-drag-handle" style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);width:24px;height:8px;background:#4f46e5;border-radius:4px;cursor:grab;opacity:0.7;"></div>` : "";
+
+    switch (el.kind) {
+      case "text":
+        return `<div${dataAttr} style="${base}${typo}${box}overflow:auto;padding:4px;">${dragHandle}${sanitizeRich(el.text ?? "")}</div>`;
+      case "image":
+        return `<div${dataAttr} style="${base}${box}overflow:hidden;">${dragHandle}${el.media ? `<img src="${escUrl(el.media.url)}" alt="${esc(el.media.alt)}" style="width:100%;height:100%;object-fit:cover;${s.radius ? `border-radius:${s.radius}px;` : ""}" />` : ""}</div>`;
+      case "button": {
+        const btnRadius = b.buttonShape === "pill" ? "999px" : b.buttonShape === "sharp" ? "0" : "8px";
+        const fill = b.buttonFill === "outline"
+          ? `border:2px solid ${accent};color:${accent};background:transparent;`
+          : `background:${accent};color:${onAccent};`;
+        return `<div${dataAttr} style="${base}display:flex;align-items:center;justify-content:center;">${dragHandle}<a href="${escUrl(el.url)}" style="${fill}${typo}border-radius:${btnRadius};padding:12px 24px;text-decoration:none;display:inline-block;text-align:center;">${esc(el.text ?? "Botón")}</a></div>`;
+      }
+      case "logo":
+        return `<div${dataAttr} style="${base}${box}overflow:hidden;display:flex;align-items:center;justify-content:center;">${dragHandle}${el.media ? `<img src="${escUrl(el.media.url)}" alt="${esc(el.media.alt)}" style="max-width:100%;max-height:100%;object-fit:contain;" />` : (b.logo ? `<img src="${escUrl(b.logo.url)}" alt="${esc(b.name)}" style="max-width:100%;max-height:100%;object-fit:contain;" />` : `<span style="${typo}font-weight:700;">${esc(b.name)}</span>`)}</div>`;
+      default:
+        return "";
+    }
+  }
+
+  const canvasHtml = canvasEls.length
+    ? `<div id="oliwan-canvas-layer" style="position:absolute;top:0;left:0;width:100%;pointer-events:${editMode ? "auto" : "none"};z-index:5;">${canvasEls.map(renderCanvasElement).join("")}</div>`
+    : "";
+
   const body = pageSections
     .filter((s) => s.enabled)
     .map((s) => {
@@ -880,10 +915,17 @@ ${editMode ? `
 .el[data-sel="1"]{position:relative;}
 [data-text]{outline-offset:3px;}
 [data-text]:focus{outline:2px solid #6366f1;outline-offset:3px;border-radius:2px;}
-#oliwan-tb{position:absolute;z-index:2147483000;display:none;gap:2px;background:#18181b;border-radius:8px;padding:4px;box-shadow:0 8px 24px -6px rgba(0,0,0,.5);font-family:system-ui,sans-serif;}
+#oliwan-tb{position:absolute;z-index:2147483000;display:none;flex-direction:column;gap:2px;background:#18181b;border-radius:8px;padding:4px;box-shadow:0 8px 24px -6px rgba(0,0,0,.5);font-family:system-ui,sans-serif;}
+#oliwan-tb .tb-row{display:flex;gap:2px;align-items:center;}
 #oliwan-tb button{all:unset;cursor:pointer;color:#e4e4e7;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:5px;font-size:12px;line-height:1;}
 #oliwan-tb button:hover{background:#3f3f46;}
+#oliwan-tb button[data-active="1"]{background:#4f46e5;}
 #oliwan-tb .sep{width:1px;background:#3f3f46;margin:3px 2px;}
+#oliwan-tb .typo-row{display:none;gap:4px;align-items:center;padding:2px 0;border-top:1px solid #3f3f46;margin-top:2px;padding-top:4px;}
+#oliwan-tb .typo-row select,#oliwan-tb .typo-row input[type="number"]{all:unset;color:#e4e4e7;background:#27272a;border:1px solid #3f3f46;border-radius:4px;padding:2px 4px;font-size:10px;text-align:center;}
+#oliwan-tb .typo-row select{width:42px;cursor:pointer;}
+#oliwan-tb .typo-row input[type="number"]{width:36px;}
+#oliwan-tb .typo-row .typo-label{color:#a1a1aa;font-size:9px;white-space:nowrap;}
 ` : ""}
 @media(max-width:860px){
   .split{grid-template-columns:1fr!important;}
@@ -900,9 +942,10 @@ ${editMode ? `
 ${safeCss(cfg.customCss)}
 </style>
 </head>
-<body>
+<body style="position:relative;">
 ${renderNav()}
 ${body}
+${canvasHtml}
 ${renderFooter()}
 ${editMode ? `<script>
 (function(){
@@ -952,6 +995,7 @@ ${editMode ? `<script>
   var tb = document.createElement('div');
   tb.id = 'oliwan-tb';
   tb.innerHTML =
+    '<div class="tb-row">' +
     '<span class="fmt-group" style="display:flex;gap:2px;">' +
     '<button data-cmd="bold" title="Negrita"><b>B</b></button>' +
     '<button data-cmd="italic" title="Cursiva"><i>I</i></button>' +
@@ -961,7 +1005,25 @@ ${editMode ? `<script>
     '<button data-cmd="unlink" title="Quitar enlace">⛓️‍💥</button>' +
     '<span class="sep"></span>' +
     '</span>' +
-    '<button data-cmd="ai" title="Reescribir con IA">✨</button>';
+    '<button data-cmd="ai" title="Reescribir con IA">✨</button>' +
+    '</div>' +
+    '<div class="typo-row">' +
+    '<button data-font="heading" title="Fuente de títulos" style="font-size:11px;width:auto;padding:0 6px;"><b>H</b></button>' +
+    '<button data-font="body" title="Fuente de texto" style="font-size:11px;width:auto;padding:0 6px;">T</button>' +
+    '<span class="sep"></span>' +
+    '<input type="number" data-typo="size" min="8" max="120" step="1" title="Tamaño (px)" />' +
+    '<span class="typo-label">px</span>' +
+    '<span class="sep"></span>' +
+    '<select data-typo="weight" title="Peso">' +
+    '<option value="300">Light</option>' +
+    '<option value="400">Regular</option>' +
+    '<option value="500">Medium</option>' +
+    '<option value="600">Semi</option>' +
+    '<option value="700">Bold</option>' +
+    '<option value="800">Extra</option>' +
+    '<option value="900">Black</option>' +
+    '</select>' +
+    '</div>';
   document.body.appendChild(tb);
 
   // Tone submenu, opened by the ✨ button. Kept outside #oliwan-tb so its own
@@ -988,12 +1050,39 @@ ${editMode ? `<script>
 
   function showTbFor(node){
     var rich = node.getAttribute('data-rich') === '1';
+    var hasEl = !!node.closest('[data-el]');
     tb.querySelector('.fmt-group').style.display = rich ? 'flex' : 'none';
+    var typoRow = tb.querySelector('.typo-row');
+    typoRow.style.display = hasEl ? 'flex' : 'none';
+    if (hasEl) populateTypo(node);
     var r = node.getBoundingClientRect();
     tb.style.display = 'flex';
     tb.style.left = Math.max(8, r.left + window.scrollX) + 'px';
-    tb.style.top = Math.max(8, r.top + window.scrollY - 38) + 'px';
+    var tbHeight = hasEl ? 68 : 38;
+    tb.style.top = Math.max(8, r.top + window.scrollY - tbHeight) + 'px';
     toneMenu.style.display = 'none';
+  }
+
+  function populateTypo(node) {
+    var cs = getComputedStyle(node);
+    var sizeInput = tb.querySelector('[data-typo="size"]');
+    var weightSelect = tb.querySelector('[data-typo="weight"]');
+    if (sizeInput) sizeInput.value = Math.round(parseFloat(cs.fontSize));
+    if (weightSelect) weightSelect.value = String(Math.round(Number(cs.fontWeight) / 100) * 100);
+    var headingFont = document.querySelector('h1,h2,h3');
+    var hFamily = headingFont ? getComputedStyle(headingFont).fontFamily : '';
+    var isHeading = hFamily && cs.fontFamily.split(',')[0].trim() === hFamily.split(',')[0].trim();
+    var hBtn = tb.querySelector('[data-font="heading"]');
+    var bBtn = tb.querySelector('[data-font="body"]');
+    if (hBtn) hBtn.setAttribute('data-active', isHeading ? '1' : '0');
+    if (bBtn) bBtn.setAttribute('data-active', isHeading ? '0' : '1');
+  }
+
+  function getElInfo(node) {
+    var elNode = node.closest('[data-el]');
+    if (!elNode) return null;
+    var parts = String(elNode.getAttribute('data-el')).split(':');
+    return { id: parts[0], key: parts.slice(1).join(':') };
   }
 
   // Formatting must not steal focus from the text being edited.
@@ -1020,6 +1109,36 @@ ${editMode ? `<script>
     }
     commit(activeField, true);
   });
+
+  tb.addEventListener('click', function(e){
+    var fontBtn = e.target && e.target.closest ? e.target.closest('[data-font]') : null;
+    if (fontBtn && activeField) {
+      var info = getElInfo(activeField);
+      if (info) {
+        send({ type:'style-change', id: info.id, key: info.key, patch: { fontFamily: fontBtn.getAttribute('data-font') } });
+      }
+    }
+  });
+
+  var sizeInput = tb.querySelector('[data-typo="size"]');
+  if (sizeInput) {
+    sizeInput.addEventListener('input', function(){
+      if (!activeField) return;
+      var info = getElInfo(activeField);
+      if (info) send({ type:'style-change', id: info.id, key: info.key, patch: { fontSize: sizeInput.value + 'px' } });
+    });
+    sizeInput.addEventListener('mousedown', function(e){ e.stopPropagation(); });
+  }
+
+  var weightSelect = tb.querySelector('[data-typo="weight"]');
+  if (weightSelect) {
+    weightSelect.addEventListener('change', function(){
+      if (!activeField) return;
+      var info = getElInfo(activeField);
+      if (info) send({ type:'style-change', id: info.id, key: info.key, patch: { fontWeight: weightSelect.value } });
+    });
+    weightSelect.addEventListener('mousedown', function(e){ e.stopPropagation(); });
+  }
 
   toneMenu.addEventListener('click', function(e){
     var btn = e.target && e.target.closest ? e.target.closest('button[data-tone]') : null;
@@ -1057,7 +1176,8 @@ ${editMode ? `<script>
     var node = e.target && e.target.closest ? e.target.closest('[data-text]') : null;
     if (!node) { return; }
     activeField = node;
-    if (node.getAttribute('data-rich') === '1') showTbFor(node); else hideTb();
+    var hasEl = !!node.closest('[data-el]');
+    if (node.getAttribute('data-rich') === '1' || hasEl) showTbFor(node); else hideTb();
   });
 
   document.addEventListener('focusout', function(e){
@@ -1070,6 +1190,39 @@ ${editMode ? `<script>
         hideTb(); activeField = null;
       }
     }, 60);
+  });
+
+  // ── Canvas element drag ─────────────────────────────────────
+  var dragEl = null, dragStartX = 0, dragStartY = 0, dragOrigX = 0, dragOrigY = 0;
+  document.addEventListener('mousedown', function(e){
+    var handle = e.target && e.target.closest ? e.target.closest('.canvas-drag-handle') : null;
+    if (!handle) return;
+    var cel = handle.parentElement;
+    if (!cel || !cel.hasAttribute('data-canvas-el')) return;
+    e.preventDefault();
+    dragEl = cel;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    dragOrigX = parseInt(cel.style.left) || 0;
+    dragOrigY = parseInt(cel.style.top) || 0;
+    handle.style.cursor = 'grabbing';
+  });
+  document.addEventListener('mousemove', function(e){
+    if (!dragEl) return;
+    var dx = e.clientX - dragStartX;
+    var dy = e.clientY - dragStartY;
+    dragEl.style.left = Math.max(0, dragOrigX + dx) + 'px';
+    dragEl.style.top = Math.max(0, dragOrigY + dy) + 'px';
+  });
+  document.addEventListener('mouseup', function(){
+    if (!dragEl) return;
+    var id = dragEl.getAttribute('data-canvas-el');
+    var x = parseInt(dragEl.style.left) || 0;
+    var y = parseInt(dragEl.style.top) || 0;
+    var handle = dragEl.querySelector('.canvas-drag-handle');
+    if (handle) handle.style.cursor = 'grab';
+    send({ type:'canvas-move', id: id, x: x, y: y });
+    dragEl = null;
   });
 
   // Enter should end the edit, not insert a newline into a heading.

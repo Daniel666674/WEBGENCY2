@@ -266,11 +266,26 @@ const brandSchema = z.object({
 // straight off the URL — "" (home) is the sole exception.
 const pageSlugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
+const canvasElementSchema = z.object({
+  id: z.string().min(1).max(64),
+  kind: z.enum(["text", "image", "button", "logo"]),
+  x: z.number().min(-2000).max(10000),
+  y: z.number().min(-2000).max(50000),
+  width: z.number().min(10).max(5000),
+  height: z.number().min(10).max(5000),
+  text: text(5_000).transform(sanitizeRich).optional(),
+  media: mediaRefSchema.optional(),
+  url: urlField.optional(),
+  style: elementStyleSchema.optional(),
+  zIndex: z.number().min(0).max(10000).optional(),
+});
+
 const demoPageSchema = z.object({
   id: z.string().min(1).max(64),
   slug: z.string().max(60).refine((v) => v === "" || pageSlugPattern.test(v), "Usa solo minúsculas, números y guiones"),
   title: text(120),
   sections: z.array(sectionSchema).max(80),
+  canvasElements: z.array(canvasElementSchema).max(100).optional(),
 });
 
 // The real allowlist pass (sanitize-html) runs once, at the write
