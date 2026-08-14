@@ -4,8 +4,8 @@ import { useState } from "react";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Plus, Trash2, Settings2, ChevronDown, StickyNote } from "lucide-react";
-import type { Section, SectionItem, SectionStyle, SectionWidth, SectionPad } from "@/lib/demo/types";
+import { GripVertical, Plus, Trash2, Settings2, ChevronDown, StickyNote, Images } from "lucide-react";
+import type { Section, SectionItem, SectionStyle, SectionWidth, SectionPad, MediaRef } from "@/lib/demo/types";
 import { SECTION_VARIANTS, WIDTH_LABELS, PAD_LABELS } from "@/lib/demo/types";
 import { MediaPicker } from "./MediaPicker";
 
@@ -229,6 +229,13 @@ export function SectionEditor({
   const lbl = itemLabels[section.type] ?? { title: "Título", body: "Texto" };
   const itemNeedsMedia = ["gallery", "features", "menu", "team", "logos"].includes(section.type);
   const itemMediaOnly = section.type === "logos";
+  const [showBatchUpload, setShowBatchUpload] = useState(false);
+
+  function addItemsFromMedia(refs: MediaRef[]) {
+    const newItems: SectionItem[] = refs.map((m) => ({ title: "", body: "", media: m }));
+    setItems([...items, ...newItems]);
+    setShowBatchUpload(false);
+  }
 
   return (
     <div className="flex flex-col gap-3.5">
@@ -303,14 +310,35 @@ export function SectionEditor({
             <label className="text-xs font-medium text-muted-foreground">
               Elementos <span className="opacity-60">· arrastra para reordenar</span>
             </label>
-            <button
-              type="button"
-              onClick={() => setItems([...items, { title: "", body: "" }])}
-              className="flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground"
-            >
-              <Plus className="h-3 w-3" /> Agregar
-            </button>
+            <div className="flex items-center gap-1.5">
+              {itemNeedsMedia && (
+                <button
+                  type="button"
+                  onClick={() => setShowBatchUpload((v) => !v)}
+                  className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                >
+                  <Images className="h-3 w-3" /> Subir varias
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setItems([...items, { title: "", body: "" }])}
+                className="flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground"
+              >
+                <Plus className="h-3 w-3" /> Agregar
+              </button>
+            </div>
           </div>
+
+          {showBatchUpload && (
+            <MediaPicker
+              label=""
+              accept="image"
+              multiple
+              onMultiple={addItemsFromMedia}
+              onChange={() => {}}
+            />
+          )}
 
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
             <SortableContext items={items.map((_, i) => String(i))} strategy={verticalListSortingStrategy}>

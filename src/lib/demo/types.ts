@@ -206,12 +206,29 @@ export interface FooterConfig {
   copyrightExtra?: string;
 }
 
+export type CanvasElementKind = "text" | "image" | "button" | "logo";
+
+export interface CanvasElement {
+  id: string;
+  kind: CanvasElementKind;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  text?: string;
+  media?: MediaRef;
+  url?: string;
+  style?: ElementStyle;
+  zIndex?: number;
+}
+
 export interface DemoPage {
   id: string;
   /** URL segment. "" is the home page, served at the demo's own root. */
   slug: string;
   title: string;
   sections: Section[];
+  canvasElements?: CanvasElement[];
 }
 
 export type BriefGoal = "leads" | "sales" | "credibility" | "bookings";
