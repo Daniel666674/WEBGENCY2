@@ -716,11 +716,12 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
   function renderCanvasElement(el: CanvasElement): string {
     const s = el.style ?? {};
     const family = s.fontFamily === "heading" ? `var(--f-heading)` : `var(--f-body)`;
-    const base = `position:absolute;left:${el.x}px;top:${el.y}px;width:${el.width}px;height:${el.height}px;z-index:${el.zIndex ?? 10};`;
+    const pe = editMode ? "pointer-events:auto;" : "";
+    const base = `position:absolute;left:${el.x}px;top:${el.y}px;width:${el.width}px;height:${el.height}px;z-index:${el.zIndex ?? 10};${pe}`;
     const typo = `font-family:${family};${s.fontSize ? `font-size:${s.fontSize}px;` : ""}${s.fontWeight ? `font-weight:${s.fontWeight};` : ""}${s.color ? `color:${safeColor(s.color)};` : ""}`;
     const box = `${s.bg ? `background:${safeColor(s.bg)};` : ""}${s.radius ? `border-radius:${s.radius}px;` : ""}`;
     const dataAttr = editMode ? ` data-canvas-el="${el.id}"` : "";
-    const dragHandle = editMode ? `<div class="canvas-drag-handle" style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);width:24px;height:8px;background:#4f46e5;border-radius:4px;cursor:grab;opacity:0.7;"></div>` : "";
+    const dragHandle = editMode ? `<div class="canvas-drag-handle" style="position:absolute;top:-14px;left:50%;transform:translateX(-50%);width:36px;height:12px;background:#4f46e5;border-radius:6px;cursor:grab;opacity:0.85;box-shadow:0 2px 6px rgba(0,0,0,.3);"></div>` : "";
 
     switch (el.kind) {
       case "text":
@@ -742,7 +743,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
   }
 
   const canvasHtml = canvasEls.length
-    ? `<div id="oliwan-canvas-layer" style="position:absolute;top:0;left:0;width:100%;pointer-events:${editMode ? "auto" : "none"};z-index:5;">${canvasEls.map(renderCanvasElement).join("")}</div>`
+    ? `<div id="oliwan-canvas-layer" style="position:absolute;top:0;left:0;width:100%;height:0;overflow:visible;pointer-events:none;z-index:5;">${canvasEls.map(renderCanvasElement).join("")}</div>`
     : "";
 
   const body = pageSections
@@ -926,6 +927,9 @@ ${editMode ? `
 #oliwan-tb .typo-row select{width:42px;cursor:pointer;}
 #oliwan-tb .typo-row input[type="number"]{width:36px;}
 #oliwan-tb .typo-row .typo-label{color:#a1a1aa;font-size:9px;white-space:nowrap;}
+[data-canvas-el]{cursor:grab;outline:1px dashed rgba(99,102,241,.5);transition:outline .15s;}
+[data-canvas-el]:hover{outline:2px solid #4f46e5;}
+.canvas-drag-handle:hover{opacity:1!important;transform:translateX(-50%) scale(1.15);}
 ` : ""}
 @media(max-width:860px){
   .split{grid-template-columns:1fr!important;}
@@ -970,6 +974,15 @@ ${editMode ? `<script>
     // While editing, a click means "select this" — never "follow this link".
     var link = t.closest('a');
     if (link) e.preventDefault();
+
+    // Canvas element clicks: select the element, don't fall through to deselect
+    var cel = t.closest('[data-canvas-el]');
+    if (cel) {
+      e.stopPropagation();
+      mark(cel);
+      send({ type:'select-canvas-element', id: cel.getAttribute('data-canvas-el') });
+      return;
+    }
 
     var el = t.closest('[data-el]');
     if (el) {
@@ -1195,20 +1208,23 @@ ${editMode ? `<script>
   // ── Canvas element drag ─────────────────────────────────────
   var dragEl = null, dragStartX = 0, dragStartY = 0, dragOrigX = 0, dragOrigY = 0;
   document.addEventListener('mousedown', function(e){
-    var handle = e.target && e.target.closest ? e.target.closest('.canvas-drag-handle') : null;
-    if (!handle) return;
-    var cel = handle.parentElement;
-    if (!cel || !cel.hasAttribute('data-canvas-el')) return;
+    var t = e.target;
+    if (!t || !t.closest) return;
+    var cel = t.closest('[data-canvas-el]');
+    if (!cel) return;
     e.preventDefault();
+    e.stopPropagation();
     dragEl = cel;
     dragStartX = e.clientX;
     dragStartY = e.clientY;
     dragOrigX = parseInt(cel.style.left) || 0;
     dragOrigY = parseInt(cel.style.top) || 0;
-    handle.style.cursor = 'grabbing';
+    cel.style.cursor = 'grabbing';
+    cel.style.outline = '2px solid #4f46e5';
   });
   document.addEventListener('mousemove', function(e){
     if (!dragEl) return;
+    e.preventDefault();
     var dx = e.clientX - dragStartX;
     var dy = e.clientY - dragStartY;
     dragEl.style.left = Math.max(0, dragOrigX + dx) + 'px';
@@ -1219,8 +1235,8 @@ ${editMode ? `<script>
     var id = dragEl.getAttribute('data-canvas-el');
     var x = parseInt(dragEl.style.left) || 0;
     var y = parseInt(dragEl.style.top) || 0;
-    var handle = dragEl.querySelector('.canvas-drag-handle');
-    if (handle) handle.style.cursor = 'grab';
+    dragEl.style.cursor = '';
+    dragEl.style.outline = '';
     send({ type:'canvas-move', id: id, x: x, y: y });
     dragEl = null;
   });
