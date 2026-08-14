@@ -65,6 +65,9 @@ export interface ElementStyle {
   // Box
   marginTop?: number;       // px
   marginBottom?: number;    // px
+  // Free-form drag offset (px, relative to template position)
+  offsetX?: number;
+  offsetY?: number;
   // Button / media
   bg?: string;
   radius?: number;          // px

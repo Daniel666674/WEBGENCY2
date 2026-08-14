@@ -178,6 +178,8 @@ const elementStyleSchema = z.object({
   textTransform: z.enum(["none", "uppercase"]).optional(),
   marginTop: px(-200, 400).optional(),
   marginBottom: px(-200, 400).optional(),
+  offsetX: px(-2000, 2000).optional(),
+  offsetY: px(-2000, 2000).optional(),
   bg: colorField.optional(),
   radius: px(0, 200).optional(),
   hideDesktop: z.boolean().optional(),

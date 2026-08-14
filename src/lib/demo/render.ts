@@ -175,6 +175,9 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     if (e.marginBottom !== undefined) out.push(`margin-bottom:${e.marginBottom}px;`);
     if (e.bg) out.push(`background:${safeColor(e.bg)};`);
     if (e.radius !== undefined) out.push(`border-radius:${e.radius}px;`);
+    if (e.offsetX !== undefined || e.offsetY !== undefined) {
+      out.push(`position:relative;transform:translate(${e.offsetX ?? 0}px,${e.offsetY ?? 0}px);`);
+    }
     return out.join("");
   }
 
@@ -930,6 +933,8 @@ ${editMode ? `
 [data-canvas-el]{cursor:grab;outline:1px dashed rgba(99,102,241,.5);transition:outline .15s;}
 [data-canvas-el]:hover{outline:2px solid #4f46e5;}
 .canvas-drag-handle:hover{opacity:1!important;transform:translateX(-50%) scale(1.15);}
+.el[data-el]{cursor:grab;}
+.el[data-el]:hover{outline:1px dashed rgba(99,102,241,.35)!important;outline-offset:3px;}
 ` : ""}
 @media(max-width:860px){
   .split{grid-template-columns:1fr!important;}
@@ -1205,40 +1210,85 @@ ${editMode ? `<script>
     }, 60);
   });
 
-  // ── Canvas element drag ─────────────────────────────────────
-  var dragEl = null, dragStartX = 0, dragStartY = 0, dragOrigX = 0, dragOrigY = 0;
+  // ── Drag: canvas elements (absolute) + section elements (offset) ───
+  var dragTarget = null, dragKind = '', dragStartX = 0, dragStartY = 0, dragOrigX = 0, dragOrigY = 0;
+
   document.addEventListener('mousedown', function(e){
     var t = e.target;
     if (!t || !t.closest) return;
+    // Don't start drag if clicking inside a contenteditable field
+    if (t.closest('[contenteditable="true"]')) return;
+
+    // Canvas overlay elements: absolute positioning
     var cel = t.closest('[data-canvas-el]');
-    if (!cel) return;
-    e.preventDefault();
-    e.stopPropagation();
-    dragEl = cel;
-    dragStartX = e.clientX;
-    dragStartY = e.clientY;
-    dragOrigX = parseInt(cel.style.left) || 0;
-    dragOrigY = parseInt(cel.style.top) || 0;
-    cel.style.cursor = 'grabbing';
-    cel.style.outline = '2px solid #4f46e5';
+    if (cel) {
+      e.preventDefault();
+      e.stopPropagation();
+      dragTarget = cel;
+      dragKind = 'canvas';
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      dragOrigX = parseInt(cel.style.left) || 0;
+      dragOrigY = parseInt(cel.style.top) || 0;
+      cel.style.cursor = 'grabbing';
+      cel.style.outline = '2px solid #4f46e5';
+      return;
+    }
+
+    // Section elements: translate offset
+    var elNode = t.closest('[data-el]');
+    if (elNode) {
+      e.preventDefault();
+      e.stopPropagation();
+      dragTarget = elNode;
+      dragKind = 'element';
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      var m = (elNode.style.transform || '').match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
+      dragOrigX = m ? parseFloat(m[1]) : 0;
+      dragOrigY = m ? parseFloat(m[2]) : 0;
+      elNode.style.cursor = 'grabbing';
+      elNode.style.outline = '2px solid #4f46e5';
+      elNode.style.outlineOffset = '2px';
+      return;
+    }
   });
+
   document.addEventListener('mousemove', function(e){
-    if (!dragEl) return;
+    if (!dragTarget) return;
     e.preventDefault();
     var dx = e.clientX - dragStartX;
     var dy = e.clientY - dragStartY;
-    dragEl.style.left = Math.max(0, dragOrigX + dx) + 'px';
-    dragEl.style.top = Math.max(0, dragOrigY + dy) + 'px';
+    if (dragKind === 'canvas') {
+      dragTarget.style.left = Math.max(0, dragOrigX + dx) + 'px';
+      dragTarget.style.top = Math.max(0, dragOrigY + dy) + 'px';
+    } else {
+      dragTarget.style.position = 'relative';
+      dragTarget.style.transform = 'translate(' + (dragOrigX + dx) + 'px,' + (dragOrigY + dy) + 'px)';
+    }
   });
+
   document.addEventListener('mouseup', function(){
-    if (!dragEl) return;
-    var id = dragEl.getAttribute('data-canvas-el');
-    var x = parseInt(dragEl.style.left) || 0;
-    var y = parseInt(dragEl.style.top) || 0;
-    dragEl.style.cursor = '';
-    dragEl.style.outline = '';
-    send({ type:'canvas-move', id: id, x: x, y: y });
-    dragEl = null;
+    if (!dragTarget) return;
+    if (dragKind === 'canvas') {
+      var id = dragTarget.getAttribute('data-canvas-el');
+      var x = parseInt(dragTarget.style.left) || 0;
+      var y = parseInt(dragTarget.style.top) || 0;
+      dragTarget.style.cursor = '';
+      dragTarget.style.outline = '';
+      send({ type:'canvas-move', id: id, x: x, y: y });
+    } else {
+      var parts = String(dragTarget.getAttribute('data-el')).split(':');
+      var m = (dragTarget.style.transform || '').match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
+      var ox = m ? Math.round(parseFloat(m[1])) : 0;
+      var oy = m ? Math.round(parseFloat(m[2])) : 0;
+      dragTarget.style.cursor = '';
+      dragTarget.style.outline = '';
+      dragTarget.style.outlineOffset = '';
+      send({ type:'element-drag', id: parts[0], key: parts.slice(1).join(':'), offsetX: ox, offsetY: oy });
+    }
+    dragTarget = null;
+    dragKind = '';
   });
 
   // Enter should end the edit, not insert a newline into a heading.

@@ -296,6 +296,24 @@ export function ElementInspector({
         </Row>
       </Group>
 
+      {(style.offsetX !== undefined || style.offsetY !== undefined) && (
+        <Group title="Posición libre">
+          <Row label="Mover X">
+            <NumField value={style.offsetX ?? 0} onChange={(v) => set({ offsetX: v || undefined })} min={-2000} max={2000} suffix="px" />
+          </Row>
+          <Row label="Mover Y">
+            <NumField value={style.offsetY ?? 0} onChange={(v) => set({ offsetY: v || undefined })} min={-2000} max={2000} suffix="px" />
+          </Row>
+          <button
+            type="button"
+            onClick={() => set({ offsetX: undefined, offsetY: undefined })}
+            className="mt-1 w-full rounded border border-border px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+          >
+            Restablecer posición
+          </button>
+        </Group>
+      )}
+
       <Group title="Visible en">
         <div className="grid grid-cols-3 gap-1.5">
           {([
