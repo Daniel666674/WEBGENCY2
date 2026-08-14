@@ -1211,54 +1211,69 @@ ${editMode ? `<script>
   });
 
   // ── Drag: canvas elements (absolute) + section elements (offset) ───
+  // Uses a 6px threshold so a click-without-move enters text editing,
+  // while a click-and-drag moves the element.
   var dragTarget = null, dragKind = '', dragStartX = 0, dragStartY = 0, dragOrigX = 0, dragOrigY = 0;
+  var dragging = false;
+  var DRAG_THRESHOLD = 6;
 
   document.addEventListener('mousedown', function(e){
     var t = e.target;
     if (!t || !t.closest) return;
-    // Don't start drag if clicking inside a contenteditable field
-    if (t.closest('[contenteditable="true"]')) return;
 
-    // Canvas overlay elements: absolute positioning
+    // Canvas overlay elements: absolute positioning — start immediately
     var cel = t.closest('[data-canvas-el]');
     if (cel) {
       e.preventDefault();
       e.stopPropagation();
       dragTarget = cel;
       dragKind = 'canvas';
+      dragging = false;
       dragStartX = e.clientX;
       dragStartY = e.clientY;
       dragOrigX = parseInt(cel.style.left) || 0;
       dragOrigY = parseInt(cel.style.top) || 0;
-      cel.style.cursor = 'grabbing';
-      cel.style.outline = '2px solid #4f46e5';
       return;
     }
 
-    // Section elements: translate offset
+    // Section elements: translate offset — uses drag threshold
     var elNode = t.closest('[data-el]');
     if (elNode) {
-      e.preventDefault();
-      e.stopPropagation();
       dragTarget = elNode;
       dragKind = 'element';
+      dragging = false;
       dragStartX = e.clientX;
       dragStartY = e.clientY;
       var m = (elNode.style.transform || '').match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
       dragOrigX = m ? parseFloat(m[1]) : 0;
       dragOrigY = m ? parseFloat(m[2]) : 0;
-      elNode.style.cursor = 'grabbing';
-      elNode.style.outline = '2px solid #4f46e5';
-      elNode.style.outlineOffset = '2px';
       return;
     }
   });
 
   document.addEventListener('mousemove', function(e){
     if (!dragTarget) return;
-    e.preventDefault();
     var dx = e.clientX - dragStartX;
     var dy = e.clientY - dragStartY;
+
+    // Check threshold before starting a drag
+    if (!dragging) {
+      if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
+      dragging = true;
+      // Once dragging starts, disable text editing and show drag UI
+      if (dragKind === 'element') {
+        var ce = dragTarget.getAttribute('contenteditable');
+        if (ce) dragTarget.setAttribute('contenteditable', 'false');
+        dragTarget.blur();
+        hideTb();
+      }
+      dragTarget.style.cursor = 'grabbing';
+      dragTarget.style.outline = '2px solid #4f46e5';
+      if (dragKind === 'element') dragTarget.style.outlineOffset = '2px';
+      document.body.style.userSelect = 'none';
+    }
+
+    e.preventDefault();
     if (dragKind === 'canvas') {
       dragTarget.style.left = Math.max(0, dragOrigX + dx) + 'px';
       dragTarget.style.top = Math.max(0, dragOrigY + dy) + 'px';
@@ -1269,7 +1284,19 @@ ${editMode ? `<script>
   });
 
   document.addEventListener('mouseup', function(){
-    if (!dragTarget) return;
+    if (!dragTarget) {
+      document.body.style.userSelect = '';
+      return;
+    }
+    document.body.style.userSelect = '';
+
+    if (!dragging) {
+      // Didn't cross threshold — treat as a normal click/focus for editing
+      dragTarget = null;
+      dragKind = '';
+      return;
+    }
+
     if (dragKind === 'canvas') {
       var id = dragTarget.getAttribute('data-canvas-el');
       var x = parseInt(dragTarget.style.left) || 0;
@@ -1278,6 +1305,8 @@ ${editMode ? `<script>
       dragTarget.style.outline = '';
       send({ type:'canvas-move', id: id, x: x, y: y });
     } else {
+      // Re-enable contenteditable after drag
+      dragTarget.setAttribute('contenteditable', 'true');
       var parts = String(dragTarget.getAttribute('data-el')).split(':');
       var m = (dragTarget.style.transform || '').match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
       var ox = m ? Math.round(parseFloat(m[1])) : 0;
@@ -1289,6 +1318,7 @@ ${editMode ? `<script>
     }
     dragTarget = null;
     dragKind = '';
+    dragging = false;
   });
 
   // Enter should end the edit, not insert a newline into a heading.
