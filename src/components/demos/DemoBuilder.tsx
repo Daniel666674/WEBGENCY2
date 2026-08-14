@@ -877,6 +877,25 @@ export function DemoBuilder({
     setCfg({ ...current, pages: nextPages, sections: nextPages[0].sections });
   }, [setCfg]);
 
+  const applyElementDrag = useCallback((sectionId: string, elKey: string, offsetX: number, offsetY: number) => {
+    const current = cfgRef.current;
+    const typedKey = elKey as ElementKey;
+    const patchSection = (sec: Section): Section => {
+      if (sec.id !== sectionId) return sec;
+      const cur = sec.elements?.[typedKey] ?? {};
+      const { offsetX: _ox, offsetY: _oy, ...rest } = cur;
+      const next = (offsetX === 0 && offsetY === 0) ? rest : { ...cur, offsetX, offsetY };
+      const elements: Section["elements"] = { ...(sec.elements ?? {}), [typedKey]: next };
+      return { ...sec, elements };
+    };
+    const currentPages = current.pages?.length ? current.pages : defaultPages(current.sections);
+    const nextPages = currentPages.map((p) => ({ ...p, sections: p.sections.map(patchSection) }));
+    dirty.current = true;
+    setSaved(false);
+    setUnpublishedChanges(true);
+    setCfg({ ...current, pages: nextPages, sections: nextPages[0].sections });
+  }, [setCfg]);
+
   function addCanvasElement(kind: CanvasElementKind) {
     const el: CanvasElement = {
       id: newId(),
@@ -1000,6 +1019,12 @@ export function DemoBuilder({
         return;
       }
 
+      if (data.type === "element-drag" && data.id && data.key) {
+        const msg = e.data as { id: string; key: string; offsetX: number; offsetY: number };
+        applyElementDrag(msg.id, msg.key, msg.offsetX, msg.offsetY);
+        return;
+      }
+
       if (data.type === "select-element" && data.id && data.key) {
         setSelected({ id: data.id, key: data.key as ElementKey });
         setActiveSectionId(data.id);
@@ -1021,7 +1046,7 @@ export function DemoBuilder({
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [applyCanvasText, applyCanvasStyle, moveCanvasElement]);
+  }, [applyCanvasText, applyCanvasStyle, moveCanvasElement, applyElementDrag]);
 
   const toCanvas = useCallback((msg: Record<string, unknown>) => {
     frameRef.current?.contentWindow?.postMessage({ source: "oliwan-editor", ...msg }, "*");
