@@ -22,6 +22,8 @@ export interface Task {
   assignedUserName: string | null;
   assignedUserColor: string | null;
   assignedUserAvatar: string | null;
+  createdByUserId: string | null;
+  createdByUserName: string | null;
   activityLog: ActivityEntry[];
   createdAt: number;
 }
