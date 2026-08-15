@@ -104,7 +104,7 @@ const DATA_MIGRATIONS: { id: string; sql: string }[] = [
   },
   {
     id: "2026-project-tasks-assigned-user-ids-backfill",
-    sql: "UPDATE project_tasks SET assigned_user_ids = '[\"' || assigned_user_id || '\"]' WHERE assigned_user_id IS NOT NULL AND assigned_user_ids = '[]'",
+    sql: "UPDATE project_tasks SET assigned_user_ids = '[\"' || assigned_user_id || '\"' || ']' WHERE assigned_user_id IS NOT NULL AND assigned_user_ids = '[]'",
   },
 ];
 
@@ -220,6 +220,74 @@ async function deduplicateUsers(): Promise<void> {
   }
 }
 
+async function cleanupTasksAndUsers(): Promise<void> {
+  const MIGRATION_ID = "2026-cleanup-tasks-and-users";
+  try {
+    const { rows: done } = await client.execute({
+      sql: "SELECT 1 FROM schema_migrations WHERE id = ?",
+      args: [MIGRATION_ID],
+    });
+    if (done.length > 0) return;
+
+    // Delete all project tasks.
+    const { rowsAffected: tasksDeleted } = await client.execute("DELETE FROM project_tasks");
+
+    // Find which user IDs are linked by the accounts table (canonical).
+    const { rows: acctRows } = await client.execute("SELECT DISTINCT userId FROM accounts");
+    const linkedIds = new Set(acctRows.map((r) => r.userId as string));
+
+    // Get all users grouped by email — keep only the canonical one per email.
+    const { rows: allUsers } = await client.execute(
+      "SELECT id, email, name, role, created_at FROM users ORDER BY created_at ASC"
+    );
+    const canonical = new Map<string, { id: string; email: string }>();
+    const toDelete: string[] = [];
+
+    for (const u of allUsers) {
+      const key = ((u.email as string) ?? (u.id as string)).toLowerCase();
+      const existing = canonical.get(key);
+      if (!existing) {
+        canonical.set(key, { id: u.id as string, email: u.email as string });
+      } else if (linkedIds.has(u.id as string) && !linkedIds.has(existing.id)) {
+        toDelete.push(existing.id);
+        canonical.set(key, { id: u.id as string, email: u.email as string });
+      } else {
+        toDelete.push(u.id as string);
+      }
+    }
+
+    for (const uid of toDelete) {
+      const email = allUsers.find((u) => u.id === uid)?.email as string | undefined;
+      const canon = email ? canonical.get(email.toLowerCase()) : null;
+      if (canon) {
+        const fks: [string, string][] = [
+          ["sessions", "userId"],
+          ["audit_logs", "user_id"],
+          ["nba_dismissals", "user_id"],
+          ["allowed_emails", "invited_by_user_id"],
+          ["project_deliverables", "approved_by_user_id"],
+        ];
+        for (const [table, col] of fks) {
+          try {
+            await client.execute({ sql: `UPDATE ${table} SET ${col} = ? WHERE ${col} = ?`, args: [canon.id, uid] });
+          } catch { /* table may not exist */ }
+        }
+      }
+      try { await client.execute({ sql: "DELETE FROM sessions WHERE userId = ?", args: [uid] }); } catch {}
+      await client.execute({ sql: "DELETE FROM users WHERE id = ?", args: [uid] });
+    }
+
+    await client.execute({
+      sql: "INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)",
+      args: [MIGRATION_ID, Date.now()],
+    });
+
+    console.log(`[ensureSchema] cleanup: deleted ${tasksDeleted} tasks, removed ${toDelete.length} duplicate users`);
+  } catch (err) {
+    console.error("[ensureSchema] cleanup failed:", err);
+  }
+}
+
 export async function ensureSchema(): Promise<void> {
   for (const sql of TABLES) {
     try {
@@ -262,6 +330,9 @@ export async function ensureSchema(): Promise<void> {
 
   // Merge duplicate users and enforce a unique index on email.
   await deduplicateUsers();
+
+  // One-time cleanup: wipe all tasks and confirm only canonical users remain.
+  await cleanupTasksAndUsers();
 
   // One-time bootstrap of the DB-backed allowlist from the legacy env vars
   // (ALLOWED_EMAILS / OWNER_EMAIL / HER_EMAIL), so an existing deployment
