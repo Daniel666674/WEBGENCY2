@@ -108,6 +108,118 @@ const DATA_MIGRATIONS: { id: string; sql: string }[] = [
   },
 ];
 
+/**
+ * Merges duplicate `users` rows sharing the same email, then creates a unique
+ * index so Auth.js can never produce duplicates again. Run-once, gated by
+ * `schema_migrations`.
+ *
+ * For each duplicated email, the "canonical" row is the one linked by the
+ * `accounts` table (i.e., the one Auth.js currently signs into). All FK
+ * references from duplicate rows are repointed to the canonical id, then the
+ * duplicates are deleted.
+ */
+async function deduplicateUsers(): Promise<void> {
+  const MIGRATION_ID = "2026-users-deduplicate-email";
+  try {
+    const { rows: done } = await client.execute({
+      sql: "SELECT 1 FROM schema_migrations WHERE id = ?",
+      args: [MIGRATION_ID],
+    });
+    if (done.length > 0) return;
+
+    // Find emails that appear more than once.
+    const { rows: dupes } = await client.execute(
+      "SELECT LOWER(email) AS email FROM users WHERE email IS NOT NULL GROUP BY LOWER(email) HAVING COUNT(*) > 1"
+    );
+    if (dupes.length === 0) {
+      // No duplicates — just add the unique index and mark done.
+      try {
+        await client.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email)");
+      } catch { /* index already exists */ }
+      await client.execute({
+        sql: "INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)",
+        args: [MIGRATION_ID, Date.now()],
+      });
+      return;
+    }
+
+    // Tables that reference users(id) — update FKs from duplicate to canonical.
+    const FK_TABLES: [string, string][] = [
+      ["sessions", "userId"],
+      ["accounts", "userId"],
+      ["activities", "assigned_user_id"],
+      ["project_tasks", "assigned_user_id"],
+      ["project_tasks", "created_by_user_id"],
+      ["audit_logs", "user_id"],
+      ["nba_dismissals", "user_id"],
+      ["allowed_emails", "invited_by_user_id"],
+      ["project_deliverables", "approved_by_user_id"],
+      ["authenticators", "userId"],
+    ];
+
+    for (const dupe of dupes) {
+      const email = dupe.email as string;
+      // Get all user rows for this email, ordered so we can pick the canonical one.
+      const { rows: userRows } = await client.execute({
+        sql: "SELECT id FROM users WHERE LOWER(email) = ? ORDER BY created_at ASC",
+        args: [email],
+      });
+      if (userRows.length < 2) continue;
+
+      const allIds = userRows.map((r) => r.id as string);
+
+      // The canonical user is the one with an `accounts` link (the one Auth.js signs into).
+      let canonicalId: string | null = null;
+      for (const uid of allIds) {
+        const { rows: accts } = await client.execute({
+          sql: "SELECT 1 FROM accounts WHERE userId = ? LIMIT 1",
+          args: [uid],
+        });
+        if (accts.length > 0) { canonicalId = uid; break; }
+      }
+      // If none has an account link, keep the first (oldest) row.
+      if (!canonicalId) canonicalId = allIds[0];
+
+      const duplicateIds = allIds.filter((id) => id !== canonicalId);
+
+      for (const dupId of duplicateIds) {
+        // Repoint all FK references.
+        for (const [table, column] of FK_TABLES) {
+          try {
+            await client.execute({
+              sql: `UPDATE ${table} SET ${column} = ? WHERE ${column} = ?`,
+              args: [canonicalId, dupId],
+            });
+          } catch { /* table may not exist */ }
+        }
+        // Also update assigned_user_ids JSON arrays in project_tasks.
+        try {
+          await client.execute({
+            sql: "UPDATE project_tasks SET assigned_user_ids = REPLACE(assigned_user_ids, ?, ?) WHERE assigned_user_ids LIKE '%' || ? || '%'",
+            args: [dupId, canonicalId, dupId],
+          });
+        } catch { /* column may not exist */ }
+
+        // Delete the duplicate user row.
+        await client.execute({ sql: "DELETE FROM users WHERE id = ?", args: [dupId] });
+      }
+    }
+
+    // Now that duplicates are gone, add the unique index.
+    try {
+      await client.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email)");
+    } catch { /* index already exists */ }
+
+    await client.execute({
+      sql: "INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)",
+      args: [MIGRATION_ID, Date.now()],
+    });
+    console.log(`[ensureSchema] deduplicated ${dupes.length} email(s) in users table`);
+  } catch (err) {
+    console.error("[ensureSchema] user deduplication failed:", err);
+  }
+}
+
 export async function ensureSchema(): Promise<void> {
   for (const sql of TABLES) {
     try {
@@ -147,6 +259,9 @@ export async function ensureSchema(): Promise<void> {
       // Target column may not exist yet on a partially-migrated database.
     }
   }
+
+  // Merge duplicate users and enforce a unique index on email.
+  await deduplicateUsers();
 
   // One-time bootstrap of the DB-backed allowlist from the legacy env vars
   // (ALLOWED_EMAILS / OWNER_EMAIL / HER_EMAIL), so an existing deployment
