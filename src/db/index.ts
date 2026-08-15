@@ -63,6 +63,7 @@ const COLUMN_MIGRATIONS = [
   "ALTER TABLE project_tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'media'",
   "ALTER TABLE project_tasks ADD COLUMN reminder_at INTEGER",
   "ALTER TABLE project_tasks ADD COLUMN activity_log TEXT NOT NULL DEFAULT '[]'",
+  "ALTER TABLE project_tasks ADD COLUMN created_by_user_id TEXT REFERENCES users(id)",
   // demo_pages gained a draft/published split and optimistic concurrency
   // after the table already shipped.
   "ALTER TABLE demo_pages ADD COLUMN published_config TEXT",

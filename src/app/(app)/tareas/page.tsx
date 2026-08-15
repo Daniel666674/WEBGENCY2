@@ -114,7 +114,7 @@ export default function TareasPage() {
       const res = await fetch(`/api/project-tasks/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...patch, actorName: activeUser?.name }),
+        body: JSON.stringify(patch),
       });
       if (!res.ok) throw new Error();
       refresh();
@@ -157,7 +157,6 @@ export default function TareasPage() {
           dueDate: data.dueDate || null,
           priority: data.priority,
           status: data.status,
-          actorName: activeUser?.name,
         }),
       });
       toast.success("Tarea creada");
