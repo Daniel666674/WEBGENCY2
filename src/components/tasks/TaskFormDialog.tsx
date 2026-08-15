@@ -15,7 +15,7 @@ interface TaskFormDialogProps {
     title: string;
     description: string;
     projectId: string;
-    assignedUserId: string;
+    assignedUserIds: string[];
     dueDate: string;
     priority: TaskPriority;
     status: Exclude<BoardColumn, "overdue">;
@@ -31,7 +31,7 @@ export function TaskFormDialog({ open, onClose, onCreate, projects, users, defau
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [projectId, setProjectId] = useState("");
-  const [assignedUserId, setAssignedUserId] = useState(defaultAssigneeId ?? "");
+  const [assignedUserIds, setAssignedUserIds] = useState<string[]>(defaultAssigneeId ? [defaultAssigneeId] : []);
   const [dueDate, setDueDate] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("media");
   const [status, setStatus] = useState<Exclude<BoardColumn, "overdue">>(defaultStatus);
@@ -40,7 +40,7 @@ export function TaskFormDialog({ open, onClose, onCreate, projects, users, defau
   useEffect(() => {
     if (open) {
       setStatus(defaultStatus);
-      setAssignedUserId(defaultAssigneeId ?? "");
+      setAssignedUserIds(defaultAssigneeId ? [defaultAssigneeId] : []);
       setDueDate(defaultDueDate ?? "");
     }
   }, [open, defaultStatus, defaultAssigneeId, defaultDueDate]);
@@ -49,11 +49,17 @@ export function TaskFormDialog({ open, onClose, onCreate, projects, users, defau
     setTitle(""); setDescription(""); setProjectId(""); setDueDate(""); setPriority("media");
   };
 
+  const toggleUser = (id: string) => {
+    setAssignedUserIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
   const handleSubmit = async () => {
     if (!title.trim()) return;
     setSaving(true);
     try {
-      await onCreate({ title: title.trim(), description: description.trim(), projectId, assignedUserId, dueDate, priority, status });
+      await onCreate({ title: title.trim(), description: description.trim(), projectId, assignedUserIds, dueDate, priority, status });
       reset();
       onClose();
     } finally {
@@ -71,14 +77,14 @@ export function TaskFormDialog({ open, onClose, onCreate, projects, users, defau
         <div className="space-y-3">
           <input
             autoFocus
-            placeholder="Título de la tarea"
+            placeholder="Titulo de la tarea"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             className="w-full text-sm border rounded-lg px-3 py-2 bg-background"
           />
           <textarea
             rows={2}
-            placeholder="Descripción (opcional)"
+            placeholder="Descripcion (opcional)"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             className="w-full text-sm border rounded-lg px-3 py-2 bg-background resize-none"
@@ -108,15 +114,15 @@ export function TaskFormDialog({ open, onClose, onCreate, projects, users, defau
           {users.length > 0 && (
             <div className="flex items-center gap-1.5">
               <span className="text-xs text-muted-foreground shrink-0">Asignar a:</span>
-              <div className="flex gap-1">
+              <div className="flex gap-1 flex-wrap">
                 {users.map((u) => (
                   <button
                     key={u.id}
                     type="button"
-                    onClick={() => setAssignedUserId(u.id === assignedUserId ? "" : u.id)}
+                    onClick={() => toggleUser(u.id)}
                     className={cn(
                       "h-7 w-7 rounded-full text-xs font-bold text-white transition-all cursor-pointer",
-                      assignedUserId === u.id ? "ring-2 ring-offset-1 ring-primary scale-110" : "opacity-50 hover:opacity-80"
+                      assignedUserIds.includes(u.id) ? "ring-2 ring-offset-1 ring-primary scale-110" : "opacity-50 hover:opacity-80"
                     )}
                     style={{ backgroundColor: u.color }}
                     title={u.name}
@@ -125,6 +131,9 @@ export function TaskFormDialog({ open, onClose, onCreate, projects, users, defau
                   </button>
                 ))}
               </div>
+              {assignedUserIds.length > 1 && (
+                <span className="text-[10px] text-muted-foreground ml-1">{assignedUserIds.length} asignados</span>
+              )}
             </div>
           )}
 

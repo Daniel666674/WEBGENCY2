@@ -325,6 +325,7 @@ export const projectTasks = sqliteTable("project_tasks", {
   title: text("title"),
   description: text("description").notNull(),
   assignedUserId: text("assigned_user_id").references(() => users.id),
+  assignedUserIds: text("assigned_user_ids").notNull().default("[]"),
   createdByUserId: text("created_by_user_id").references(() => users.id),
   status: text("status").notNull().default("pending"), // "pending" | "in_progress" | "in_review" | "done"
   priority: text("priority").notNull().default("media"), // "alta" | "media" | "baja"

@@ -74,15 +74,18 @@ export function TaskCard({ task, onClick, onToggleDone, isOverlay = false, isSel
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {task.assignedUserName && (
-            <span
-              className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
-              style={{ backgroundColor: task.assignedUserColor ?? "#64748b" }}
-              title={task.assignedUserName}
-            >
-              {task.assignedUserAvatar ?? task.assignedUserName[0]}
-            </span>
-          )}
+          <div className="flex items-center -space-x-1.5">
+            {(task.assignees ?? []).map((a) => (
+              <span
+                key={a.id}
+                className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ring-2 ring-card"
+                style={{ backgroundColor: a.color ?? "#64748b" }}
+                title={a.name}
+              >
+                {a.avatar ?? a.name[0]}
+              </span>
+            ))}
+          </div>
           {task.dueDate && (
             <span className={cn("text-[11px] flex items-center gap-1", overdue ? "text-destructive font-medium" : "text-muted-foreground")}>
               <Calendar className="h-3 w-3" />
