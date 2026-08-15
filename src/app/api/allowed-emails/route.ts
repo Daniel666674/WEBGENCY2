@@ -41,12 +41,25 @@ export async function GET() {
     .from(users)
     .all();
 
+  // Build a map keyed by lowercase email, preferring users that have logged
+  // in (lastLoginAt not null) to handle pre-dedup duplicates gracefully.
+  const byEmail = new Map<string, (typeof registered)[0]>();
+  for (const u of registered) {
+    const key = (u.email ?? "").toLowerCase();
+    if (!key) continue;
+    const existing = byEmail.get(key);
+    if (!existing || (!existing.lastLoginAt && u.lastLoginAt)) {
+      byEmail.set(key, u);
+    }
+  }
+  const byId = new Map(registered.map((u) => [u.id, u]));
+
   return NextResponse.json(
     rows.map((r) => ({
       ...r,
       permissions: parsePermissions(r.permissions),
-      registeredUser: registered.find((u) => (u.email ?? "").toLowerCase() === r.email) ?? null,
-      invitedByName: registered.find((u) => u.id === r.invitedByUserId)?.name ?? null,
+      registeredUser: byEmail.get(r.email) ?? null,
+      invitedByName: r.invitedByUserId ? byId.get(r.invitedByUserId)?.name ?? null : null,
     }))
   );
 }
