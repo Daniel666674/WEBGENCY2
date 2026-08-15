@@ -91,20 +91,27 @@ export function TaskDetailPanel({ task, users, projects, onUpdate, onDelete, onC
 
         <Row icon={UserCog}>
           <div className="flex items-center gap-1.5 flex-wrap">
-            {users.map((u) => (
-              <button
-                key={u.id}
-                onClick={() => onUpdate(task.id, { assignedUserId: task.assignedUserId === u.id ? "" : u.id })}
-                className={cn(
-                  "h-6 w-6 rounded-full text-[10px] font-bold text-white shrink-0 transition-all",
-                  task.assignedUserId === u.id ? "ring-2 ring-offset-1 ring-primary" : "opacity-40 hover:opacity-80"
-                )}
-                style={{ backgroundColor: u.color }}
-                title={u.name}
-              >
-                {u.avatar ?? u.name[0]}
-              </button>
-            ))}
+            {users.map((u) => {
+              const ids = task.assignedUserIds ?? (task.assignedUserId ? [task.assignedUserId] : []);
+              const isSelected = ids.includes(u.id);
+              return (
+                <button
+                  key={u.id}
+                  onClick={() => {
+                    const next = isSelected ? ids.filter((x) => x !== u.id) : [...ids, u.id];
+                    onUpdate(task.id, { assignedUserIds: next });
+                  }}
+                  className={cn(
+                    "h-6 w-6 rounded-full text-[10px] font-bold text-white shrink-0 transition-all",
+                    isSelected ? "ring-2 ring-offset-1 ring-primary" : "opacity-40 hover:opacity-80"
+                  )}
+                  style={{ backgroundColor: u.color }}
+                  title={u.name}
+                >
+                  {u.avatar ?? u.name[0]}
+                </button>
+              );
+            })}
           </div>
         </Row>
 

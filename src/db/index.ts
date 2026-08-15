@@ -64,6 +64,7 @@ const COLUMN_MIGRATIONS = [
   "ALTER TABLE project_tasks ADD COLUMN reminder_at INTEGER",
   "ALTER TABLE project_tasks ADD COLUMN activity_log TEXT NOT NULL DEFAULT '[]'",
   "ALTER TABLE project_tasks ADD COLUMN created_by_user_id TEXT REFERENCES users(id)",
+  "ALTER TABLE project_tasks ADD COLUMN assigned_user_ids TEXT NOT NULL DEFAULT '[]'",
   // demo_pages gained a draft/published split and optimistic concurrency
   // after the table already shipped.
   "ALTER TABLE demo_pages ADD COLUMN published_config TEXT",
@@ -100,6 +101,10 @@ const DATA_MIGRATIONS: { id: string; sql: string }[] = [
     // permissions column defaults to '[]'.
     id: "2025-users-permissions-initial-backfill",
     sql: "UPDATE users SET permissions = '[\"principal\",\"revenue\",\"cuentas\",\"negocios\",\"arsenal\",\"config\"]' WHERE permissions = '[]'",
+  },
+  {
+    id: "2026-project-tasks-assigned-user-ids-backfill",
+    sql: "UPDATE project_tasks SET assigned_user_ids = '[\"' || assigned_user_id || '\"]' WHERE assigned_user_id IS NOT NULL AND assigned_user_ids = '[]'",
   },
 ];
 

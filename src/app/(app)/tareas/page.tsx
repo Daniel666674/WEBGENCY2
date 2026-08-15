@@ -15,11 +15,13 @@ import { TaskDetailPanel } from "@/components/tasks/TaskDetailPanel";
 import { MiniCalendar } from "@/components/tasks/MiniCalendar";
 import { TaskFormDialog } from "@/components/tasks/TaskFormDialog";
 import { columnFor, isOverdue, type BoardColumn, type Task, type TaskPriority, type TaskProject } from "@/components/tasks/types";
+import type { AppUser } from "@/context/UserContext";
 
 type View = "kanban" | "list";
 
 export default function TareasPage() {
-  const { users, activeUser } = useUser();
+  const { activeUser } = useUser();
+  const [teamUsers, setTeamUsers] = useState<AppUser[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<TaskProject[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,6 +38,8 @@ export default function TareasPage() {
   const [dueFilter, setDueFilter] = useState("all");
   const [dayFilter, setDayFilter] = useState<number | null>(null);
 
+  const isOwner = activeUser?.role === "owner";
+
   const DUE_LABELS: Record<string, string> = {
     all: "Vence: Cualquier fecha",
     overdue: "Vence: Vencidas",
@@ -44,17 +48,30 @@ export default function TareasPage() {
     month: "Vence: Este mes",
   };
 
-  // Background refetch — no loading gate, so it never unmounts the board or
-  // resets scroll/selection. Used after every mutation (create/patch/delete).
   async function refresh() {
     try {
-      const [tasksRes, projectsRes] = await Promise.all([
+      const fetches: Promise<Response>[] = [
         fetch("/api/project-tasks?type=task"),
         fetch("/api/projects"),
-      ]);
-      if (!tasksRes.ok || !projectsRes.ok) throw new Error("Error al cargar");
-      setTasks(await tasksRes.json());
-      setProjects(await projectsRes.json());
+      ];
+      // Owner fetches all team members for filtering and assignment.
+      if (isOwner) fetches.push(fetch("/api/users"));
+
+      const results = await Promise.all(fetches);
+      for (const r of results) if (!r.ok) throw new Error("Error al cargar");
+
+      setTasks(await results[0].json());
+      setProjects(await results[1].json());
+
+      if (isOwner && results[2]) {
+        const allUsers: AppUser[] = (await results[2].json()).map((u: AppUser & { permissions?: unknown }) => ({
+          ...u,
+          permissions: Array.isArray(u.permissions) ? u.permissions : [],
+        }));
+        setTeamUsers(allUsers);
+      } else if (activeUser) {
+        setTeamUsers([activeUser]);
+      }
     } catch {
       toast.error("Error al cargar las tareas");
     }
@@ -62,6 +79,7 @@ export default function TareasPage() {
 
   useEffect(() => {
     refresh().finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filtered = useMemo(() => {
@@ -72,7 +90,10 @@ export default function TareasPage() {
 
     return tasks.filter((t) => {
       if (search && !((t.title || t.description).toLowerCase().includes(search.toLowerCase()))) return false;
-      if (assigneeFilter !== "all" && t.assignedUserId !== assigneeFilter) return false;
+      if (assigneeFilter !== "all") {
+        const ids = t.assignedUserIds ?? (t.assignedUserId ? [t.assignedUserId] : []);
+        if (!ids.includes(assigneeFilter)) return false;
+      }
       if (projectFilter !== "all" && t.projectId !== projectFilter) return false;
       if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
       if (dueFilter !== "all") {
@@ -141,7 +162,7 @@ export default function TareasPage() {
   }
 
   async function handleCreate(data: {
-    title: string; description: string; projectId: string; assignedUserId: string;
+    title: string; description: string; projectId: string; assignedUserIds: string[];
     dueDate: string; priority: TaskPriority; status: Exclude<BoardColumn, "overdue">;
   }) {
     try {
@@ -153,7 +174,7 @@ export default function TareasPage() {
           title: data.title,
           description: data.description || data.title,
           projectId: data.projectId || undefined,
-          assignedUserId: data.assignedUserId || null,
+          assignedUserIds: data.assignedUserIds,
           dueDate: data.dueDate || null,
           priority: data.priority,
           status: data.status,
@@ -241,12 +262,12 @@ export default function TareasPage() {
         <Select value={assigneeFilter} onValueChange={(v) => v && setAssigneeFilter(v)}>
           <SelectTrigger size="sm" className="cursor-pointer">
             <SelectValue>
-              {() => assigneeFilter === "all" ? "Asignado a: Todos" : users.find((u) => u.id === assigneeFilter)?.name ?? "Asignado a: Todos"}
+              {() => assigneeFilter === "all" ? "Asignado a: Todos" : teamUsers.find((u) => u.id === assigneeFilter)?.name ?? "Asignado a: Todos"}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Asignado a: Todos</SelectItem>
-            {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+            {teamUsers.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={projectFilter} onValueChange={(v) => v && setProjectFilter(v)}>
@@ -319,7 +340,7 @@ export default function TareasPage() {
           {selectedTask && (
             <TaskDetailPanel
               task={selectedTask}
-              users={users}
+              users={teamUsers}
               projects={projects}
               onUpdate={patchTask}
               onDelete={handleDelete}
@@ -335,7 +356,7 @@ export default function TareasPage() {
         onClose={() => setFormOpen(false)}
         onCreate={handleCreate}
         projects={projects}
-        users={users}
+        users={teamUsers}
         defaultStatus={formDefaultStatus}
         defaultAssigneeId={activeUser?.id}
         defaultDueDate={formDefaultDueDate}
@@ -380,11 +401,18 @@ function TaskList({ tasks, onSelect, onToggleDone, selectedTaskId }: {
               <span className={cn("flex-1 text-sm truncate", task.status === "done" && "line-through text-muted-foreground")}>
                 {task.title || task.description}
               </span>
-              {task.assignedUserName && (
-                <span className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0" style={{ backgroundColor: task.assignedUserColor ?? "#64748b" }}>
-                  {task.assignedUserAvatar ?? task.assignedUserName[0]}
-                </span>
-              )}
+              <div className="flex items-center -space-x-1.5">
+                {(task.assignees ?? []).map((a) => (
+                  <span
+                    key={a.id}
+                    className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ring-2 ring-background"
+                    style={{ backgroundColor: a.color ?? "#64748b" }}
+                    title={a.name}
+                  >
+                    {a.avatar ?? a.name[0]}
+                  </span>
+                ))}
+              </div>
             </button>
           ))}
         </div>

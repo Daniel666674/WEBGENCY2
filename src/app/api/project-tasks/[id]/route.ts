@@ -18,8 +18,14 @@ const PRIORITY_LABELS: Record<string, string> = {
 
 interface TaskRow {
   assignedUserId: string | null;
+  assignedUserIds: string;
   createdByUserId: string | null;
   activityLog: string;
+}
+
+function isAssignee(row: TaskRow, userId: string): boolean {
+  const ids: string[] = JSON.parse(row.assignedUserIds || "[]");
+  return ids.includes(userId) || row.assignedUserId === userId;
 }
 
 async function canAccess(
@@ -31,6 +37,7 @@ async function canAccess(
   const row = await db
     .select({
       assignedUserId: projectTasks.assignedUserId,
+      assignedUserIds: projectTasks.assignedUserIds,
       createdByUserId: projectTasks.createdByUserId,
       activityLog: projectTasks.activityLog,
     })
@@ -40,14 +47,12 @@ async function canAccess(
 
   if (!row) return { allowed: false, task: undefined };
 
-  // Legacy (no auth) or owner — always allowed.
   if (!userId || role === "owner") return { allowed: true, task: row };
 
-  const isAssignee = row.assignedUserId === userId;
+  const assigned = isAssignee(row, userId);
   const isCreator = row.createdByUserId === userId;
 
-  if (mode === "edit") return { allowed: isAssignee || isCreator, task: row };
-  // Delete: only creator or owner (already handled above).
+  if (mode === "edit") return { allowed: assigned || isCreator, task: row };
   return { allowed: isCreator, task: row };
 }
 
@@ -71,7 +76,7 @@ export async function PUT(
     }
 
     const body = await req.json();
-    const { title, description, status, assignedUserId, dueDate, reminderAt, priority, done, comment } = body;
+    const { title, description, status, assignedUserId, assignedUserIds, dueDate, reminderAt, priority, done, comment } = body;
 
     const log: { action: string; actorName: string | null; at: string; detail?: string }[] =
       JSON.parse(task.activityLog || "[]");
@@ -83,10 +88,23 @@ export async function PUT(
     if (status !== undefined) stamp("status", STATUS_LABELS[status] ?? status);
     if (priority !== undefined) stamp("priority", PRIORITY_LABELS[priority] ?? priority);
     if (dueDate !== undefined) stamp("due_date");
-    if (assignedUserId !== undefined) stamp("assignee");
+    if (assignedUserId !== undefined || assignedUserIds !== undefined) stamp("assignee");
     if (comment) stamp("comment", comment);
     if (done === true) stamp("status", "Completada");
     if (done === false) stamp("status", "Pendiente");
+
+    // Build the assignee update — multi takes precedence over single.
+    const assigneeUpdate: Record<string, unknown> = {};
+    if (assignedUserIds !== undefined) {
+      const ids: string[] = Array.isArray(assignedUserIds) ? assignedUserIds : [];
+      assigneeUpdate.assignedUserIds = JSON.stringify(ids);
+      assigneeUpdate.assignedUserId = ids[0] || null;
+    } else if (assignedUserId !== undefined) {
+      assigneeUpdate.assignedUserId = assignedUserId || null;
+      assigneeUpdate.assignedUserIds = assignedUserId
+        ? JSON.stringify([assignedUserId])
+        : "[]";
+    }
 
     await db.update(projectTasks)
       .set({
@@ -94,7 +112,7 @@ export async function PUT(
         ...(description !== undefined && { description }),
         ...(status !== undefined && { status }),
         ...(priority !== undefined && { priority }),
-        ...(assignedUserId !== undefined && { assignedUserId }),
+        ...assigneeUpdate,
         ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
         ...(reminderAt !== undefined && { reminderAt: reminderAt ? new Date(reminderAt) : null }),
         ...(done === true && { status: "done", completedAt: new Date() }),

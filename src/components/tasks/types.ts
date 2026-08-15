@@ -19,9 +19,11 @@ export interface Task {
   dueDate: number | null;
   reminderAt: number | null;
   assignedUserId: string | null;
+  assignedUserIds: string[];
   assignedUserName: string | null;
   assignedUserColor: string | null;
   assignedUserAvatar: string | null;
+  assignees: { id: string; name: string; color: string; avatar: string | null }[];
   createdByUserId: string | null;
   createdByUserName: string | null;
   activityLog: ActivityEntry[];
