@@ -5,6 +5,7 @@ import { Eye, ExternalLink } from "lucide-react";
 import { TEMPLATES } from "@/lib/demo/templates";
 import { formatRelativeDate } from "@/lib/constants";
 import { DemoActionsMenu } from "./DemoActionsMenu";
+import { DemoThumbnail } from "./DemoThumbnail";
 import type { DemoRow } from "./types";
 
 export function DemoGridCard({
@@ -25,26 +26,16 @@ export function DemoGridCard({
       href={`/demos/${demo.id}`}
       className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-all hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5"
     >
-      {/* Thumbnail preview */}
-      <div className="relative h-36 overflow-hidden" style={{ background: swatch[0] }}>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div
-            className="flex h-24 w-[85%] flex-col gap-2 rounded-t-lg p-3 shadow-2xl"
-            style={{ background: swatch[1], color: swatch[0] }}
-          >
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full" style={{ background: swatch[2] }} />
-              <div className="h-1.5 w-16 rounded-full opacity-60" style={{ background: swatch[0] }} />
-            </div>
-            <div className="h-1.5 w-3/4 rounded-full opacity-30" style={{ background: swatch[0] }} />
-            <div className="h-1.5 w-1/2 rounded-full opacity-20" style={{ background: swatch[0] }} />
-            <div className="mt-auto flex gap-1">
-              <div className="h-4 w-12 rounded-sm" style={{ background: swatch[2], opacity: 0.8 }} />
-              <div className="h-4 w-8 rounded-sm border opacity-30" style={{ borderColor: swatch[0] }} />
-            </div>
-          </div>
-        </div>
-        <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-[10px] text-white backdrop-blur-sm">
+      {/* Live thumbnail preview */}
+      <div className="relative" style={{ height: 160 }}>
+        <DemoThumbnail
+          demoId={demo.id}
+          className="h-full w-full rounded-t-xl"
+        />
+        <div
+          className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] text-white backdrop-blur-sm"
+          style={{ background: "rgba(0,0,0,0.5)" }}
+        >
           <span className={`h-1.5 w-1.5 rounded-full ${statusColor}`} />
           {statusLabel}
         </div>

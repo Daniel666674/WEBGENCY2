@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { Eye, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { TEMPLATES } from "@/lib/demo/templates";
 import { formatRelativeDate } from "@/lib/constants";
 import { DemoActionsMenu } from "./DemoActionsMenu";
+import { DemoThumbnail } from "./DemoThumbnail";
 import type { DemoRow } from "./types";
 
 export function DemoListView({
@@ -20,30 +21,16 @@ export function DemoListView({
       {demos.map((demo) => {
         const tpl = TEMPLATES.find((t) => t.id === demo.template);
         const swatch = tpl?.swatch ?? ["#1c1917", "#f5f5f4", "#b45309"];
-        const statusColor = demo.published ? "bg-green-400" : demo.published === false ? "bg-amber-400" : "bg-blue-400";
+        const statusColor = demo.published ? "bg-green-400" : "bg-amber-400";
 
         return (
           <div key={demo.id} className="group flex items-center gap-4 py-3 first:pt-0 last:pb-0">
             {/* Thumbnail */}
             <Link href={`/demos/${demo.id}`} className="shrink-0">
-              <div
-                className="relative h-16 w-24 overflow-hidden rounded-lg sm:h-20 sm:w-32"
-                style={{ background: swatch[0] }}
-              >
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div
-                    className="flex h-12 w-[80%] flex-col gap-1 rounded-t-md p-2 shadow-lg sm:h-14"
-                    style={{ background: swatch[1], color: swatch[0] }}
-                  >
-                    <div className="flex items-center gap-1">
-                      <div className="h-1 w-1 rounded-full" style={{ background: swatch[2] }} />
-                      <div className="h-1 w-8 rounded-full opacity-40" style={{ background: swatch[0] }} />
-                    </div>
-                    <div className="h-1 w-3/4 rounded-full opacity-20" style={{ background: swatch[0] }} />
-                    <div className="h-1 w-1/2 rounded-full opacity-15" style={{ background: swatch[0] }} />
-                  </div>
-                </div>
-              </div>
+              <DemoThumbnail
+                demoId={demo.id}
+                className="h-16 w-24 rounded-lg sm:h-20 sm:w-32"
+              />
             </Link>
 
             {/* Title + slug + date */}
