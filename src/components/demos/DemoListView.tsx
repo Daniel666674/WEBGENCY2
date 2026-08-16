@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Eye } from "lucide-react";
-import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
+import { Eye, ExternalLink } from "lucide-react";
 import { TEMPLATES } from "@/lib/demo/templates";
 import { formatRelativeDate } from "@/lib/constants";
 import { DemoActionsMenu } from "./DemoActionsMenu";
@@ -17,62 +16,92 @@ export function DemoListView({
   onDelete: (id: string, title: string) => void;
 }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-card">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Demo</TableHead>
-            <TableHead>Plantilla</TableHead>
-            <TableHead>Cliente</TableHead>
-            <TableHead>Vistas</TableHead>
-            <TableHead>Actualizado</TableHead>
-            <TableHead className="w-10" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {demos.map((demo) => {
-            const tpl = TEMPLATES.find((t) => t.id === demo.template);
-            return (
-              <TableRow key={demo.id} className="group">
-                <TableCell>
-                  <Link href={`/demos/${demo.id}`} className="flex items-center gap-3 min-w-0">
-                    <div className="flex h-9 w-12 shrink-0 items-center gap-0.5 rounded-md px-1.5" style={{ background: tpl?.swatch[0] ?? "#1c1917" }}>
-                      {tpl?.swatch.slice(0, 3).map((c) => (
-                        <span key={c} className="h-3.5 w-3.5 rounded-sm border border-white/20" style={{ background: c }} />
-                      ))}
+    <div className="flex flex-col divide-y divide-border">
+      {demos.map((demo) => {
+        const tpl = TEMPLATES.find((t) => t.id === demo.template);
+        const swatch = tpl?.swatch ?? ["#1c1917", "#f5f5f4", "#b45309"];
+        const statusColor = demo.published ? "bg-green-400" : demo.published === false ? "bg-amber-400" : "bg-blue-400";
+
+        return (
+          <div key={demo.id} className="group flex items-center gap-4 py-3 first:pt-0 last:pb-0">
+            {/* Thumbnail */}
+            <Link href={`/demos/${demo.id}`} className="shrink-0">
+              <div
+                className="relative h-16 w-24 overflow-hidden rounded-lg sm:h-20 sm:w-32"
+                style={{ background: swatch[0] }}
+              >
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div
+                    className="flex h-12 w-[80%] flex-col gap-1 rounded-t-md p-2 shadow-lg sm:h-14"
+                    style={{ background: swatch[1], color: swatch[0] }}
+                  >
+                    <div className="flex items-center gap-1">
+                      <div className="h-1 w-1 rounded-full" style={{ background: swatch[2] }} />
+                      <div className="h-1 w-8 rounded-full opacity-40" style={{ background: swatch[0] }} />
                     </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${demo.published ? "bg-green-400" : "bg-muted-foreground/50"}`} />
-                        <p className="truncate text-sm font-medium">{demo.title}</p>
-                      </div>
-                      <p className="truncate text-xs text-muted-foreground">/{demo.slug}</p>
-                    </div>
-                  </Link>
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground">{tpl?.name ?? demo.template}</TableCell>
-                <TableCell className="text-xs text-muted-foreground">{demo.contactName ?? "Sin asignar"}</TableCell>
-                <TableCell>
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Eye className="h-3 w-3" /> {demo.views}
-                  </span>
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
-                  {demo.updatedAt ? formatRelativeDate(new Date(demo.updatedAt)) : "—"}
-                </TableCell>
-                <TableCell>
-                  <DemoActionsMenu
-                    demo={demo}
-                    duplicating={duplicatingId === demo.id}
-                    onDuplicate={() => onDuplicate(demo.id)}
-                    onDelete={() => onDelete(demo.id, demo.title)}
-                  />
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+                    <div className="h-1 w-3/4 rounded-full opacity-20" style={{ background: swatch[0] }} />
+                    <div className="h-1 w-1/2 rounded-full opacity-15" style={{ background: swatch[0] }} />
+                  </div>
+                </div>
+              </div>
+            </Link>
+
+            {/* Title + slug + date */}
+            <Link href={`/demos/${demo.id}`} className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <span className={`h-2 w-2 shrink-0 rounded-full ${statusColor}`} />
+                <p className="truncate text-sm font-semibold">{demo.title}</p>
+              </div>
+              <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                {demo.slug}.demoos.com <ExternalLink className="h-2.5 w-2.5 opacity-50" />
+              </p>
+              {demo.updatedAt && (
+                <p className="mt-0.5 text-[11px] text-muted-foreground/60">
+                  Actualizado {formatRelativeDate(new Date(demo.updatedAt))}
+                </p>
+              )}
+            </Link>
+
+            {/* Template */}
+            <div className="hidden min-w-0 flex-col gap-1 md:flex" style={{ width: 120 }}>
+              <p className="text-[11px] text-muted-foreground/60">Plantilla</p>
+              <div className="flex items-center gap-1.5">
+                <div className="flex gap-0.5">
+                  {swatch.map((c) => (
+                    <span key={c} className="h-3 w-3 rounded-sm border border-white/10" style={{ background: c }} />
+                  ))}
+                </div>
+                <span className="truncate text-xs font-medium">{tpl?.name ?? demo.template}</span>
+              </div>
+            </div>
+
+            {/* Client */}
+            <div className="hidden min-w-0 flex-col gap-0.5 lg:flex" style={{ width: 120 }}>
+              <p className="text-[11px] text-muted-foreground/60">Cliente</p>
+              <p className="truncate text-xs font-medium">{demo.contactName ?? "Sin asignar"}</p>
+              {demo.contactCompany && (
+                <p className="truncate text-[11px] text-muted-foreground/60">{demo.contactCompany}</p>
+              )}
+            </div>
+
+            {/* Views */}
+            <div className="hidden flex-col gap-0.5 sm:flex" style={{ width: 70 }}>
+              <p className="text-[11px] text-muted-foreground/60">Vistas</p>
+              <p className="flex items-center gap-1 text-sm font-semibold">
+                {demo.views.toLocaleString()}
+              </p>
+            </div>
+
+            {/* Actions */}
+            <DemoActionsMenu
+              demo={demo}
+              duplicating={duplicatingId === demo.id}
+              onDuplicate={() => onDuplicate(demo.id)}
+              onDelete={() => onDelete(demo.id, demo.title)}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }

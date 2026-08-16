@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
       createdAt: demoPages.createdAt,
       updatedAt: demoPages.updatedAt,
       contactName: contacts.name,
+      contactCompany: contacts.company,
     })
     .from(demoPages)
     .leftJoin(contacts, eq(demoPages.contactId, contacts.id));

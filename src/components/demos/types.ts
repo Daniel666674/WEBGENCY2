@@ -8,4 +8,5 @@ export interface DemoRow {
   views: number;
   updatedAt: string | number | null;
   contactName: string | null;
+  contactCompany: string | null;
 }
