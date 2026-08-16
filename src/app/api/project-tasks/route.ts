@@ -1,8 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, persistNow } from "@/db";
+import { db, persistNow, rawClient } from "@/db";
 import { projectTasks, users, projects } from "@/db/schema";
 import { eq, desc, or, sql } from "drizzle-orm";
 import { requireApi, currentApiUser } from "@/lib/apiAuth";
+
+async function purgeAllTasks() {
+  try {
+    const { rows: done } = await rawClient.execute({
+      sql: "SELECT 1 FROM schema_migrations WHERE id = ?",
+      args: ["2026-purge-all-tasks-api"],
+    });
+    if (done.length > 0) return;
+
+    const { rowsAffected } = await rawClient.execute("DELETE FROM project_tasks");
+    await rawClient.execute({
+      sql: "INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)",
+      args: ["2026-purge-all-tasks-api", Date.now()],
+    });
+    if (rowsAffected) console.log(`[/api/project-tasks] purged ${rowsAffected} tasks`);
+  } catch (err) {
+    console.error("[/api/project-tasks] purge failed:", err);
+  }
+}
 
 async function getOrCreateGeneralProject(): Promise<string> {
   const existing = await db.select({ id: projects.id }).from(projects)
@@ -35,6 +54,8 @@ async function resolveUsers(ids: string[]): Promise<Record<string, UserInfo>> {
 export async function GET(request: NextRequest) {
   const denied = await requireApi("tareas");
   if (denied) return denied;
+
+  await purgeAllTasks();
 
   const user = await currentApiUser();
 
