@@ -6,14 +6,21 @@ import { requireApi } from "@/lib/apiAuth";
 
 async function purgeOrphanedUsers() {
   try {
-    await rawClient.execute(
-      "DELETE FROM users WHERE id NOT IN (SELECT DISTINCT userId FROM accounts)"
+    const { rows: before } = await rawClient.execute("SELECT COUNT(*) as cnt FROM users");
+    console.log(`[/api/users] users before purge: ${before[0]?.cnt}`);
+
+    const { rowsAffected } = await rawClient.execute(
+      "DELETE FROM users WHERE NOT EXISTS (SELECT 1 FROM accounts WHERE accounts.userId = users.id)"
     );
-    try {
-      await rawClient.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email)");
-    } catch {}
+
+    if (rowsAffected) {
+      console.log(`[/api/users] deleted ${rowsAffected} orphaned users`);
+    }
+
+    const { rows: after } = await rawClient.execute("SELECT COUNT(*) as cnt FROM users");
+    console.log(`[/api/users] users after purge: ${after[0]?.cnt}`);
   } catch (err) {
-    console.error("[/api/users] purge failed:", err);
+    console.error("[/api/users] purge FAILED:", err);
   }
 }
 
