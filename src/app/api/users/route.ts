@@ -6,30 +6,12 @@ import { requireApi } from "@/lib/apiAuth";
 
 async function purgeOrphanedUsers() {
   try {
-    const { rows: done } = await rawClient.execute({
-      sql: "SELECT 1 FROM schema_migrations WHERE id = ?",
-      args: ["2026-users-nuke-orphans"],
-    });
-    if (done.length > 0) return;
-
-    // Keep ONLY users that have an accounts link (real Auth.js sign-ins).
-    // Everything else is orphaned legacy data or duplicates with NULL emails.
-    const { rowsAffected } = await rawClient.execute(
+    await rawClient.execute(
       "DELETE FROM users WHERE id NOT IN (SELECT DISTINCT userId FROM accounts)"
     );
-
     try {
       await rawClient.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email)");
     } catch {}
-
-    await rawClient.execute({
-      sql: "INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)",
-      args: ["2026-users-nuke-orphans", Date.now()],
-    });
-
-    if (rowsAffected) {
-      console.log(`[/api/users] deleted ${rowsAffected} orphaned user rows`);
-    }
   } catch (err) {
     console.error("[/api/users] purge failed:", err);
   }
