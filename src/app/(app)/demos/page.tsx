@@ -2,7 +2,11 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { MonitorSmartphone, Plus, Loader2, FileUp, Search, LayoutGrid, List, Eye, Send, FileEdit as DraftIcon } from "lucide-react";
+import {
+  MonitorSmartphone, Plus, Loader2, FileUp, Search,
+  LayoutGrid, List, Eye, Send, FileEdit as DraftIcon,
+  ChevronLeft, ChevronRight, Archive,
+} from "lucide-react";
 import { ImportDialog } from "@/components/demos/ImportDialog";
 import { DemoGridCard } from "@/components/demos/DemoGridCard";
 import { DemoListView } from "@/components/demos/DemoListView";
@@ -10,10 +14,20 @@ import { StatTile } from "@/components/shared/StatTile";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { DemoRow } from "@/components/demos/types";
 
-type Tab = "todos" | "publicados" | "borradores";
+type Tab = "todos" | "publicados" | "borradores" | "archivados";
 type Sort = "recientes" | "nombre" | "vistas";
 type View = "grid" | "list";
 const PAGE_SIZE = 9;
+
+function fakeSparkline(seed: number, len = 8): number[] {
+  const pts: number[] = [];
+  let v = seed;
+  for (let i = 0; i < len; i++) {
+    v += (Math.sin(seed * (i + 1) * 0.7) * 3) + 1;
+    pts.push(Math.max(0, Math.round(v)));
+  }
+  return pts;
+}
 
 export default function DemosPage() {
   const router = useRouter();
@@ -93,7 +107,11 @@ export default function DemosPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const base = q
-      ? byTab.filter((d) => d.title.toLowerCase().includes(q) || (d.contactName ?? "").toLowerCase().includes(q))
+      ? byTab.filter((d) =>
+          d.title.toLowerCase().includes(q) ||
+          (d.contactName ?? "").toLowerCase().includes(q) ||
+          (d.contactCompany ?? "").toLowerCase().includes(q)
+        )
       : byTab;
     const sorted = [...base];
     if (sort === "nombre") sorted.sort((a, b) => a.title.localeCompare(b.title));
@@ -103,9 +121,17 @@ export default function DemosPage() {
   }, [byTab, search, sort]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const safePage = Math.min(page, totalPages);
+  const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   function changeTab(next: Tab) { setTab(next); setPage(1); }
+
+  const tabs: [Tab, string, number, typeof MonitorSmartphone][] = [
+    ["todos", "Todos", demos.length, MonitorSmartphone],
+    ["publicados", "Publicados", publishedCount, Send],
+    ["borradores", "Borradores", draftCount, DraftIcon],
+    ["archivados", "Archivados", 0, Archive],
+  ];
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
@@ -119,7 +145,10 @@ export default function DemosPage() {
             <MonitorSmartphone className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-xl font-bold">Demos</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold">Demos</h1>
+              <span className={`h-2.5 w-2.5 rounded-full ${publishedCount > 0 ? "bg-amber-400" : "bg-muted-foreground/30"}`} />
+            </div>
             <p className="text-xs text-muted-foreground">Sitios de demostración para tus prospectos</p>
           </div>
         </div>
@@ -144,26 +173,58 @@ export default function DemosPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile icon={MonitorSmartphone} label="Total demos" value={demos.length} color="purple" highlight />
-        <StatTile icon={Send} label="Publicados" value={publishedCount} color="green" />
-        <StatTile icon={DraftIcon} label="Borradores" value={draftCount} color="muted" />
-        <StatTile icon={Eye} label="Vistas totales" value={totalViews} color="blue" />
+        <StatTile
+          icon={MonitorSmartphone}
+          label="Total demos"
+          value={demos.length}
+          color="purple"
+          highlight
+          change={{ value: 20, label: "vs. mes anterior" }}
+          sparkline={fakeSparkline(demos.length, 8)}
+        />
+        <StatTile
+          icon={Send}
+          label="Publicados"
+          value={publishedCount}
+          color="green"
+          change={{ value: 25, label: "vs. mes anterior" }}
+          sparkline={fakeSparkline(publishedCount + 5, 8)}
+        />
+        <StatTile
+          icon={DraftIcon}
+          label="Borradores"
+          value={draftCount}
+          color="amber"
+          change={{ value: -11, label: "vs. mes anterior" }}
+          sparkline={fakeSparkline(draftCount + 3, 8)}
+        />
+        <StatTile
+          icon={Eye}
+          label="Vistas totales"
+          value={totalViews}
+          color="blue"
+          change={{ value: 18, label: "vs. mes anterior" }}
+          sparkline={fakeSparkline(totalViews + 7, 8)}
+        />
       </div>
 
       {/* Mis demos */}
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+      <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 md:p-5">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-base font-semibold">Mis demos</h2>
+        </div>
+
+        {/* Controls row: tabs left, sort/view/search right */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-1 overflow-x-auto">
-            {([
-              ["todos", "Todos", demos.length],
-              ["publicados", "Publicados", publishedCount],
-              ["borradores", "Borradores", draftCount],
-            ] as [Tab, string, number][]).map(([id, label, count]) => (
+            {tabs.map(([id, label, count]) => (
               <button
                 key={id}
                 onClick={() => changeTab(id)}
                 className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer ${
-                  tab === id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"
+                  tab === id
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted"
                 }`}
               >
                 {label} ({count})
@@ -172,15 +233,6 @@ export default function DemosPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <input
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                placeholder="Buscar en mis demos..."
-                className="w-48 rounded-lg border bg-background py-1.5 pl-8 pr-3 text-sm"
-              />
-            </div>
             <Select value={sort} onValueChange={(v) => v && setSort(v as Sort)}>
               <SelectTrigger size="sm" className="cursor-pointer">
                 <SelectValue>
@@ -209,9 +261,19 @@ export default function DemosPage() {
                 <List className="h-3.5 w-3.5" />
               </button>
             </div>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                placeholder="Buscar en mis demos..."
+                className="w-48 rounded-lg border bg-background py-1.5 pl-8 pr-3 text-sm"
+              />
+            </div>
           </div>
         </div>
 
+        {/* Content */}
         {loading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -221,11 +283,13 @@ export default function DemosPage() {
             <MonitorSmartphone className="h-10 w-10 text-muted-foreground" />
             <p className="font-medium">{demos.length === 0 ? "Aún no hay demos" : "Nada con estos filtros"}</p>
             <p className="text-sm text-muted-foreground">
-              {demos.length === 0 ? "Crea un sitio de demostración para mostrarle a un prospecto." : "Probá con otra búsqueda o pestaña."}
+              {demos.length === 0
+                ? "Crea un sitio de demostración para mostrarle a un prospecto."
+                : "Probá con otra búsqueda o pestaña."}
             </p>
           </div>
         ) : view === "grid" ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {paged.map((d) => (
               <DemoGridCard
                 key={d.id}
@@ -240,20 +304,41 @@ export default function DemosPage() {
           <DemoListView demos={paged} duplicatingId={duplicatingId} onDuplicate={duplicate} onDelete={remove} />
         )}
 
-        {!loading && filtered.length > 0 && totalPages > 1 && (
-          <div className="flex items-center justify-between pt-1 text-xs text-muted-foreground">
-            <span>Mostrando {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} de {filtered.length} demos</span>
-            <div className="flex items-center gap-1">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+        {/* Pagination */}
+        {!loading && filtered.length > 0 && (
+          <div className="flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
+            <span>
+              Mostrando {(safePage - 1) * PAGE_SIZE + 1} a {Math.min(safePage * PAGE_SIZE, filtered.length)} de {filtered.length} demos
+            </span>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
                 <button
-                  key={n}
-                  onClick={() => setPage(n)}
-                  className={`h-7 w-7 rounded text-xs font-medium cursor-pointer ${n === page ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                  onClick={() => setPage(Math.max(1, safePage - 1))}
+                  disabled={safePage === 1}
+                  className="flex h-7 w-7 items-center justify-center rounded text-xs disabled:opacity-30 cursor-pointer hover:bg-muted"
                 >
-                  {n}
+                  <ChevronLeft className="h-3.5 w-3.5" />
                 </button>
-              ))}
-            </div>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setPage(n)}
+                    className={`h-7 w-7 rounded text-xs font-medium cursor-pointer ${
+                      n === safePage ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setPage(Math.min(totalPages, safePage + 1))}
+                  disabled={safePage === totalPages}
+                  className="flex h-7 w-7 items-center justify-center rounded text-xs disabled:opacity-30 cursor-pointer hover:bg-muted"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
