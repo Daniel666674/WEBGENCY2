@@ -94,13 +94,37 @@ function brandNameFromTitle(title: string): string {
 }
 
 /**
+ * Resolves relative `url()` references inside a CSS string against a base URL.
+ */
+function resolveCssUrls(css: string, baseUrl: string | undefined): string {
+  if (!baseUrl) return css;
+  const resolve = (raw: string | undefined | null) => resolveUrl(raw ?? undefined, baseUrl).url;
+  return css.replace(/url\((['"]?)([^'")]+)\1\)/gi, (_m, q: string, url: string) => {
+    if (/^(https?:|data:|#)/.test(url)) return `url(${q}${url}${q})`;
+    return `url(${q}${resolve(url)}${q})`;
+  });
+}
+
+/**
  * Node-side equivalent of the in-browser pass in headless.ts: strips
  * `<script>`/`<noscript>`/`<base>` and resolves every relative src/href/
  * srcset/poster/inline-style-url against `baseUrl`.
+ *
+ * Also extracts inline `<style>` tag content before it is stripped by the
+ * sanitizer — the sanitizer's allowlist deliberately excludes `<style>` (it
+ * is an XSS vector), but the content is safe CSS that belongs in the
+ * separately-stored stylesheet.
  */
-function resolveServerSide(html: string, baseUrl: string | undefined): string {
+function resolveServerSide(html: string, baseUrl: string | undefined): { html: string; inlineCss: string[] } {
   const root = parseHtml(html, { comment: false });
   root.querySelectorAll("script, noscript, base").forEach((el) => el.remove());
+
+  const inlineCss: string[] = [];
+  for (const el of root.querySelectorAll("style")) {
+    const text = el.textContent.trim();
+    if (text) inlineCss.push(resolveCssUrls(text, baseUrl));
+    el.remove();
+  }
 
   const resolve = (raw: string | undefined | null) => resolveUrl(raw ?? undefined, baseUrl).url;
 
@@ -143,7 +167,7 @@ function resolveServerSide(html: string, baseUrl: string | undefined): string {
     );
   }
 
-  return root.toString();
+  return { html: root.toString(), inlineCss };
 }
 
 export function importVerbatim(rawFiles: VerbatimSourceFile[], opts: VerbatimImportOptions = {}): VerbatimOutcome {
@@ -158,10 +182,11 @@ export function importVerbatim(rawFiles: VerbatimSourceFile[], opts: VerbatimImp
 
   const ordered = [home, ...files.filter((f) => f !== home)];
 
-  const resolved = ordered.map((f) => ({
-    ...f,
-    html: f.rendered ? f.html : resolveServerSide(f.html, f.baseUrl),
-  }));
+  const resolved = ordered.map((f) => {
+    if (f.rendered) return { ...f, inlineCss: [] as string[] };
+    const { html, inlineCss } = resolveServerSide(f.html, f.baseUrl);
+    return { ...f, html, inlineCss };
+  });
 
   // `resolved` spreads each file into a new object, so identity comparison
   // against `home` would never match here even though `ordered[0]` — which
@@ -216,8 +241,10 @@ export function importVerbatim(rawFiles: VerbatimSourceFile[], opts: VerbatimImp
       linksRewired++;
     }
 
-    const css = sanitizeVerbatimCss((f.css ?? []).join("\n"));
-    if (referencesStylesheet && !css.trim()) missingCssPages++;
+    const externalCss = (f.css ?? []).map((c) => resolveCssUrls(c, f.baseUrl));
+    const allCss = [...f.inlineCss, ...externalCss];
+    const css = sanitizeVerbatimCss(allCss.join("\n"));
+    if (referencesStylesheet && !css.trim() && f.inlineCss.length === 0) missingCssPages++;
 
     verbatim[page.slug] = {
       html: sanitizeVerbatimHtml(root.toString()),
