@@ -7,7 +7,16 @@ import { validateDemoConfig } from "@/lib/demo/validate";
 import { requireApi } from "@/lib/apiAuth";
 import type { DemoConfig } from "@/lib/demo/types";
 
-const FALLBACK = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;background:#18181b;color:#71717a;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:system-ui"><p>Vista previa no disponible</p></body></html>`;
+const FALLBACK = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;background:#18181b;color:#71717a;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:system-ui"><p style="opacity:.6">Vista previa no disponible</p></body></html>`;
+
+function respond(html: string) {
+  return new NextResponse(html, {
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "private, max-age=300",
+    },
+  });
+}
 
 export async function GET(
   _req: NextRequest,
@@ -18,38 +27,39 @@ export async function GET(
 
   const { id } = await params;
   const row = await db.select().from(demoPages).where(eq(demoPages.id, id)).get();
-  if (!row) {
-    return new NextResponse(FALLBACK, { status: 404, headers: { "Content-Type": "text/html; charset=utf-8" } });
-  }
+  if (!row) return respond(FALLBACK);
 
   let config: unknown;
   try {
-    config = JSON.parse(row.publishedConfig || row.config || "{}");
+    config = JSON.parse(row.config || "{}");
   } catch {
-    return new NextResponse(FALLBACK, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+    return respond(FALLBACK);
   }
 
-  let html: string;
-  try {
-    const result = validateDemoConfig(config);
-    if (result.ok) {
-      html = renderDemo(result.config, { mode: "publish" });
-    } else {
-      html = renderDemo(config as DemoConfig, { mode: "publish" });
-    }
-  } catch {
+  // Try validated config first (safest).
+  const result = validateDemoConfig(config);
+  if (result.ok) {
     try {
-      html = renderDemo(config as DemoConfig, { mode: "publish" });
-    } catch {
-      html = FALLBACK;
+      return respond(renderDemo(result.config));
+    } catch { /* fall through */ }
+  }
+
+  // Validation failed — try rendering raw config directly.
+  try {
+    return respond(renderDemo(config as unknown as DemoConfig));
+  } catch { /* fall through */ }
+
+  // Last resort for verbatim imports: try rendering the first verbatim
+  // page directly if the default page key didn't match.
+  const verb = (config as unknown as DemoConfig).verbatim;
+  if (verb) {
+    const firstKey = Object.keys(verb)[0];
+    if (firstKey !== undefined) {
+      try {
+        return respond(renderDemo(config as unknown as DemoConfig, { page: firstKey }));
+      } catch { /* fall through */ }
     }
   }
 
-  return new NextResponse(html, {
-    headers: {
-      "Content-Type": "text/html; charset=utf-8",
-      "Cache-Control": "private, max-age=300",
-      "X-Frame-Options": "SAMEORIGIN",
-    },
-  });
+  return respond(FALLBACK);
 }
