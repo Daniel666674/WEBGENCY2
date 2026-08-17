@@ -56,6 +56,22 @@ export function stripDangerousHtml(html: string): string {
  * function without pulling `sanitize-html` (a Node-oriented package) into
  * the browser bundle.
  */
+/**
+ * Scroll-animation libraries (AOS, GSAP ScrollTrigger, Sal.js, WOW.js, etc.)
+ * set elements to `opacity:0` / `transform:translateY(...)` and reveal them
+ * via JS when they enter the viewport. Since verbatim demos have no JS, those
+ * elements stay invisible forever. This block forces them visible.
+ */
+const ANIMATION_OVERRIDE = `<style data-oliwan-inject="1">
+[data-aos],[data-scroll],[data-animate],[data-sal],[data-reveal],
+[data-sr-id],[data-animation],[data-motion],[data-inview],
+.wow,.animate__animated,.gsap-reveal,.aos-init,.sal-animate,
+.scroll-animate,.reveal,.fade-in,.slide-up,.slide-in{
+opacity:1!important;visibility:visible!important;
+transform:none!important;transition:none!important;
+}
+</style>`;
+
 export function buildVerbatimDocument(html: string, css: string): string {
   const body = typeof html === "string" ? html : "";
   const styleBlock = css ? `<style>${css}</style>` : "";
@@ -66,12 +82,12 @@ export function buildVerbatimDocument(html: string, css: string): string {
   // </head> so it applies after the page's own inline <style>/<link> tags
   // rather than being overridden by them.
   if (/<head[\s>]/i.test(body) && /<\/head>/i.test(body)) {
-    return `<!DOCTYPE html>\n${body.replace(/<\/head>/i, `${styleBlock}</head>`)}`;
+    return `<!DOCTYPE html>\n${body.replace(/<\/head>/i, `${styleBlock}</head>`).replace(/<\/body>/i, `${ANIMATION_OVERRIDE}</body>`)}`;
   }
   // No recognisable <head> (a fragment rather than a full document, e.g. a
   // hand-pasted snippet) — wrap it properly instead of guessing where to
   // splice.
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${styleBlock}</head><body>${body}</body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${styleBlock}</head><body>${body}${ANIMATION_OVERRIDE}</body></html>`;
 }
 
 /**
