@@ -167,6 +167,25 @@ function resolveServerSide(html: string, baseUrl: string | undefined): { html: s
     );
   }
 
+  // Strip animation-hiding from inline styles: elements set to opacity:0
+  // or visibility:hidden inline are almost always waiting for JS to reveal
+  // them. Without JS they stay invisible forever.
+  for (const el of root.querySelectorAll("[style]")) {
+    let style = el.getAttribute("style") ?? "";
+    style = style
+      .replace(/\bopacity\s*:\s*0\b[^;]*/gi, "")
+      .replace(/\bvisibility\s*:\s*hidden\b[^;]*/gi, "")
+      .replace(/\btransform\s*:\s*translate[^;]*/gi, "")
+      .replace(/;{2,}/g, ";")
+      .replace(/^\s*;\s*/, "")
+      .trim();
+    if (style) {
+      el.setAttribute("style", style);
+    } else {
+      el.removeAttribute("style");
+    }
+  }
+
   return { html: root.toString(), inlineCss };
 }
 

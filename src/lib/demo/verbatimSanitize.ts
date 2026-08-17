@@ -119,5 +119,9 @@ export function sanitizeVerbatimCss(css: string): string {
     .replace(/javascript\s*:/gi, "")
     .replace(/expression\s*\(/gi, "")
     .replace(/behaviou?r\s*:/gi, "")
+    // Strip animation-hiding declarations: without JS to trigger reveals,
+    // `opacity:0` and `visibility:hidden` leave content permanently invisible.
+    .replace(/\bopacity\s*:\s*0\s*;/gi, "")
+    .replace(/\bvisibility\s*:\s*hidden\s*;/gi, "")
     .slice(0, MAX_VERBATIM_CSS);
 }
