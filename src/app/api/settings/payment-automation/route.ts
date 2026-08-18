@@ -5,6 +5,7 @@ import {
   type PaymentAutomationConfig,
 } from "@/lib/paymentAutomation";
 import { requireApi } from "@/lib/apiAuth";
+import { logAudit } from "@/lib/audit";
 
 const SECRET_FIELDS: (keyof PaymentAutomationConfig)[] = ["gatewayWebhookSecret", "whatsappToken"];
 
@@ -55,5 +56,12 @@ export async function PUT(request: NextRequest) {
   }
 
   await savePaymentAutomationConfig(next);
+  await logAudit(request, "payment_automation_config_update", "settings", "payment_automation_config", {
+    gatewayEnabled: !!next.gatewayWebhookSecret,
+    whatsappConfigured: !!next.whatsappToken && !!next.whatsappPhoneNumberId,
+    secretsChanged: SECRET_FIELDS.filter(
+      (f) => body[f] !== undefined && !isMasked(body[f] as string)
+    ),
+  });
   return NextResponse.json({ ok: true });
 }

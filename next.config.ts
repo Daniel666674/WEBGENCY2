@@ -1,6 +1,26 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  headers: async () => [
+    {
+      source: "/api/:path*",
+      headers: [
+        { key: "X-Content-Type-Options", value: "nosniff" },
+        { key: "X-Frame-Options", value: "DENY" },
+        { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+      ],
+    },
+    {
+      source: "/((?!api|_next/static|_next/image|demo/).*)",
+      headers: [
+        { key: "X-Content-Type-Options", value: "nosniff" },
+        { key: "X-Frame-Options", value: "SAMEORIGIN" },
+        { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+      ],
+    },
+  ],
   // Both ship native binaries (a Chromium build, a sqlite driver) that a
   // webpack/turbopack bundle would otherwise try to inline and break.
   serverExternalPackages: ["better-sqlite3", "@sparticuz/chromium", "puppeteer-core"],
