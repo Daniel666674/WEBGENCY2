@@ -6,7 +6,7 @@ import { getAutomationsConfig, saveAutomationsConfig, RULE_META } from "@/lib/au
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const denied = await requireApi("settings");
+  const denied = await requireApi("settings_automatizaciones");
   if (denied) return denied;
 
   const config = await getAutomationsConfig();
@@ -16,7 +16,7 @@ export async function GET() {
 export async function PUT(request: NextRequest) {
   // Automations write to real records on a schedule — who may arm them is a
   // narrower question than who may read the settings page.
-  const denied = await requireApi("settings", { ownerOnly: true });
+  const denied = await requireApi("settings_automatizaciones", { ownerOnly: true });
   if (denied) return denied;
 
   let body;

@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
  * Only booleans and counts leave here. Tokens and secrets never do.
  */
 export async function GET() {
-  const denied = await requireApi("settings");
+  const denied = await requireApi("settings_integraciones");
   if (denied) return denied;
 
   const payment = await getPaymentAutomationConfig();

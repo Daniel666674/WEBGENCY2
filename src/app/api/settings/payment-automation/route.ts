@@ -20,7 +20,7 @@ function isMasked(value: string): boolean {
 }
 
 export async function GET() {
-  const denied = await requireApi("settings");
+  const denied = await requireApi("settings_integraciones");
   if (denied) return denied;
 
 
@@ -33,7 +33,7 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
-  const denied = await requireApi("settings", { ownerOnly: true });
+  const denied = await requireApi("settings_integraciones", { ownerOnly: true });
   if (denied) return denied;
 
 

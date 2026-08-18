@@ -7,7 +7,7 @@ import {
 import { requireApi } from "@/lib/apiAuth";
 
 export async function POST() {
-  const denied = await requireApi("settings", { ownerOnly: true });
+  const denied = await requireApi("settings_integraciones", { ownerOnly: true });
   if (denied) return denied;
 
 

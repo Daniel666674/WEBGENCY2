@@ -20,6 +20,7 @@ import {
   LogOut,
   Pencil,
 } from "lucide-react";
+import { hasPermission, permissionForPath } from "@/lib/permissions";
 
 const CATEGORIES = [
   { href: "/settings/perfil", icon: User, title: "Perfil", description: "Administra tu informacion personal y preferencias de cuenta." },
@@ -104,9 +105,12 @@ export function SettingsHub({ authEnabled }: { authEnabled: boolean }) {
         </div>
       )}
 
-      {/* Category grid */}
+      {/* Category grid — filtered by per-user permissions */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {CATEGORIES.map((c) => (
+        {CATEGORIES.filter((c) => {
+          const key = permissionForPath(c.href);
+          return !key || hasPermission(activeUser, key);
+        }).map((c) => (
           <SettingsCategoryCard key={c.href} {...c} />
         ))}
       </div>
