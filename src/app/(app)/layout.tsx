@@ -8,6 +8,7 @@ import { HersThemeApplier } from "@/components/user/HersThemeApplier";
 // HersWelcomePopup temporarily hidden — re-add <HersWelcomePopup /> below to restore.
 // import { HersWelcomePopup } from "@/components/user/HersWelcomePopup";
 import { ThemeEngine } from "@/components/shared/ThemeEngine";
+import { AppearanceEngine } from "@/components/shared/AppearanceEngine";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { PermissionGuard } from "@/components/layout/PermissionGuard";
@@ -31,6 +32,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <UserProvider>
       <ThemeEngine />
+      <AppearanceEngine />
       <HersThemeApplier />
       <GlitterOverlay />
       {/* <HersWelcomePopup /> — temporarily hidden */}
