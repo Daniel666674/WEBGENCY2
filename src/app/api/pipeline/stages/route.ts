@@ -41,7 +41,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const denied = await requireApi("settings");
+  const denied = await requireApi("settings_pipeline");
   if (denied) return denied;
 
   let body: { name?: string; color?: string; isWon?: boolean; isLost?: boolean };
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
 
 /** Bulk in-place update: rename, recolor, reorder, retag won/lost. */
 export async function PUT(request: NextRequest) {
-  const denied = await requireApi("settings");
+  const denied = await requireApi("settings_pipeline");
   if (denied) return denied;
 
   let body: { stages?: Array<{ id: string; name: string; color: string; order: number; isWon: boolean; isLost: boolean }> };
@@ -116,7 +116,7 @@ export async function PUT(request: NextRequest) {
 
 /** Delete a stage. Any deals in it must be given a new home first. */
 export async function DELETE(request: NextRequest) {
-  const denied = await requireApi("settings");
+  const denied = await requireApi("settings_pipeline");
   if (denied) return denied;
 
   const id = request.nextUrl.searchParams.get("id");

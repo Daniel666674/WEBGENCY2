@@ -39,7 +39,7 @@ export async function GET() {
  * Replaces the entire org preset list.
  */
 export async function PUT(request: NextRequest) {
-  const denied = await requireApi("settings", { ownerOnly: true });
+  const denied = await requireApi("settings_apariencia", { ownerOnly: true });
   if (denied) return denied;
 
   let body: { presets: CustomPreset[] };

@@ -30,7 +30,7 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
-  const denied = await requireApi("settings");
+  const denied = await requireApi("settings_apariencia");
   if (denied) return denied;
 
 

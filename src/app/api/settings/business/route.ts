@@ -6,14 +6,14 @@ import { getBusinessProfile, saveBusinessProfile } from "@/lib/businessConfig";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const denied = await requireApi("settings");
+  const denied = await requireApi("settings_negocio");
   if (denied) return denied;
 
   return NextResponse.json(await getBusinessProfile(), { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function PUT(request: NextRequest) {
-  const denied = await requireApi("settings", { ownerOnly: true });
+  const denied = await requireApi("settings_negocio", { ownerOnly: true });
   if (denied) return denied;
 
   let body;

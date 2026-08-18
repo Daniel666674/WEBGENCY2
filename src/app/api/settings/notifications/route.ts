@@ -7,7 +7,7 @@ import { getNotificationConfig, saveNotificationConfig } from "@/lib/notificatio
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const denied = await requireApi("settings");
+  const denied = await requireApi("settings_notificaciones");
   if (denied) return denied;
 
   const config = await getNotificationConfig();
@@ -24,7 +24,7 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
-  const denied = await requireApi("settings", { ownerOnly: true });
+  const denied = await requireApi("settings_notificaciones", { ownerOnly: true });
   if (denied) return denied;
 
   let body;

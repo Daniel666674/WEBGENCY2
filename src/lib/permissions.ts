@@ -79,15 +79,30 @@ export const PERMISSION_SECTIONS: PermissionSection[] = [
   },
   {
     key: "config",
-    label: "Config",
+    label: "Configuracion",
     pages: [
-      { key: "settings", label: "Configuración", href: "/settings" },
-      { key: "audit", label: "Auditoría", href: "/audit" },
+      { key: "settings_negocio", label: "Negocio", href: "/settings/negocio" },
+      { key: "settings_usuarios", label: "Usuarios", href: "/settings/usuarios" },
+      { key: "settings_pipeline", label: "Pipeline", href: "/settings/pipeline" },
+      { key: "settings_integraciones", label: "Integraciones", href: "/settings/integraciones" },
+      { key: "settings_automatizaciones", label: "Automatizaciones", href: "/settings/automatizaciones" },
+      { key: "settings_notificaciones", label: "Notificaciones", href: "/settings/notificaciones" },
+      { key: "settings_comandos", label: "Comandos", href: "/settings/comandos" },
+      { key: "audit", label: "Auditoria", href: "/audit" },
     ],
   },
 ];
 
-export const ALL_PAGES: PermissionPage[] = PERMISSION_SECTIONS.flatMap((s) => s.pages);
+/** Personal settings pages — always granted, not shown in PermissionPicker. */
+const PERSONAL_SETTINGS_PAGES: PermissionPage[] = [
+  { key: "settings_perfil", label: "Perfil", href: "/settings/perfil" },
+  { key: "settings_apariencia", label: "Apariencia", href: "/settings/apariencia" },
+];
+
+export const ALL_PAGES: PermissionPage[] = [
+  ...PERMISSION_SECTIONS.flatMap((s) => s.pages),
+  ...PERSONAL_SETTINGS_PAGES,
+];
 export const PERMISSION_KEYS: string[] = ALL_PAGES.map((p) => p.key);
 export type PermissionKey = string;
 
@@ -101,9 +116,18 @@ export const SECTION_OF_PAGE: Record<string, NavSectionKey> = Object.fromEntries
 );
 
 /** Legacy section key -> the pages it used to grant, all at once. */
-const LEGACY_SECTION_EXPANSION: Record<string, string[]> = Object.fromEntries(
-  PERMISSION_SECTIONS.map((s) => [s.key, s.pages.map((p) => p.key)])
-);
+const LEGACY_SECTION_EXPANSION: Record<string, string[]> = {
+  ...Object.fromEntries(
+    PERMISSION_SECTIONS.map((s) => [s.key, s.pages.map((p) => p.key)])
+  ),
+  // The old "settings" key used to grant the entire settings area. Expand it
+  // to every settings sub-page so nobody loses access on deploy.
+  settings: [
+    "settings_perfil", "settings_apariencia", "settings_negocio",
+    "settings_usuarios", "settings_pipeline", "settings_integraciones",
+    "settings_automatizaciones", "settings_notificaciones", "settings_comandos",
+  ],
+};
 
 export const ALL_PERMISSIONS: string[] = [...PERMISSION_KEYS];
 
@@ -124,7 +148,11 @@ export const ALL_PERMISSIONS: string[] = [...PERMISSION_KEYS];
  * Deliberately narrow. Money, client accounts and settings stay gated —
  * nothing lands here just because it is convenient.
  */
-export const ALWAYS_GRANTED: readonly string[] = ["demos"];
+export const ALWAYS_GRANTED: readonly string[] = [
+  "demos",
+  "settings_perfil",
+  "settings_apariencia",
+];
 
 /** A brand-new member starts minimal — the owner grants pages deliberately
  *  rather than a new teammate landing with the whole CRM open by default.

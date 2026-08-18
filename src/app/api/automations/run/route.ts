@@ -13,7 +13,7 @@ export const maxDuration = 60;
 
 /** The last 30 things the engine actually did. */
 export async function GET() {
-  const denied = await requireApi("settings");
+  const denied = await requireApi("settings_automatizaciones");
   if (denied) return denied;
 
   const runs = await db
@@ -34,7 +34,7 @@ export async function GET() {
  * accidentally clicking the wrong button.
  */
 export async function POST(request: NextRequest) {
-  const denied = await requireApi("settings", { ownerOnly: true });
+  const denied = await requireApi("settings_automatizaciones", { ownerOnly: true });
   if (denied) return denied;
 
   let body: { dryRun?: boolean } = {};

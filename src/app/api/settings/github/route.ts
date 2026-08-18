@@ -14,14 +14,14 @@ export const dynamic = "force-dynamic";
  * satisfied by a masked hint.
  */
 export async function GET() {
-  const denied = await requireApi("settings");
+  const denied = await requireApi("settings_integraciones");
   if (denied) return denied;
 
   return NextResponse.json(await getGithubStatus(), { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function PUT(request: NextRequest) {
-  const denied = await requireApi("settings", { ownerOnly: true });
+  const denied = await requireApi("settings_integraciones", { ownerOnly: true });
   if (denied) return denied;
 
   let body: { token?: string; defaultRepo?: string };
@@ -41,7 +41,7 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const denied = await requireApi("settings", { ownerOnly: true });
+  const denied = await requireApi("settings_integraciones", { ownerOnly: true });
   if (denied) return denied;
 
   await clearGithubConfig();
