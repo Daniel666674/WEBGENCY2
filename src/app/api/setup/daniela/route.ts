@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { crmSettings, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { hashPassword } from "@/lib/password";
+import { timingSafeEqual } from "@/lib/sessionToken";
 
 const TOKEN_KEY = "daniela_invite_token";
 const EXPIRES_KEY = "daniela_invite_expires";
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
     db.select().from(crmSettings).where(eq(crmSettings.key, EXPIRES_KEY)).get(),
   ]);
 
-  if (!tokenRow || tokenRow.value !== token) {
+  if (!tokenRow || !timingSafeEqual(tokenRow.value, token)) {
     return NextResponse.json({ error: "Token invalido" }, { status: 403 });
   }
   if (expiresRow && Number(expiresRow.value) < Date.now()) {

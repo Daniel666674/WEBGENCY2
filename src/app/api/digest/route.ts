@@ -4,15 +4,22 @@ import { contacts, deals, activities, pipelineStages, projectTasks, projects, pr
 import { eq, asc, isNull, and, ne, isNotNull } from "drizzle-orm";
 import { formatCurrency } from "@/lib/constants";
 import { sendMail, getDigestEmail } from "@/lib/mailer";
+import { requireApi } from "@/lib/apiAuth";
+import { verifySession } from "@/lib/sessionToken";
 
-// Excluded from the cookie middleware so the daily cron can reach it.
-// Guard: a browser session (demo cookie) or the cron shared secret.
-function authorized(request: NextRequest): boolean {
-  if (request.cookies.has("oliwan-demo-session")) return true;
-  const sessionCookies = ["authjs.session-token", "__Secure-authjs.session-token"];
-  if (sessionCookies.some((c) => request.cookies.has(c))) return true;
+async function authorized(request: NextRequest): Promise<boolean> {
   const cronSecret = process.env.CRON_SECRET;
-  return !!cronSecret && request.headers.get("x-cron-secret") === cronSecret;
+  if (cronSecret && request.headers.get("x-cron-secret") === cronSecret) return true;
+
+  if (process.env.AUTH_ENABLED === "true") {
+    const denied = await requireApi();
+    return !denied;
+  }
+
+  const secret = process.env.SESSION_SECRET ?? "";
+  if (!secret) return false;
+  const cookie = request.cookies.get("oliwan-demo-session")?.value;
+  return verifySession(secret, cookie);
 }
 
 async function buildDigest() {
