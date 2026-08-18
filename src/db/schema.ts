@@ -490,3 +490,14 @@ export const automationRuns = sqliteTable("automation_runs", {
     .notNull()
     .$defaultFn(() => new Date()),
 });
+
+export const userAppearance = sqliteTable("user_appearance", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id").notNull().unique(),
+  config: text("config").notNull().default("{}"),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
