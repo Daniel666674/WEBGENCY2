@@ -6,6 +6,9 @@ import { getNotificationConfig } from "@/lib/notificationConfig";
 import { getBusinessProfile } from "@/lib/businessConfig";
 import { sendMail } from "@/lib/mailer";
 import { timingSafeEqual } from "@/lib/sessionToken";
+import { rateLimit } from "@/lib/rateLimit";
+
+const REPLAY_WINDOW_MS = 5 * 60_000;
 
 // Field name mapping: common variations → standard field
 const FIELD_MAP: Record<string, string> = {
@@ -80,6 +83,19 @@ function extractFields(
 }
 
 export async function POST(request: NextRequest) {
+  const { ok: withinLimit } = rateLimit(request, { key: "webhook", windowMs: 60_000, max: 30 });
+  if (!withinLimit) {
+    return NextResponse.json({ error: "Rate limit — max 30 requests/min" }, { status: 429 });
+  }
+
+  const tsHeader = request.headers.get("x-webhook-timestamp");
+  if (tsHeader) {
+    const ts = Number(tsHeader) * 1000;
+    if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > REPLAY_WINDOW_MS) {
+      return NextResponse.json({ error: "Timestamp fuera de rango (±5 min)" }, { status: 401 });
+    }
+  }
+
   // Auth check: if a webhook secret is stored, require it in the header
   const stored = await db
     .select()

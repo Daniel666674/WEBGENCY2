@@ -5,13 +5,16 @@ import { verifyPassword } from "@/lib/password";
 import { db } from "@/db";
 import { crmSettings } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { rateLimit } from "@/lib/rateLimit";
 
 const DEMO_COOKIE = "oliwan-demo-session";
-const SESSION_MAX_AGE = 60 * 60 * 8; // 8h
+const SESSION_MAX_AGE = Number(process.env.SESSION_MAX_AGE_SECONDS) || 60 * 60 * 8;
 
-// Plain form POST target (not a server action) so this is a standard,
-// directly-testable HTTP endpoint — no RSC action-encoding involved.
 export async function POST(request: NextRequest) {
+  const { ok: withinLimit } = rateLimit(request, { key: "login", windowMs: 15 * 60_000, max: 10 });
+  if (!withinLimit) {
+    return NextResponse.json({ error: "Demasiados intentos — esperá 15 minutos" }, { status: 429 });
+  }
   const formData = await request.formData();
   const username = String(formData.get("username") || "");
   const password = String(formData.get("password") || "");
