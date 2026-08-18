@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { requireApi } from "@/lib/apiAuth";
+import { requireApi, currentApiUser } from "@/lib/apiAuth";
 
 export async function PUT(
   request: NextRequest,
@@ -12,6 +12,11 @@ export async function PUT(
   if (denied) return denied;
 
   const { id } = await params;
+
+  const caller = await currentApiUser();
+  if (caller && caller.id !== id && (caller as { role?: string }).role !== "owner") {
+    return NextResponse.json({ error: "Solo podés editar tu propio perfil" }, { status: 403 });
+  }
   let body;
   try {
     body = await request.json();

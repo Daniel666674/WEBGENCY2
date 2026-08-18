@@ -1,26 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@libsql/client";
 import { authConfigProblems } from "@/lib/authConfig";
+import { verifySession } from "@/lib/sessionToken";
+import { auth } from "@/auth";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Self-diagnostic for Google sign-in.
+ * Self-diagnostic for Google sign-in — owner-only.
  *
- * When Auth.js can't complete a sign-in it renders "Server error — there is a
- * problem with the server configuration. Check the server logs.", which is a
- * dead end for anyone who can't tail the deploy's logs. This endpoint answers
- * the same question from the browser.
- *
- * Deliberately reachable without a session — it exists precisely for when
- * signing in is impossible. It reports only *whether* each variable is set,
- * never a value, so it leaks nothing an attacker couldn't learn by attempting
- * a login.
+ * Reports whether env vars are set, DB tables exist, and the allowlist is
+ * populated. Gated behind authentication so infrastructure details aren't
+ * publicly reachable.
  */
 
 const REQUIRED_TABLES = ["users", "accounts", "sessions", "verificationTokens", "allowed_emails"];
 
 export async function GET(request: NextRequest) {
+  if (process.env.AUTH_ENABLED === "true") {
+    const session = await auth();
+    const user = session?.user as
+      | (NonNullable<typeof session>["user"] & { role?: string })
+      | undefined;
+    if (user?.role !== "owner") {
+      return NextResponse.json({ error: "Solo el owner puede ver esto" }, { status: 403 });
+    }
+  } else {
+    const secret = process.env.SESSION_SECRET ?? "";
+    const cookie = request.cookies.get("oliwan-demo-session")?.value;
+    if (!secret || !(await verifySession(secret, cookie))) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+  }
   const isSet = (key: string) => Boolean((process.env[key] ?? "").trim());
 
   const env = {

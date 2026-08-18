@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { getNotificationConfig } from "@/lib/notificationConfig";
 import { getBusinessProfile } from "@/lib/businessConfig";
 import { sendMail } from "@/lib/mailer";
+import { timingSafeEqual } from "@/lib/sessionToken";
 
 // Field name mapping: common variations → standard field
 const FIELD_MAP: Record<string, string> = {
@@ -87,13 +88,18 @@ export async function POST(request: NextRequest) {
     .get();
 
   if (stored) {
-    const secretHeader = request.headers.get("x-webhook-secret");
-    if (!secretHeader || secretHeader !== stored.value) {
+    const secretHeader = request.headers.get("x-webhook-secret") ?? "";
+    if (!secretHeader || !timingSafeEqual(secretHeader, stored.value)) {
       return NextResponse.json(
         { error: "Secret invalido o faltante" },
         { status: 401 }
       );
     }
+  } else {
+    return NextResponse.json(
+      { error: "Webhook no configurado — define un webhook_secret en Settings" },
+      { status: 403 }
+    );
   }
 
   let payload: Record<string, unknown>;
