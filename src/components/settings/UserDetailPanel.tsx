@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Trash2, Crown, ChevronDown, Pencil } from "lucide-react";
+import { X, Trash2, Crown, ChevronDown, Pencil, ChevronRight, Globe, Monitor } from "lucide-react";
 import { PERMISSION_SECTIONS, PERMISSION_LABELS } from "@/lib/permissions";
 import { PermissionPicker } from "./PermissionPicker";
 import { AllowedEmailRow, STATUS_LABELS, statusOf } from "./usuariosTypes";
@@ -13,6 +13,8 @@ interface AuditRow {
   resourceId: string;
   meta: Record<string, unknown>;
   createdAt: string;
+  ipAddress?: string;
+  userAgent?: string;
 }
 
 const ACTION_LABELS: Record<string, string> = {
@@ -24,6 +26,19 @@ const ACTION_LABELS: Record<string, string> = {
   create: "Creó",
   update: "Actualizó",
   delete: "Eliminó",
+  login_success: "Inició sesión",
+  login_failure: "Intento de login fallido",
+  stage_move: "Movió de etapa",
+};
+
+const RESOURCE_LABELS: Record<string, string> = {
+  contact: "Contacto",
+  deal: "Negocio",
+  activity: "Actividad",
+  demo: "Demo",
+  user: "Usuario",
+  pipeline: "Pipeline",
+  settings: "Configuración",
 };
 
 function formatWhen(iso: string): string {
@@ -197,12 +212,9 @@ export function UserDetailPanel({
         ) : activity.length === 0 ? (
           <p className="text-xs text-muted-foreground">Sin actividad registrada.</p>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-1">
             {activity.map((a) => (
-              <div key={a.id} className="text-xs">
-                <p className="leading-snug">{ACTION_LABELS[a.action] ?? a.action}</p>
-                <p className="text-[10px] text-muted-foreground">{formatWhen(a.createdAt)}</p>
-              </div>
+              <ActivityRow key={a.id} row={a} />
             ))}
           </div>
         )}
@@ -216,6 +228,73 @@ export function UserDetailPanel({
           <Trash2 className="h-3.5 w-3.5" /> Eliminar usuario
         </button>
       </div>
+    </div>
+  );
+}
+
+function shortBrowser(ua?: string): string {
+  if (!ua) return "";
+  if (ua.includes("Chrome") && !ua.includes("Edg")) return "Chrome";
+  if (ua.includes("Edg")) return "Edge";
+  if (ua.includes("Firefox")) return "Firefox";
+  if (ua.includes("Safari") && !ua.includes("Chrome")) return "Safari";
+  return "Otro";
+}
+
+function ChangeDiff({ changes }: { changes: Record<string, { from: unknown; to: unknown }> }) {
+  return (
+    <div className="space-y-1 mt-1.5">
+      {Object.entries(changes).map(([field, { from, to }]) => (
+        <div key={field} className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-muted-foreground font-medium">{field}:</span>
+          <span className="line-through text-red-400 dark:text-red-400/80">{String(from ?? "—")}</span>
+          <span className="text-muted-foreground">→</span>
+          <span className="text-green-600 dark:text-green-400">{String(to ?? "—")}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ActivityRow({ row: a }: { row: AuditRow }) {
+  const [open, setOpen] = useState(false);
+  const changes = a.meta?.changes as Record<string, { from: unknown; to: unknown }> | undefined;
+  const hasDetails = !!(changes && Object.keys(changes).length) || !!a.ipAddress || !!a.meta?.name || !!a.meta?.title;
+  const resource = RESOURCE_LABELS[a.resourceType] ?? a.resourceType;
+  const action = ACTION_LABELS[a.action] ?? a.action;
+  const name = (a.meta?.name ?? a.meta?.title ?? "") as string;
+
+  return (
+    <div className="rounded-lg border border-border/50 text-xs">
+      <button
+        onClick={() => hasDetails && setOpen(!open)}
+        className={`w-full flex items-start gap-2 px-2.5 py-2 text-left ${hasDetails ? "cursor-pointer hover:bg-muted/50" : ""}`}
+      >
+        {hasDetails && (
+          <ChevronRight className={`h-3 w-3 mt-0.5 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`} />
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="leading-snug font-medium">
+            {action}
+            {resource && <span className="text-muted-foreground font-normal"> · {resource}</span>}
+          </p>
+          {name && <p className="text-[10px] text-muted-foreground truncate">{name}</p>}
+          <p className="text-[10px] text-muted-foreground mt-0.5">{formatWhen(a.createdAt)}</p>
+        </div>
+      </button>
+      {open && hasDetails && (
+        <div className="px-2.5 pb-2 pt-0 border-t border-border/30 text-[10px] space-y-1.5">
+          {changes && Object.keys(changes).length > 0 && (
+            <ChangeDiff changes={changes} />
+          )}
+          {a.ipAddress && (
+            <div className="flex items-center gap-1.5 text-muted-foreground pt-1">
+              <Globe className="h-3 w-3" /> {a.ipAddress}
+              {a.userAgent && <><Monitor className="h-3 w-3 ml-2" /> {shortBrowser(a.userAgent)}</>}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
