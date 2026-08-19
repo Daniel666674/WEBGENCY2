@@ -34,6 +34,7 @@ export interface SectionItem {
 export type SectionWidth = "narrow" | "normal" | "wide" | "full";
 export type SectionPad = "compact" | "normal" | "spacious";
 export type SectionAlign = "left" | "center";
+export type SectionAnimation = "none" | "fade-up" | "fade-in" | "slide-left" | "slide-right" | "zoom-in" | "blur-in";
 
 export interface SectionStyle {
   bg?: string; // overrides brand.paper for this section only, "" = inherit
@@ -41,6 +42,9 @@ export interface SectionStyle {
   pad?: SectionPad;
   align?: SectionAlign;
   overlay?: number; // 0-100, darkens a background image (hero/banner)
+  animation?: SectionAnimation;
+  animationDuration?: number; // ms, default 600
+  stagger?: boolean; // item-driven sections: animate items one after another
 }
 
 /**

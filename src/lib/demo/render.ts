@@ -260,9 +260,16 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     return `<div style="padding:${pad} 0;border-top:${dividerLine};">${inner}</div>`;
   };
 
-  // sec() now resolves bg/width/padding from the section's own style overrides.
+  function animAttrs(s: Section): string {
+    const anim = s.style?.animation;
+    if (!anim || anim === "none") return "";
+    const dur = s.style?.animationDuration ?? 600;
+    const stagger = s.style?.stagger ? ' data-anim-stagger="1"' : "";
+    return ` data-anim="${anim}" data-anim-dur="${dur}"${stagger}`;
+  }
+
   function sec(s: Section, inner: string, id?: string): string {
-    return `<section ${id ? `id="${id}"` : ""} style="padding:${padOf(s)} 0;background:${bgOf(s)};">${wrap(inner, widthOf(s))}</section>`;
+    return `<section ${id ? `id="${id}"` : ""}${animAttrs(s)} style="padding:${padOf(s)} 0;background:${bgOf(s)};">${wrap(inner, widthOf(s))}</section>`;
   }
 
   // ── HERO ────────────────────────────────────────────────
@@ -278,7 +285,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     if (s.variant === "cover") {
       const overlayInk = "#ffffff";
       const overlay = (s.style?.overlay ?? 55) / 100;
-      return `<section id="inicio" style="position:relative;min-height:${d.sectionPadY === "clamp(80px, 12vw, 160px)" ? "88vh" : "78vh"};display:flex;align-items:center;background:${ink};overflow:hidden;">
+      return `<section id="inicio"${animAttrs(s)} style="position:relative;min-height:${d.sectionPadY === "clamp(80px, 12vw, 160px)" ? "88vh" : "78vh"};display:flex;align-items:center;background:${ink};overflow:hidden;">
         ${s.media?.url ? media(s.media, "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.52;" + elStyle("media"), "", elHandle("media")) : ""}
         <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,${overlay * 0.5}),rgba(0,0,0,${overlay}));"></div>
         ${wrap(`<div style="position:relative;color:${overlayInk};max-width:${align === "center" ? "760px" : "820px"};${align === "center" ? "margin:0 auto;text-align:center;" : ""}">
@@ -394,7 +401,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     const head = `<div style="${align === "center" ? "text-align:center;max-width:620px;margin:0 auto 48px;" : "margin:0 0 48px;"}">${eyebrow(s.eyebrow, align)}${h2(s.heading)}${lede(s.body, align)}</div>`;
 
     if (s.variant === "carousel") {
-      return `<section id="galeria" style="padding:${padOf(s)} 0;background:${bgOf(s)};">${wrap(head, widthOf(s))}<div style="display:flex;gap:16px;overflow-x:auto;padding:0 24px 12px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;">` +
+      return `<section id="galeria"${animAttrs(s)} style="padding:${padOf(s)} 0;background:${bgOf(s)};">${wrap(head, widthOf(s))}<div style="display:flex;gap:16px;overflow-x:auto;padding:0 24px 12px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;">` +
         items.map((it, i) => `<div style="flex:0 0 clamp(240px,32vw,380px);scroll-snap-align:start;">${media(it.media, `width:100%;height:clamp(240px,30vw,360px);object-fit:cover;border-radius:${d.imageRadius};display:block;`)}${it.title ? `<p${elClass("items.title")}${elHandle("items.title")} style="margin:12px 0 0;font-weight:600;color:${ink};font-size:.95rem;${elStyle("items.title")}"${textAttr(`items.${i}.title`, true)}>${sanitizeRich(it.title)}</p>` : ""}</div>`).join("") + `</div></section>`;
     }
 
@@ -425,7 +432,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
       : `<video src="${escUrl(v)}" controls playsinline style="width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:${d.imageRadius};display:block;background:#000;"></video>`;
 
     if (s.variant === "full") {
-      return `<section id="video" style="padding:${padOf(s)} 0;background:${bgOf(s)};"><div style="max-width:1400px;margin:0 auto;padding:0 24px;">${player}</div></section>`;
+      return `<section id="video"${animAttrs(s)} style="padding:${padOf(s)} 0;background:${bgOf(s)};"><div style="max-width:1400px;margin:0 auto;padding:0 24px;">${player}</div></section>`;
     }
     const align = alignOf(s);
     return sec(s, `<div style="${align === "center" ? "text-align:center;max-width:640px;margin:0 auto 40px;" : "max-width:620px;margin:0 0 40px;"}">${eyebrow(s.eyebrow, align)}${h2(s.heading)}${lede(s.body, align)}</div>` + player, "video");
@@ -438,7 +445,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     const aboutBg = s.style?.bg || (dark ? mix(paper, "#ffffff", 0.04) : soft);
 
     if (s.variant === "centered") {
-      return `<section id="nosotros" style="padding:${padOf(s)} 0;background:${aboutBg};">${wrap(`<div style="text-align:center;max-width:720px;margin:0 auto;">
+      return `<section id="nosotros"${animAttrs(s)} style="padding:${padOf(s)} 0;background:${aboutBg};">${wrap(`<div style="text-align:center;max-width:720px;margin:0 auto;">
         ${eyebrow(s.eyebrow, "center")}${h2(s.heading)}
         <p${elClass("body")}${elHandle("body")} style="font-size:1.14rem;line-height:1.85;color:${muted};margin:0;${elStyle("body")}"${textAttr("body", true)}>${sanitizeRich(s.body)}</p>
       </div>`, widthOf(s))}</section>`;
@@ -446,7 +453,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
 
     if (s.variant === "stat") {
       const stats = (s.items ?? []).slice(0, 4);
-      return `<section id="nosotros" style="padding:${padOf(s)} 0;background:${aboutBg};">${wrap(`<div style="${align === "center" ? "text-align:center;max-width:700px;margin:0 auto 52px;" : "max-width:640px;margin:0 0 52px;"}">${eyebrow(s.eyebrow, align)}${h2(s.heading)}${lede(s.body, align)}</div>
+      return `<section id="nosotros"${animAttrs(s)} style="padding:${padOf(s)} 0;background:${aboutBg};">${wrap(`<div style="${align === "center" ? "text-align:center;max-width:700px;margin:0 auto 52px;" : "max-width:640px;margin:0 0 52px;"}">${eyebrow(s.eyebrow, align)}${h2(s.heading)}${lede(s.body, align)}</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:clamp(20px,3vw,44px);">
         ${stats.map((st) => `<div style="${align === "center" ? "text-align:center;" : ""}">
           <p style="font-family:${f.heading};font-size:clamp(2.2rem,4.5vw,3.4rem);font-weight:${f.headingWeight};color:${accent};margin:0 0 8px;line-height:1;">${sanitizeRich(st.title)}</p>
@@ -471,7 +478,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     const testBg = s.style?.bg || (dark ? mix(paper, "#ffffff", 0.04) : soft);
     if (s.variant === "single") {
       const it = items[0];
-      return `<section id="testimonios" style="padding:${padOf(s)} 0;background:${testBg};">${wrap(`<div style="text-align:center;max-width:800px;margin:0 auto;">
+      return `<section id="testimonios"${animAttrs(s)} style="padding:${padOf(s)} 0;background:${testBg};">${wrap(`<div style="text-align:center;max-width:800px;margin:0 auto;">
         <p style="font-family:${f.heading};font-size:clamp(1.4rem,3.2vw,2.3rem);line-height:1.4;color:${ink};margin:0 0 28px;font-weight:${f.headingWeight};letter-spacing:${f.headingTracking};">&ldquo;${sanitizeRich(it.body)}&rdquo;</p>
         <p style="color:${accent};font-weight:600;margin:0;font-size:.98rem;">${esc(it.author)}${it.role ? `<span style="color:${muted};font-weight:400;"> — ${esc(it.role)}</span>` : ""}</p>
       </div>`, widthOf(s))}</section>`;
@@ -568,7 +575,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     beginSection(s);
     if (s.variant === "image" && s.media?.url) {
       const overlay = (s.style?.overlay ?? 55) / 100;
-      return `<section style="position:relative;padding:${padOf(s)} 0;overflow:hidden;">
+      return `<section${animAttrs(s)} style="position:relative;padding:${padOf(s)} 0;overflow:hidden;">
         ${media(s.media, "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;")}
         <div style="position:absolute;inset:0;background:rgba(0,0,0,${overlay});"></div>
         ${wrap(`<div style="position:relative;text-align:center;color:#fff;">
@@ -578,7 +585,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
         </div>`, widthOf(s))}
       </section>`;
     }
-    return `<section style="padding:${padOf(s)} 0;background:${s.style?.bg || accent};">${wrap(`<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:20px;color:${onAccent};">
+    return `<section${animAttrs(s)} style="padding:${padOf(s)} 0;background:${s.style?.bg || accent};">${wrap(`<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:20px;color:${onAccent};">
       <div>
         <h3 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:1.3rem;margin:0 0 4px;letter-spacing:${f.headingTracking};">${sanitizeRich(s.heading)}</h3>
         ${s.body ? `<p style="margin:0;opacity:.9;font-size:.95rem;">${sanitizeRich(s.body)}</p>` : ""}
@@ -657,7 +664,7 @@ export function renderDemo(cfg: DemoConfig, opts: RenderOptions = {}): string {
     }
     const bg = s.style?.bg || accent;
     const onBg = isDark(bg) ? "#ffffff" : "#111111";
-    return `<section style="padding:${padOf(s)} 0;background:${bg};">
+    return `<section${animAttrs(s)} style="padding:${padOf(s)} 0;background:${bg};">
       ${wrap(`<div style="text-align:center;color:${onBg};">
         <h2 style="font-family:${f.heading};font-weight:${f.headingWeight};font-size:${d.h2};line-height:1.1;margin:0 0 16px;letter-spacing:${f.headingTracking};${upper ? "text-transform:uppercase;" : ""}">${sanitizeRich(s.heading)}</h2>
         ${s.body ? `<p style="font-size:1.1rem;opacity:.88;line-height:1.7;margin:0 auto 34px;max-width:54ch;">${sanitizeRich(s.body)}</p>` : ""}
@@ -936,6 +943,18 @@ ${editMode ? `
 .el[data-el]{cursor:grab;}
 .el[data-el]:hover{outline:1px dashed rgba(99,102,241,.35)!important;outline-offset:3px;}
 ` : ""}
+/* Scroll animations */
+[data-anim]{opacity:0;will-change:opacity,transform;}
+[data-anim="fade-up"]{transform:translateY(40px);}
+[data-anim="fade-in"]{}
+[data-anim="slide-left"]{transform:translateX(60px);}
+[data-anim="slide-right"]{transform:translateX(-60px);}
+[data-anim="zoom-in"]{transform:scale(.92);}
+[data-anim="blur-in"]{filter:blur(8px);}
+[data-anim].anim-visible{opacity:1;transform:none;filter:none;transition:opacity var(--anim-dur,600ms) cubic-bezier(.22,1,.36,1),transform var(--anim-dur,600ms) cubic-bezier(.22,1,.36,1),filter var(--anim-dur,600ms) ease;}
+[data-anim-stagger] > *{opacity:0;transform:translateY(20px);transition:opacity .5s ease,transform .5s ease;}
+[data-anim-stagger].anim-visible > *{opacity:1;transform:none;}
+@media(prefers-reduced-motion:reduce){[data-anim]{opacity:1;transform:none;filter:none;transition:none;}[data-anim-stagger]>*{opacity:1;transform:none;transition:none;}}
 @media(max-width:860px){
   .split{grid-template-columns:1fr!important;}
   .split > div[style*="order:2"]{order:0!important;}
@@ -956,6 +975,33 @@ ${renderNav()}
 ${body}
 ${canvasHtml}
 ${renderFooter()}
+<script>
+(function(){
+  var els = document.querySelectorAll('[data-anim]');
+  if (!els.length) return;
+  els.forEach(function(el){
+    var dur = el.getAttribute('data-anim-dur') || '600';
+    el.style.setProperty('--anim-dur', dur + 'ms');
+  });
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if (!entry.isIntersecting) return;
+      var el = entry.target;
+      el.classList.add('anim-visible');
+      if (el.hasAttribute('data-anim-stagger')) {
+        var children = el.querySelectorAll(':scope > *, :scope > div > *');
+        var delay = 0;
+        children.forEach(function(ch){
+          ch.style.transitionDelay = delay + 'ms';
+          delay += 120;
+        });
+      }
+      io.unobserve(el);
+    });
+  }, { threshold: 0.12 });
+  els.forEach(function(el){ io.observe(el); });
+})();
+</script>
 ${editMode ? `<script>
 (function(){
   var selected = null;
