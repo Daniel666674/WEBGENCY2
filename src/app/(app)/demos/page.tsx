@@ -155,16 +155,16 @@ export default function DemosPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setImporting(true)}
-            className="flex items-center gap-2 rounded-lg border px-3.5 py-2 text-sm font-medium transition-colors hover:bg-muted cursor-pointer"
+            className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted cursor-pointer"
           >
-            <FileUp className="h-4 w-4" /> Importar HTML
+            <FileUp className="h-4 w-4" /> <span className="hidden sm:inline">Importar HTML</span>
           </button>
           <button
             onClick={create}
             disabled={creating}
-            className="flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60 cursor-pointer"
+            className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60 cursor-pointer"
           >
-            {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Nuevo demo
+            {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} <span className="hidden sm:inline">Nuevo demo</span>
           </button>
         </div>
       </div>
@@ -172,7 +172,7 @@ export default function DemosPage() {
       <ImportDialog open={importing} onClose={() => setImporting(false)} />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-4">
         <StatTile
           icon={MonitorSmartphone}
           label="Total demos"
@@ -215,13 +215,13 @@ export default function DemosPage() {
         </div>
 
         {/* Controls row: tabs left, sort/view/search right */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-1 overflow-x-auto">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="flex items-center gap-1 overflow-x-auto -mx-1 px-1">
             {tabs.map(([id, label, count]) => (
               <button
                 key={id}
                 onClick={() => changeTab(id)}
-                className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer ${
+                className={`shrink-0 rounded-lg px-2.5 py-1.5 text-xs sm:text-sm sm:px-3 font-medium transition-colors cursor-pointer ${
                   tab === id
                     ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-muted"
@@ -261,13 +261,13 @@ export default function DemosPage() {
                 <List className="h-3.5 w-3.5" />
               </button>
             </div>
-            <div className="relative">
+            <div className="relative flex-1 sm:flex-none">
               <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                placeholder="Buscar en mis demos..."
-                className="w-48 rounded-lg border bg-background py-1.5 pl-8 pr-3 text-sm"
+                placeholder="Buscar..."
+                className="w-full rounded-lg border bg-background py-1.5 pl-8 pr-3 text-sm sm:w-48 sm:placeholder:content-['Buscar_en_mis_demos...']"
               />
             </div>
           </div>
@@ -289,7 +289,7 @@ export default function DemosPage() {
             </p>
           </div>
         ) : view === "grid" ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {paged.map((d) => (
               <DemoGridCard
                 key={d.id}
@@ -306,9 +306,9 @@ export default function DemosPage() {
 
         {/* Pagination */}
         {!loading && filtered.length > 0 && (
-          <div className="flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
+          <div className="flex flex-col items-center gap-2 border-t border-border pt-3 text-xs text-muted-foreground sm:flex-row sm:justify-between">
             <span>
-              Mostrando {(safePage - 1) * PAGE_SIZE + 1} a {Math.min(safePage * PAGE_SIZE, filtered.length)} de {filtered.length} demos
+              {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} de {filtered.length}
             </span>
             {totalPages > 1 && (
               <div className="flex items-center gap-1">

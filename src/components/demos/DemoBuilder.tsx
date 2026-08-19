@@ -1408,7 +1408,15 @@ export function DemoBuilder({
         >
           <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
             <PanelsTopLeft className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs font-semibold">Estructura del sitio</span>
+            <span className="text-xs font-semibold flex-1">Estructura del sitio</span>
+            <button
+              type="button"
+              onClick={() => setMobilePanel("canvas")}
+              className="rounded p-1 text-muted-foreground hover:bg-muted md:hidden"
+              aria-label="Cerrar panel"
+            >
+              <ChevronRight className="h-4 w-4 rotate-180" />
+            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-2">
@@ -1590,6 +1598,14 @@ export function DemoBuilder({
         <aside
           className={`${mobilePanel === "editor" ? "flex" : "hidden"} absolute bottom-0 left-0 right-0 top-0 z-30 w-full flex-col overflow-hidden border-l border-border bg-card lg:static lg:flex lg:w-[340px] lg:shrink-0`}
         >
+          <button
+            type="button"
+            onClick={() => setMobilePanel("canvas")}
+            className="flex items-center gap-1 border-b border-border px-3 py-2 text-xs text-muted-foreground hover:bg-muted lg:hidden"
+            aria-label="Cerrar editor"
+          >
+            <ChevronRight className="h-3.5 w-3.5" /> Volver a la vista previa
+          </button>
           {inspecting && activeSection && selected ? (
             <div className="flex-1 overflow-y-auto p-3.5">
               <CoachTips section={activeSection} elementKey={selected.key} cfg={cfg} />
