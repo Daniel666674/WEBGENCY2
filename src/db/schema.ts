@@ -379,7 +379,7 @@ export const demoPages = sqliteTable("demo_pages", {
   id: text("id")
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
-  contactId: text("contact_id").references(() => contacts.id, { onDelete: "cascade" }),
+  contactId: text("contact_id").references(() => contacts.id, { onDelete: "set null" }),
   title: text("title").notNull().default("Demo"),
   slug: text("slug").notNull().unique(),
   template: text("template").notNull().default("editorial"),
