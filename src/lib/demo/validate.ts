@@ -271,15 +271,15 @@ const pageSlugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const canvasElementSchema = z.object({
   id: z.string().min(1).max(64),
   kind: z.enum(["text", "image", "button", "logo"]),
-  x: z.number().min(-2000).max(10000),
-  y: z.number().min(-2000).max(50000),
-  width: z.number().min(10).max(5000),
-  height: z.number().min(10).max(5000),
+  x: px(-2000, 10000),
+  y: px(-2000, 50000),
+  width: px(10, 5000),
+  height: px(10, 5000),
   text: text(5_000).transform(sanitizeRich).optional(),
   media: mediaRefSchema.optional(),
   url: urlField.optional(),
   style: elementStyleSchema.optional(),
-  zIndex: z.number().min(0).max(10000).optional(),
+  zIndex: z.number().min(0).max(10000).catch(0).optional(),
 });
 
 const demoPageSchema = z.object({

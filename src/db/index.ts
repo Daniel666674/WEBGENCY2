@@ -25,7 +25,7 @@ const TABLES = [
   "CREATE TABLE IF NOT EXISTS analytics_properties (\n  id TEXT PRIMARY KEY,\n  contact_id TEXT NOT NULL UNIQUE REFERENCES contacts(id) ON DELETE CASCADE,\n  ga4_property_id TEXT,\n  ga4_measurement_id TEXT,\n  gsc_site_url TEXT,\n  created_at INTEGER NOT NULL,\n  updated_at INTEGER NOT NULL\n);",
   "CREATE TABLE IF NOT EXISTS \"attachments\" (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`contact_id` text,\n\t`proposal_id` text,\n\t`project_id` text,\n\t`name` text NOT NULL,\n\t`type` text DEFAULT 'link' NOT NULL,\n\t`url` text,\n\t`file_data` text,\n\t`mime_type` text,\n\t`size` integer,\n\t`created_at` integer NOT NULL,\n\tFOREIGN KEY (`contact_id`) REFERENCES `contacts`(`id`) ON UPDATE no action ON DELETE no action,\n\tFOREIGN KEY (`proposal_id`) REFERENCES `proposals`(`id`) ON UPDATE no action ON DELETE no action,\n\tFOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE no action\n);",
   "CREATE TABLE IF NOT EXISTS audit_logs (\n    id TEXT PRIMARY KEY,\n    user_id TEXT REFERENCES users(id),\n    action TEXT NOT NULL,\n    resource_type TEXT NOT NULL,\n    resource_id TEXT NOT NULL,\n    meta TEXT,\n    created_at INTEGER NOT NULL\n  );",
-  "CREATE TABLE IF NOT EXISTS demo_pages (\n    id TEXT PRIMARY KEY,\n    contact_id TEXT REFERENCES contacts(id) ON DELETE CASCADE,\n    title TEXT NOT NULL DEFAULT 'Demo',\n    slug TEXT NOT NULL UNIQUE,\n    template TEXT NOT NULL DEFAULT 'editorial',\n    config TEXT NOT NULL DEFAULT '{}',\n    published_config TEXT,\n    published INTEGER NOT NULL DEFAULT 0,\n    published_at INTEGER,\n    version INTEGER NOT NULL DEFAULT 0,\n    views INTEGER NOT NULL DEFAULT 0,\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL\n  );",
+  "CREATE TABLE IF NOT EXISTS demo_pages (\n    id TEXT PRIMARY KEY,\n    contact_id TEXT REFERENCES contacts(id) ON DELETE SET NULL,\n    title TEXT NOT NULL DEFAULT 'Demo',\n    slug TEXT NOT NULL UNIQUE,\n    template TEXT NOT NULL DEFAULT 'editorial',\n    config TEXT NOT NULL DEFAULT '{}',\n    published_config TEXT,\n    published INTEGER NOT NULL DEFAULT 0,\n    published_at INTEGER,\n    version INTEGER NOT NULL DEFAULT 0,\n    views INTEGER NOT NULL DEFAULT 0,\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL\n  );",
   "CREATE TABLE IF NOT EXISTS demo_assets (\n    id TEXT PRIMARY KEY,\n    url TEXT NOT NULL,\n    alt TEXT,\n    kind TEXT NOT NULL DEFAULT 'image',\n    created_at INTEGER NOT NULL\n  );",
   "CREATE TABLE IF NOT EXISTS \"authenticators\" (\n\t`credentialID` text NOT NULL,\n\t`userId` text NOT NULL,\n\t`providerAccountId` text NOT NULL,\n\t`credentialPublicKey` text NOT NULL,\n\t`counter` integer NOT NULL,\n\t`credentialDeviceType` text NOT NULL,\n\t`credentialBackedUp` integer NOT NULL,\n\t`transports` text,\n\tPRIMARY KEY(`userId`, `credentialID`),\n\tFOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade\n);",
   "CREATE TABLE IF NOT EXISTS \"contacts\" (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`name` text NOT NULL,\n\t`email` text,\n\t`phone` text,\n\t`company` text,\n\t`source` text DEFAULT 'otro' NOT NULL,\n\t`temperature` text DEFAULT 'cold' NOT NULL,\n\t`score` integer DEFAULT 0 NOT NULL,\n\t`notes` text,\n\t`mockup_url` text,\n\t`site_url` text,\n\t`signed_date` integer,\n\t`monthly_payment` integer,\n\t`client_status` text DEFAULT 'prospect' NOT NULL,\n\t`next_payment_date` integer,\n\t`created_at` integer NOT NULL,\n\t`updated_at` integer NOT NULL\n, automations_suspended INTEGER NOT NULL DEFAULT 0, last_payment_ref TEXT, infra_data TEXT, seo_data TEXT, security_data TEXT, decision_log TEXT NOT NULL DEFAULT '[]', account_health TEXT, inventory_health TEXT, sales_data_notes TEXT, funnel_tracking TEXT);",
@@ -289,6 +289,30 @@ async function cleanupTasksAndUsers(): Promise<void> {
   }
 }
 
+async function fixDemoCascadeDelete(): Promise<void> {
+  const MIGRATION_ID = "2026-demo-pages-set-null-on-delete";
+  try {
+    const { rows: done } = await client.execute({
+      sql: "SELECT 1 FROM schema_migrations WHERE id = ?",
+      args: [MIGRATION_ID],
+    });
+    if (done.length > 0) return;
+
+    await client.execute("CREATE TABLE IF NOT EXISTS demo_pages_new (\n    id TEXT PRIMARY KEY,\n    contact_id TEXT REFERENCES contacts(id) ON DELETE SET NULL,\n    title TEXT NOT NULL DEFAULT 'Demo',\n    slug TEXT NOT NULL UNIQUE,\n    template TEXT NOT NULL DEFAULT 'editorial',\n    config TEXT NOT NULL DEFAULT '{}',\n    published_config TEXT,\n    published INTEGER NOT NULL DEFAULT 0,\n    published_at INTEGER,\n    version INTEGER NOT NULL DEFAULT 0,\n    views INTEGER NOT NULL DEFAULT 0,\n    created_at INTEGER NOT NULL,\n    updated_at INTEGER NOT NULL\n  )");
+    await client.execute("INSERT INTO demo_pages_new SELECT * FROM demo_pages");
+    await client.execute("DROP TABLE demo_pages");
+    await client.execute("ALTER TABLE demo_pages_new RENAME TO demo_pages");
+
+    await client.execute({
+      sql: "INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)",
+      args: [MIGRATION_ID, Date.now()],
+    });
+    console.log("[ensureSchema] fixed demo_pages FK: CASCADE → SET NULL");
+  } catch (err) {
+    console.error("[ensureSchema] demo_pages FK migration failed:", err);
+  }
+}
+
 export async function ensureSchema(): Promise<void> {
   for (const sql of TABLES) {
     try {
@@ -328,6 +352,8 @@ export async function ensureSchema(): Promise<void> {
       // Target column may not exist yet on a partially-migrated database.
     }
   }
+
+  await fixDemoCascadeDelete();
 
   // Merge duplicate users and enforce a unique index on email.
   await deduplicateUsers();

@@ -1100,6 +1100,16 @@ export function DemoBuilder({
     return () => clearTimeout(t);
   }, [cfg, title, save, conflict]);
 
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (dirty.current || saveError) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [saveError]);
+
   function onSectionDragEnd(e: DragEndEvent) {
     const { active, over } = e;
     if (!over || active.id === over.id) return;
@@ -1248,17 +1258,19 @@ export function DemoBuilder({
           placeholder="Nombre del demo"
         />
 
-        <span className="hidden items-center gap-1.5 text-xs text-muted-foreground md:flex">
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           {saving ? (
-            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Guardando…</>
+            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> <span className="hidden md:inline">Guardando…</span></>
           ) : conflict ? (
             <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
-              <AlertTriangle className="h-3.5 w-3.5" /> Modificado en otra pestaña
+              <AlertTriangle className="h-3.5 w-3.5" /> <span className="hidden md:inline">Modificado en otra pestaña</span>
             </span>
           ) : saveError ? (
-            <span className="text-red-600 dark:text-red-400">{saveError}</span>
+            <span className="flex items-center gap-1.5 text-red-600 dark:text-red-400">
+              <AlertTriangle className="h-3.5 w-3.5" /> <span className="hidden md:inline">{saveError}</span>
+            </span>
           ) : saved ? (
-            <><Check className="h-3.5 w-3.5 text-green-600 dark:text-green-400" /> Guardado</>
+            <><Check className="h-3.5 w-3.5 text-green-600 dark:text-green-400" /> <span className="hidden md:inline">Guardado</span></>
           ) : null}
         </span>
 
