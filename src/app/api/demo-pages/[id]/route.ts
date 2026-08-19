@@ -13,13 +13,19 @@ function parseRow(row: typeof demoPages.$inferSelect) {
   return { ...row, config };
 }
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const denied = await requireApi("demos");
   if (denied) return denied;
 
   const { id } = await params;
   const row = await db.select().from(demoPages).where(eq(demoPages.id, id)).get();
   if (!row) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+
+  if (req.nextUrl.searchParams.get("backup") === "true" && row.configBackup) {
+    let config = {};
+    try { config = JSON.parse(row.configBackup); } catch { /* use empty */ }
+    return NextResponse.json({ ...row, config, _restoredFromBackup: true });
+  }
   return NextResponse.json(parseRow(row));
 }
 
@@ -57,6 +63,25 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const updateData: Record<string, unknown> = { updatedAt: new Date() };
 
   if (body.config !== undefined) {
+    // Guard: reject saves that would replace a real config with an
+    // empty/default one. This catches the scenario where the builder loaded
+    // fallback defaults (because the stored JSON was temporarily unreadable)
+    // and autosave tries to persist them — permanently destroying the real data.
+    const incomingSections = Array.isArray(body.config?.sections) ? body.config.sections.length : 0;
+    const incomingPages = Array.isArray(body.config?.pages) ? body.config.pages.length : 0;
+    const incomingVerbatim = body.config?.verbatim ? Object.keys(body.config.verbatim).length : 0;
+    const existingHasContent = existing.config && existing.config !== "{}" && existing.config.length > 100;
+    if (existingHasContent && incomingSections === 0 && incomingPages === 0 && incomingVerbatim === 0) {
+      return NextResponse.json(
+        { error: "No se puede guardar un demo vacío sobre uno con contenido. Recarga la página.", code: "empty_overwrite" },
+        { status: 400 }
+      );
+    }
+
+    // Backup the current config before overwriting so it can be recovered.
+    if (existing.config && existing.config !== "{}") {
+      updateData.configBackup = existing.config;
+    }
     // The real sanitizer (verbatimSanitize.ts, imports sanitize-html) runs
     // here explicitly rather than living inside validateDemoConfig's schema.
     // "demos" is shared workspace granted to every signed-in teammate, so

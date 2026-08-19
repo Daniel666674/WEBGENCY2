@@ -77,6 +77,9 @@ const COLUMN_MIGRATIONS = [
   "ALTER TABLE users ADD COLUMN last_login_at INTEGER",
   // demo_pages predates view tracking.
   "ALTER TABLE demo_pages ADD COLUMN views INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE audit_logs ADD COLUMN ip_address TEXT",
+  "ALTER TABLE audit_logs ADD COLUMN user_agent TEXT",
+  "ALTER TABLE demo_pages ADD COLUMN config_backup TEXT",
 ];
 
 // Backfills that must run after COLUMN_MIGRATIONS. Idempotent by

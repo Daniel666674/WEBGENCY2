@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, persistNow } from "@/db";
 import { contacts, deals, activities } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { logAudit } from "@/lib/audit";
+import { logAudit, diffFields } from "@/lib/audit";
 import { parseContactJsonFields, applyContactJsonFields } from "@/lib/contactJsonFields";
 import { requireApi } from "@/lib/apiAuth";
 
@@ -102,7 +102,12 @@ export async function PUT(
     .get();
 
   await persistNow();
-  await logAudit(request, "update", "contact", id, { name: result.name });
+  const changes = diffFields(
+    existing as Record<string, unknown>,
+    result as Record<string, unknown>,
+    ["name", "email", "phone", "company", "source", "temperature", "score", "notes", "clientStatus", "monthlyPayment", "mockupUrl", "siteUrl"]
+  );
+  await logAudit(request, "update", "contact", id, { name: result.name, changes });
   return NextResponse.json(parseContactJsonFields(result));
 }
 

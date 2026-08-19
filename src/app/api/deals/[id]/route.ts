@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, persistNow } from "@/db";
 import { deals } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { logAudit } from "@/lib/audit";
+import { logAudit, diffFields } from "@/lib/audit";
 import { requireApi } from "@/lib/apiAuth";
 
 export async function GET(
@@ -73,7 +73,12 @@ export async function PUT(
     .get();
 
   await persistNow();
-  await logAudit(request, "update", "deal", id, { title: result.title });
+  const changes = diffFields(
+    existing as Record<string, unknown>,
+    result as Record<string, unknown>,
+    ["title", "value", "stageId", "probability", "notes", "contactId"]
+  );
+  await logAudit(request, "update", "deal", id, { title: result.title, changes });
   return NextResponse.json(result);
 }
 

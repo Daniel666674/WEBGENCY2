@@ -634,10 +634,10 @@ function VerbatimEditor({
 }
 
 export function DemoBuilder({
-  demoId, initialConfig, initialTitle, initialPublished, initialVersion, slug, isNew = false,
+  demoId, initialConfig, initialTitle, initialPublished, initialVersion, slug, isNew = false, configFallback = false,
 }: {
   demoId: string; initialConfig: DemoConfig; initialTitle: string;
-  initialPublished: boolean; initialVersion: number; slug: string; isNew?: boolean;
+  initialPublished: boolean; initialVersion: number; slug: string; isNew?: boolean; configFallback?: boolean;
 }) {
   const [cfg, setCfgRaw] = useState<DemoConfig>(() => ({
     ...initialConfig,
@@ -667,6 +667,7 @@ export function DemoBuilder({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
   const [unpublishedChanges, setUnpublishedChanges] = useState(false);
+  const [recoveryBlock, setRecoveryBlock] = useState(configFallback);
 
   const dirty = useRef(false);
   const version = useRef(initialVersion);
@@ -1070,6 +1071,10 @@ export function DemoBuilder({
       if (res.status === 409) { setConflict(true); return false; }
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        if (data.code === "empty_overwrite") {
+          setRecoveryBlock(true);
+          return false;
+        }
         setSaveError(data.error || "No se pudo guardar.");
         return false;
       }
@@ -1095,10 +1100,10 @@ export function DemoBuilder({
   }, [write]);
 
   useEffect(() => {
-    if (!dirty.current || conflict) return;
+    if (!dirty.current || conflict || recoveryBlock) return;
     const t = setTimeout(() => { save(); }, 1500);
     return () => clearTimeout(t);
-  }, [cfg, title, save, conflict]);
+  }, [cfg, title, save, conflict, recoveryBlock]);
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
@@ -1343,6 +1348,48 @@ export function DemoBuilder({
             El sitio público todavía muestra la última versión publicada. Presiona{" "}
             <span className="font-semibold text-foreground">Republicar</span> para actualizarlo.
           </p>
+        </div>
+      )}
+
+      {recoveryBlock && (
+        <div className="shrink-0 border-b border-amber-500/30 bg-amber-50 px-4 py-2 dark:bg-amber-950/30">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <p className="flex-1 text-xs text-amber-800 dark:text-amber-200">
+              Este demo se cargó desde una copia de respaldo porque la configuración guardada no pudo leerse.
+              El autoguardado está desactivado para proteger tus datos.
+            </p>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const res = await fetch(`/api/demo-pages/${demoId}?backup=true`);
+                  if (res.ok) {
+                    const row = await res.json();
+                    if (row.config && typeof row.config === "object" && (row.config.sections?.length > 0 || row.config.pages?.length > 0)) {
+                      const validated = row.config as DemoConfig;
+                      setCfgRaw(prev => ({ ...prev, ...validated, nav: validated.nav ?? prev.nav, footer: validated.footer ?? prev.footer, pages: validated.pages?.length ? validated.pages : prev.pages }));
+                      setRenderCfg(prev => ({ ...prev, ...validated, nav: validated.nav ?? prev.nav, footer: validated.footer ?? prev.footer, pages: validated.pages?.length ? validated.pages : prev.pages }));
+                      dirty.current = true;
+                      setRecoveryBlock(false);
+                      return;
+                    }
+                  }
+                  setSaveError("No se encontró una copia de respaldo válida.");
+                } catch { setSaveError("Error al restaurar la copia."); }
+              }}
+              className="shrink-0 rounded-md bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-700"
+            >
+              Restaurar copia anterior
+            </button>
+            <button
+              type="button"
+              onClick={() => setRecoveryBlock(false)}
+              className="shrink-0 rounded-md border border-amber-400 px-3 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-900/50"
+            >
+              Continuar así
+            </button>
+          </div>
         </div>
       )}
 

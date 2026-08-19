@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, persistNow } from "@/db";
 import { activities, contacts } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { logAudit } from "@/lib/audit";
 import { requireApi } from "@/lib/apiAuth";
 
 export async function GET(request: NextRequest) {
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
       .get();
 
     await persistNow();
+    await logAudit(request, "create", "activity", result.id, { type, contactId, description: description?.slice(0, 100) });
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown";

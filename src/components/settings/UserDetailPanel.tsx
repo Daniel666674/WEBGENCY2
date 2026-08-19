@@ -63,8 +63,8 @@ export function UserDetailPanel({
     setActivity(null);
     if (!person?.id) return;
     fetch(`/api/audit-logs?userId=${person.id}&limit=15`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setActivity)
+      .then((r) => (r.ok ? r.json() : { entries: [] }))
+      .then((data) => setActivity(Array.isArray(data) ? data : data.entries ?? []))
       .catch(() => setActivity([]));
   }, [person?.id]);
 

@@ -5,6 +5,7 @@ import { verifyPassword } from "@/lib/password";
 import { db } from "@/db";
 import { crmSettings } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { logAudit } from "@/lib/audit";
 import { rateLimit } from "@/lib/rateLimit";
 
 const DEMO_COOKIE = "oliwan-demo-session";
@@ -58,6 +59,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!matched) {
+    await logAudit(request, "login_failed", "auth", "none", { username });
     loginUrl.searchParams.set("error", "1");
     return NextResponse.redirect(loginUrl, 303);
   }
@@ -77,6 +79,7 @@ export async function POST(request: NextRequest) {
   // Non-sensitive UI hint: which app user to pre-select in the switcher. This
   // controls only theme/task-assignment defaults (both co-founders have equal
   // access), so it doesn't need to be signed like the session cookie above.
+  await logAudit(request, "login", "auth", matched.key, { username: matched.username });
   res.cookies.set(LOGIN_AS_COOKIE, matched.isHers ? "hers" : "his", {
     maxAge: SESSION_MAX_AGE,
     path: "/",

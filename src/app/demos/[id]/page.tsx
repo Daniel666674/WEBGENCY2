@@ -24,12 +24,19 @@ export default async function DemoBuilderPage({
   // fresh template defaults when the stored JSON is genuinely missing or
   // fails structural validation (corrupt row, pre-validation legacy data).
   let config: DemoConfig;
+  let configFallback = false;
   try {
     const parsed = JSON.parse(row.config || "{}");
     const result = validateDemoConfig(parsed);
-    config = result.ok ? result.config : getTemplate(row.template).defaults();
+    if (result.ok) {
+      config = result.config;
+    } else {
+      config = getTemplate(row.template).defaults();
+      configFallback = row.config !== null && row.config !== "{}" && row.config.length > 100;
+    }
   } catch {
     config = getTemplate(row.template).defaults();
+    configFallback = row.config !== null && row.config !== "{}" && row.config.length > 100;
   }
 
   return (
@@ -41,6 +48,7 @@ export default async function DemoBuilderPage({
       initialVersion={row.version}
       slug={row.slug}
       isNew={isNew === "1"}
+      configFallback={configFallback}
     />
   );
 }
