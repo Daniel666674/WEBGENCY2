@@ -146,12 +146,17 @@ const sectionItemSchema = z.object({
   role: text(200).optional(),
 });
 
+const px = (min: number, max: number) => z.number().min(min).max(max).catch(min);
+
 const sectionStyleSchema = z.object({
   bg: colorField.optional(),
   width: z.enum(["narrow", "normal", "wide", "full"]).optional(),
   pad: z.enum(["compact", "normal", "spacious"]).optional(),
   align: z.enum(["left", "center"]).optional(),
   overlay: z.number().min(0).max(100).optional(),
+  animation: z.enum(["none", "fade-up", "fade-in", "slide-left", "slide-right", "zoom-in", "blur-in"]).optional(),
+  animationDuration: px(200, 2000).optional(),
+  stagger: z.boolean().optional(),
 });
 
 const ELEMENT_KEYS = [
@@ -162,10 +167,6 @@ const ELEMENT_KEYS = [
 type _MissingElementKey = Exclude<ElementKey, (typeof ELEMENT_KEYS)[number]>;
 const _elementKeysComplete: _MissingElementKey extends never ? true : never = true;
 void _elementKeysComplete;
-
-// Numeric ranges are clamped rather than rejected: a slider that overshoots
-// should snap to a sane value, not fail the whole save.
-const px = (min: number, max: number) => z.number().min(min).max(max).catch(min);
 
 const elementStyleSchema = z.object({
   fontFamily: z.enum(["heading", "body"]).optional(),

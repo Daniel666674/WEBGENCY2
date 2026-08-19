@@ -5,7 +5,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type D
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Plus, Trash2, Settings2, ChevronDown, StickyNote, Images } from "lucide-react";
-import type { Section, SectionItem, SectionStyle, SectionWidth, SectionPad, MediaRef } from "@/lib/demo/types";
+import type { Section, SectionItem, SectionStyle, SectionWidth, SectionPad, SectionAnimation, MediaRef } from "@/lib/demo/types";
 import { SECTION_VARIANTS, WIDTH_LABELS, PAD_LABELS } from "@/lib/demo/types";
 import { MediaPicker } from "./MediaPicker";
 
@@ -65,6 +65,7 @@ function SortableItem({
 const NO_STYLE_TYPES = new Set(["divider"]);
 const NO_ALIGN_TYPES = new Set(["logos", "faq", "divider", "banner", "columns", "team"]);
 const OVERLAY_VARIANTS = new Set(["cover", "image"]);
+const STAGGER_TYPES = new Set(["features", "gallery", "testimonials", "menu", "stats", "team", "logos", "faq"]);
 
 function StylePanel({ section, onChange }: { section: Section; onChange: (s: Section) => void }) {
   const [open, setOpen] = useState(false);
@@ -172,6 +173,49 @@ function StylePanel({ section, onChange }: { section: Section; onChange: (s: Sec
                 className="w-full accent-primary"
               />
             </Field>
+          )}
+
+          <Field label="Animación al hacer scroll">
+            <select
+              className={inputCls}
+              value={style.animation ?? "none"}
+              onChange={(e) => setStyle({ animation: e.target.value as SectionAnimation })}
+            >
+              <option value="none">Sin animación</option>
+              <option value="fade-up">Aparecer desde abajo</option>
+              <option value="fade-in">Aparecer gradualmente</option>
+              <option value="slide-left">Deslizar desde la derecha</option>
+              <option value="slide-right">Deslizar desde la izquierda</option>
+              <option value="zoom-in">Zoom</option>
+              <option value="blur-in">Desenfoque</option>
+            </select>
+          </Field>
+
+          {style.animation && style.animation !== "none" && (
+            <>
+              <Field label={`Duración (${style.animationDuration ?? 600}ms)`}>
+                <input
+                  type="range"
+                  min={200}
+                  max={2000}
+                  step={50}
+                  value={style.animationDuration ?? 600}
+                  onChange={(e) => setStyle({ animationDuration: Number(e.target.value) })}
+                  className="w-full accent-primary"
+                />
+              </Field>
+              {STAGGER_TYPES.has(section.type) && (
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={style.stagger ?? false}
+                    onChange={(e) => setStyle({ stagger: e.target.checked })}
+                    className="accent-primary"
+                  />
+                  Animar elementos uno por uno
+                </label>
+              )}
+            </>
           )}
         </div>
       )}
