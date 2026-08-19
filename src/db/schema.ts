@@ -347,6 +347,8 @@ export const auditLogs = sqliteTable("audit_logs", {
   resourceType: text("resource_type").notNull(),
   resourceId: text("resource_id").notNull(),
   meta: text("meta"), // JSON string
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -390,6 +392,7 @@ export const demoPages = sqliteTable("demo_pages", {
   // a live demo never mutates what the client is looking at — Publish is an
   // explicit copy from one to the other.
   config: text("config").notNull().default("{}"),
+  configBackup: text("config_backup"),
   publishedConfig: text("published_config"),
   published: integer("published", { mode: "boolean" }).notNull().default(false),
   publishedAt: integer("published_at", { mode: "timestamp" }),

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { pipelineStages, deals, contacts } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
+import { logAudit } from "@/lib/audit";
 import { requireApi } from "@/lib/apiAuth";
 
 export async function GET() {
@@ -66,6 +67,10 @@ export async function PUT(request: NextRequest) {
       .returning()
       .get();
 
+    await logAudit(request, "move_stage", "deal", body.dealId, {
+      title: result.title,
+      changes: { stageId: { from: existing.stageId, to: body.stageId } },
+    });
     return NextResponse.json(result);
   }
 
