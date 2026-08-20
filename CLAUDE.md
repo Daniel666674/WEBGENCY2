@@ -34,6 +34,7 @@ npm run mcp          # Iniciar servidor MCP (para Claude Desktop/Web)
 |---------|----------|
 | `/setup` | Personalizar CRM: pipeline, fuentes de leads, industria, idioma, tema |
 | `/add-lead` | Agregar un lead conversacionalmente — describe al prospecto y se crea automaticamente |
+| `/quote` | Armar una cotizacion con el catalogo de precios real y guardarla como Proposal |
 | `/analyze-pipeline` | Analisis completo del pipeline con recomendaciones accionables |
 | `/daily-briefing` | Resumen ejecutivo del dia: follow-ups, deals calientes, prioridades |
 | `/import-contacts` | Importar contactos desde un archivo CSV |
