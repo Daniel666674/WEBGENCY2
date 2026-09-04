@@ -30,6 +30,7 @@ import {
 import { eq } from "drizzle-orm";
 
 const outDir = process.argv[2] || `export-${new Date().toISOString().slice(0, 10)}`;
+const excludeContact = process.argv[3]; // Optional: exclude a contact by name (e.g., "Escenabmx")
 mkdirSync(outDir, { recursive: true });
 
 function csvEscape(value: unknown): string {
@@ -65,9 +66,16 @@ function writeJSON(filename: string, data: unknown) {
 
 async function main() {
   console.log(`Exportando a ./${outDir}/ ...\n`);
+  if (excludeContact) {
+    console.log(`  (Excluyendo contacto: "${excludeContact}")\n`);
+  }
 
   // ── Contactos (incluye campos de agencia que /api/export no trae) ──
-  const allContacts = await db.select().from(contacts).all();
+  let allContacts = await db.select().from(contacts).all();
+  if (excludeContact) {
+    allContacts = allContacts.filter((c) => c.name !== excludeContact);
+  }
+
   writeCSV(
     "contacts.csv",
     allContacts.map((c) => ({
@@ -98,8 +106,12 @@ async function main() {
 
   const stageById = new Map(allStages.map((s) => [s.id, s.name]));
   const contactById = new Map(allContacts.map((c) => [c.id, c.name]));
+  const includedContactIds = new Set(allContacts.map((c) => c.id));
 
-  const allDeals = await db.select().from(deals).all();
+  let allDeals = await db.select().from(deals).all();
+  if (excludeContact) {
+    allDeals = allDeals.filter((d) => includedContactIds.has(d.contactId));
+  }
   writeCSV(
     "deals.csv",
     allDeals.map((d) => ({
@@ -117,7 +129,10 @@ async function main() {
   );
 
   // ── Actividades ──
-  const allActivities = await db.select().from(activities).all();
+  let allActivities = await db.select().from(activities).all();
+  if (excludeContact) {
+    allActivities = allActivities.filter((a) => includedContactIds.has(a.contactId));
+  }
   writeCSV(
     "activities.csv",
     allActivities.map((a) => ({
@@ -134,7 +149,10 @@ async function main() {
   );
 
   // ── Propuestas (con campos JSON expandidos — mejor guardarlas como JSON) ──
-  const allProposals = await db.select().from(proposals).all();
+  let allProposals = await db.select().from(proposals).all();
+  if (excludeContact) {
+    allProposals = allProposals.filter((p) => includedContactIds.has(p.contactId));
+  }
   writeJSON(
     "proposals.json",
     allProposals.map((p) => ({
@@ -150,10 +168,21 @@ async function main() {
   console.log(`  proposals.json: ${allProposals.length} filas`);
 
   // ── Proyectos activos (con hitos, entregables y tareas anidados) ──
-  const allProjects = await db.select().from(projects).all();
-  const milestones = await db.select().from(projectMilestones).all();
-  const deliverables = await db.select().from(projectDeliverables).all();
-  const tasks = await db.select().from(projectTasks).all();
+  let allProjects = await db.select().from(projects).all();
+  if (excludeContact) {
+    allProjects = allProjects.filter((p) => !p.clientId || includedContactIds.has(p.clientId));
+  }
+
+  const allProjectIds = new Set(allProjects.map((p) => p.id));
+  let milestones = await db.select().from(projectMilestones).all();
+  let deliverables = await db.select().from(projectDeliverables).all();
+  let tasks = await db.select().from(projectTasks).all();
+
+  if (excludeContact) {
+    milestones = milestones.filter((m) => allProjectIds.has(m.projectId));
+    deliverables = deliverables.filter((d) => allProjectIds.has(d.projectId) || milestones.some((m) => m.id === d.milestoneId));
+    tasks = tasks.filter((t) => allProjectIds.has(t.projectId));
+  }
 
   const projectsFull = allProjects.map((proj) => {
     const projMilestones = milestones.filter((m) => m.projectId === proj.id);
@@ -175,7 +204,10 @@ async function main() {
   console.log(`  projects.json: ${allProjects.length} proyectos (con hitos/entregables/tareas anidados)`);
 
   // ── Pagos ──
-  const allPayments = await db.select().from(payments).all();
+  let allPayments = await db.select().from(payments).all();
+  if (excludeContact) {
+    allPayments = allPayments.filter((p) => includedContactIds.has(p.clientId));
+  }
   writeCSV(
     "payments.csv",
     allPayments.map((p) => ({
@@ -191,7 +223,12 @@ async function main() {
   );
 
   // ── Adjuntos (metadata solamente — sin el contenido base64 de fileData) ──
-  const allAttachments = await db.select().from(attachments).all();
+  let allAttachments = await db.select().from(attachments).all();
+  if (excludeContact) {
+    allAttachments = allAttachments.filter((a) =>
+      !a.contactId || includedContactIds.has(a.contactId)
+    );
+  }
   writeCSV(
     "attachments.csv",
     allAttachments.map((a) => ({
@@ -210,7 +247,10 @@ async function main() {
   );
 
   // ── Analitica conectada por cliente ──
-  const allAnalytics = await db.select().from(analyticsProperties).all();
+  let allAnalytics = await db.select().from(analyticsProperties).all();
+  if (excludeContact) {
+    allAnalytics = allAnalytics.filter((a) => includedContactIds.has(a.contactId));
+  }
   writeCSV(
     "analytics_properties.csv",
     allAnalytics.map((a) => ({
@@ -220,7 +260,10 @@ async function main() {
   );
 
   // ── Demos (metadata + config completo, sin publishedConfig para no duplicar) ──
-  const allDemos = await db.select().from(demoPages).all();
+  let allDemos = await db.select().from(demoPages).all();
+  if (excludeContact) {
+    allDemos = allDemos.filter((d) => !d.contactId || includedContactIds.has(d.contactId));
+  }
   writeJSON(
     "demo_pages.json",
     allDemos.map((d) => ({
