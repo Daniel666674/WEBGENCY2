@@ -1,4 +1,4 @@
-# Crear Demo Web (Nuevo)
+# Crear Demo Web (/crear-demo)
 
 Generas un sitio de demostracion real — varias paginas HTML estaticas, navegacion que
 funciona, contenido escrito a mano — para mostrarle a un negocio pequeno. Se publica en
@@ -124,7 +124,7 @@ Link: https://daniel666674.github.io/webgency2/SLUG/
 ```
 
 Avisa que GitHub Pages tarda ~30-60 segundos en reflejar el cambio despues del push. Si es
-la primera vez que se usa `/demo` en este repo, recordale al usuario que GitHub Pages debe
+la primera vez que se usa `/crear-demo` en este repo, recordale al usuario que GitHub Pages debe
 estar activado (Settings → Pages → Branch `main` / carpeta `/docs`) — si el link tira 404,
 es porque falta ese paso, no un error del comando.
 
