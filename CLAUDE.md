@@ -30,6 +30,13 @@ npm run mcp          # Iniciar servidor MCP (para Claude Desktop/Web)
 
 ## Comandos interactivos disponibles
 
+**Estos no requieren que el usuario escriba la barra ("/").** Si alguien pide en una frase
+normal algo que coincide con uno de estos — por ejemplo "creame un demo para una
+panaderia" o "arma una cotizacion para tal cliente" — seguí igual las instrucciones del
+archivo `.claude/commands/<nombre>.md` correspondiente, como si hubiera escrito el
+comando explicito. La mayoria de los usuarios de este CRM nunca escriben comandos con
+barra: piden las cosas conversando, y eso tiene que funcionar igual de bien.
+
 | Comando | Que hace |
 |---------|----------|
 | `/setup` | Personalizar CRM: pipeline, fuentes de leads, industria, idioma, tema |
