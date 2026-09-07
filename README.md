@@ -104,6 +104,7 @@ Resumen diario por correo con seguimientos pendientes, leads calientes y metrica
 | Comando | Que hace |
 |---------|----------|
 | `/setup` | Personalizar CRM para tu negocio |
+| `/demo` | Crear un demo web multi-pagina y publicarlo en GitHub Pages |
 | `/add-lead` | Agregar un lead de forma conversacional |
 | `/analyze-pipeline` | Analisis del pipeline con recomendaciones |
 | `/daily-briefing` | Resumen ejecutivo del dia |
@@ -329,6 +330,7 @@ Daily email summary with pending follow-ups, hot leads, and metrics. Requires Re
 | Command | What it does |
 |---------|-------------|
 | `/setup` | Customize CRM for your business |
+| `/demo` | Create a multi-page website demo and publish it to GitHub Pages |
 | `/add-lead` | Add a lead conversationally |
 | `/analyze-pipeline` | Pipeline analysis with recommendations |
 | `/daily-briefing` | Executive summary of the day |

@@ -33,6 +33,7 @@ npm run mcp          # Iniciar servidor MCP (para Claude Desktop/Web)
 | Comando | Que hace |
 |---------|----------|
 | `/setup` | Personalizar CRM: pipeline, fuentes de leads, industria, idioma, tema |
+| `/demo` | Crear un demo web multi-pagina para un negocio y publicarlo en GitHub Pages (`docs/`) |
 | `/add-lead` | Agregar un lead conversacionalmente — describe al prospecto y se crea automaticamente |
 | `/quote` | Armar una cotizacion con el catalogo de precios real y guardarla como Proposal |
 | `/analyze-pipeline` | Analisis completo del pipeline con recomendaciones accionables |
@@ -61,6 +62,9 @@ El schema se crea solo (`ensureSchema()` en `src/instrumentation.ts`) al arranca
 - `src/lib/` — Utilidades: claude.ts (AI), scoring.ts, constants.ts
 - `src/types/` — TypeScript types para entidades CRM
 - `.claude/commands/` — Comandos interactivos (los de la tabla arriba)
+- `docs/` — Sitios estaticos generados por `/demo`, servidos via GitHub Pages
+  (`main` / `/docs`) en `https://daniel666674.github.io/webgency2/SLUG/`. No es parte de la
+  app Next.js — el build de Vercel lo ignora.
 - `mcp/` — Servidor MCP para integracion con Claude Desktop/Web
 - `scripts/` — Scripts de inicializacion y utilidades
 
