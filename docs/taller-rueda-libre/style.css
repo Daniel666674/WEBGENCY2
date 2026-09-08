@@ -1,0 +1,161 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Mulish:wght@400;600;700;800&display=swap');
+
+:root {
+  --paper: #eeece7;
+  --panel: #201f1c;
+  --panel-2: #2b2a26;
+  --ink: #1d1d1b;
+  --muted: #635e54;
+  --accent: #d1531f;
+  --accent-ink: #fff8f2;
+  --line: #d8d4c9;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Mulish', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, .brand, .cta, nav a, .stat b {
+  font-family: 'Bebas Neue', system-ui, sans-serif;
+  letter-spacing: .02em;
+}
+a { color: inherit; }
+img { display: block; max-width: 100%; }
+
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+/* Header / nav */
+header.site {
+  background: var(--panel);
+  color: var(--accent-ink);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-bottom: 3px solid var(--accent);
+}
+header.site .wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+.brand {
+  font-size: 1.7rem;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--accent-ink);
+}
+.brand span { color: var(--accent); }
+nav.main { display: flex; align-items: center; gap: 28px; }
+nav.main a {
+  text-decoration: none;
+  color: #cfc9bd;
+  font-size: 1.05rem;
+  text-transform: uppercase;
+  padding: 4px 2px;
+  border-bottom: 2px solid transparent;
+}
+nav.main a:hover, nav.main a[aria-current="page"] {
+  color: var(--accent-ink);
+  border-bottom-color: var(--accent);
+}
+nav.main a.cta-link {
+  background: var(--accent);
+  color: var(--accent-ink);
+  padding: 8px 16px;
+  border-radius: 3px;
+  border-bottom: none;
+}
+button.menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--accent-ink);
+  font-size: 1.8rem;
+  cursor: pointer;
+  line-height: 1;
+}
+@media (max-width: 760px) {
+  button.menu-toggle { display: block; }
+  nav.main {
+    display: none;
+    position: absolute;
+    top: 100%; left: 0; right: 0;
+    background: var(--panel);
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 10px 24px 20px;
+    gap: 14px;
+    border-bottom: 3px solid var(--accent);
+  }
+  nav.main.open { display: flex; }
+  header.site { position: sticky; }
+}
+
+/* Footer */
+footer.site {
+  background: var(--panel);
+  color: #b7b1a4;
+  margin-top: 80px;
+  padding: 44px 0 26px;
+  font-size: .92rem;
+}
+footer.site .wrap {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 32px;
+}
+@media (max-width: 640px) { footer.site .wrap { grid-template-columns: 1fr; } }
+footer.site h4 {
+  color: var(--accent-ink);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  margin: 0 0 12px;
+}
+footer.site a { color: #b7b1a4; text-decoration: none; }
+footer.site a:hover { color: var(--accent-ink); }
+footer.site ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.foot-bottom {
+  border-top: 1px solid #3a3934;
+  margin-top: 32px;
+  padding-top: 16px;
+  font-size: .8rem;
+  color: #857f72;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.wa-fab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  text-decoration: none;
+  padding: 12px 20px;
+  border-radius: 4px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.15rem;
+  text-transform: uppercase;
+}
+
+/* Generic section rhythm */
+section { padding: 64px 0; }
+.eyebrow {
+  color: var(--accent);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+h1 { font-size: clamp(2.4rem, 7vw, 4.2rem); line-height: .98; margin: 4px 0 18px; text-transform: uppercase; }
+h2 { font-size: clamp(1.8rem, 4.5vw, 2.6rem); text-transform: uppercase; margin: 0 0 16px; }
+p.lede { font-size: 1.15rem; color: var(--muted); max-width: 56ch; line-height: 1.55; }
